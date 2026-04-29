@@ -106,6 +106,12 @@ When choices clearly differ only in style (and not in intent), pick one and move
 - **Benchmark class and method names** match the production symbol they exercise: `UserSessionCacheBenchmarks.Lookup_HotCode_NoAllocation`.
 - **Avoid `DateTime.Now` and `DateTime.UtcNow`** — they introduce non-deterministic behavior and timezone dependencies. Use fixed deterministic timestamps such as `new DateTime(2024, 1, 1, 12, 0, 0, DateTimeKind.Utc)` so tests are reproducible regardless of when or where they run.
 - **Add or update unit tests** to cover new code and edge cases. Follow existing testing patterns in the codebase.
+- **Test project layout — `TestUtils` folder convention.** Every test project in this repo uses a `TestUtils/` folder for shared test infrastructure:
+  - Reusable helper classes (factories, fakes, builders, IO/HTTP/compression helpers) live directly under `TestUtils/` as `<Topic>Utils.cs` (e.g., `EventUtils.cs`, `FilterUtils.cs`, `HttpUtils.cs`, `DeploymentUtils.cs`).
+  - Shared constants live under `TestUtils/Constants/` as topic-grouped partial-class files named `Constants.<Topic>.cs` (e.g., `Constants.Provider.cs`, `Constants.Resolver.cs`, `Constants.Database.cs`, `Constants.Filter.cs`).
+  - Each constants file declares `public sealed partial class Constants` in namespace `<Project>.Tests.TestUtils.Constants` and exposes `public const string` (or other const) members. Tests reference them via `Constants.Foo`.
+  - Each test project has its own `TestUtils/` (do not share across projects).
+- **Extract duplicated test values into the shared `TestUtils/Constants` location.** When the same non-trivial literal (provider names, task/keyword/message names, descriptions, parameter values, template fragments like `"<template></template>"`, log names, paths) appears in two or more tests — whether in the same file or across files — add it to the appropriate `Constants.<Topic>.cs` partial (creating a new topic file if none fits) and reference via `Constants.Foo`. **Do NOT declare per-test-class `private const` blocks at the top of test files** — keep test files focused on test logic so values are discoverable and reusable by future tests. Trivial values (empty string, single characters, well-known sentinels like `"main"`) and strings that genuinely must differ between tests are exempt.
 
 ### 3.5 Performance
 
