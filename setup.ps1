@@ -254,17 +254,7 @@ Write-Host @"
      - When the cwd contains *.css files, css.instructions.md appears.
      - And so on for the other topic files.
 
-6. Sentinel smoke test (during initial rollout): each instruction file
-   contains a one-line marker '<!-- CopilotInstructions: SENTINEL <topic> -->'.
-   To make this a real test of conditional loading, run it in a session where
-   the file contents have NOT been shown in the chat history (otherwise the
-   agent may "see" the sentinel from prior context, not from a real load).
-   In a fresh session with no prior file reads, ask:
-     'Do you see SENTINEL csharp?'  (in a project that contains *.cs files)
-     'Do you see SENTINEL css?'     (in a project that contains *.css files)
-   Confirm the sentinel only appears in the matching cwd type.
-
-7. Once verified, remove the legacy file (if it existed):
+6. Once verified, remove the legacy file (if it existed):
        Remove-Item '$homeFile'
 "@
 

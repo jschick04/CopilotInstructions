@@ -72,14 +72,13 @@ Then `source` the rc file or open a new terminal. Optional: back up and remove `
 
 ## Verifying the install
 
-> **Context-cost caveat during validation:** if the legacy `~/.copilot/copilot-instructions.md` is still in place, the CLI loads BOTH the legacy monolith AND the new `AGENTS.md` + topic files. This means no actual always-loaded-context reduction yet, and possibly conflicting/duplicate rules in the same session (the docs describe conflict resolution as non-deterministic). Use this validation window to confirm routing only — the context-reduction goal only kicks in after you remove the legacy file in step 4 below.
+> **Context-cost caveat during validation:** if the legacy `~/.copilot/copilot-instructions.md` is still in place, the CLI loads BOTH the legacy monolith AND the new `AGENTS.md` + topic files. This means no actual always-loaded-context reduction yet, and possibly conflicting/duplicate rules in the same session (the docs describe conflict resolution as non-deterministic). Use this validation window to confirm routing only — the context-reduction goal only kicks in after you remove the legacy file in step 3 below.
 
 1. Open a fresh `copilot` session (close all existing ones first — env vars don't propagate to running processes).
 2. Inside the session, run the `/instructions` slash command. Confirm:
    - The repo's `AGENTS.md` is listed every session.
    - The matching topic file appears when the working directory contains files of that type. For example, `cd` into a folder with `*.cs` files and `csharp.instructions.md` should be listed.
-3. **Sentinel smoke test (during initial rollout):** each instruction file contains a one-line sentinel comment (`<!-- CopilotInstructions: SENTINEL <topic> -->`). To make this a real test of conditional loading, run it in a session where the file contents have NOT been shown in the chat history (otherwise the agent may "see" the sentinel from prior context, not from a real load). In a fresh session with no prior file reads, ask the agent: *"Do you see SENTINEL csharp?"* (in a project with `*.cs` files) or *"Do you see SENTINEL css?"* (in a project with `*.css` files). Confirm the sentinel only appears in the matching cwd type. Sentinels are removed in a follow-up commit once validated.
-4. **After successful validation, remove the legacy file** so the context-reduction actually takes effect:
+3. **After successful validation, remove the legacy file** so the context-reduction actually takes effect:
    ```powershell
    Remove-Item "$HOME\.copilot\copilot-instructions.md"
    ```

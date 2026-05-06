@@ -2,8 +2,6 @@
 applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 ---
 
-<!-- CopilotInstructions: SENTINEL jsts -->
-
 # JavaScript / TypeScript Instructions
 
 > **Scope:** loaded automatically when the working set contains JS/TS source files. Extends the always-loaded `AGENTS.md` core.

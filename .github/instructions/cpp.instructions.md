@@ -2,8 +2,6 @@
 applyTo: "**/*.cpp,**/*.h,**/*.hpp,**/*.cc,**/*.cxx,**/*.c"
 ---
 
-<!-- CopilotInstructions: SENTINEL cpp -->
-
 # C++ Instructions
 
 > **Scope:** loaded automatically when the working set contains C/C++ source or header files. Extends the always-loaded `AGENTS.md` core.

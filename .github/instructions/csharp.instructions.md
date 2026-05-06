@@ -2,8 +2,6 @@
 applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*.aspx"
 ---
 
-<!-- CopilotInstructions: SENTINEL csharp -->
-
 # C# / .NET Instructions
 
 > **Scope:** loaded automatically when the working set contains C# / Razor / project files. Extends the always-loaded `AGENTS.md` core. Where this file references the core, links use the form `[Core / X](../../AGENTS.md#anchor)` — the universal version of the rule lives there, and the bullets here are C#-specific additions or refinements.
