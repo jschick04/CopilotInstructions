@@ -2,8 +2,6 @@
 applyTo: "**/*.css,**/*.scss,**/*.sass,**/*.less"
 ---
 
-<!-- CopilotInstructions: SENTINEL css -->
-
 # CSS Instructions
 
 > **Scope:** loaded automatically when the working set contains CSS/SCSS/SASS/LESS files. Extends the always-loaded `AGENTS.md` core.
