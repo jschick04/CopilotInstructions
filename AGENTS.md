@@ -8,74 +8,294 @@ This is the always-loaded core. Language-specific guidance (C#/.NET, C++, JS/TS,
 
 ## 1. Mandatory Workflow for Code Changes
 
-Apply to ANY code change (no exceptions for "small" changes). Each step is required, not optional. If you believe a change is too trivial to warrant the cycle, ASK before skipping.
+Apply to ANY code change (no exceptions for "small" changes). Each phase is required, not optional. If you believe a change is too trivial to warrant the cycle, ASK before skipping.
 
-1. **Verify the diagnosis first.** Treat any root-cause claim from a prior agent, plan, report, bug, or user prompt as a **hypothesis**. Read the implicated code and confirm the mechanism behaves as described **before** designing a fix.
-   - **Perf work:** identify (or write) a benchmark or test that measurably captures the regression. If that number wouldn't move after the proposed fix, the diagnosis is wrong — stop and re-investigate. No fix without a number that changes.
-   - **Bug fixes:** write a failing test that reproduces the bug first. If you can't reproduce it, the bug isn't understood yet.
-   - **Cleanup of ad-hoc benchmarks/tests:** any benchmark or test created **solely to validate a diagnosis or fix** must be removed before the change is reported complete, unless the user explicitly asks to keep it. Capture the resulting numbers in the task summary or commit body so the evidence is preserved without leaving throwaway code in the tree.
+This section is a **phase index**, not a procedure. Each phase has a small **hard-gate checklist** (the rules that must hold for the phase to count as completed — these stay always-loaded so they apply even if the playbook fetch fails) plus a **STOP directive** telling you which playbook to view before taking any action in that phase. The detailed procedures live in `.github/playbooks/`.
 
-2. **Rubber-duck the plan** with the **rubber-duck** agent before implementing. Always include in the prompt: *"Is the named root cause actually true? Verify against the source before evaluating the fix."* Address findings or explicitly justify dismissal.
+### Workflow router — which playbook to view based on the situation
 
-3. **Implement.** Then proceed to the multi-model review in step 4 — do NOT do a separate single-model code-review pass first; that would be a serial review and contradicts the "never serialize" rule below.
-   - **Sort and clean up imports/usings on every touched file before sending the diff for review.** This is a mandatory hygiene step on any file you've added, modified, or moved — sort imports/usings into the project's canonical order and remove unused ones. Use the language's ecosystem tooling for the whole touched set in one pass (e.g., `dotnet format --severity info --diagnostics IDE0005 IDE0065` for .NET unused/misplaced usings + a sort pass; `eslint --fix` plus the editor's "Organize Imports" for TS/JS; `ruff check --select I --fix` or `isort` for Python; IntelliJ "Optimize Imports" for Java/Kotlin). Never commit a file with unsorted, duplicated, or unused imports — reviewers always flag them, and the noise hides real issues in the diff.
+| User intent / condition | Required playbook |
+| --- | --- |
+| Code edit requested, before implementation | `.github/playbooks/pre-implementation.md` |
+| Files changed and diff not yet shown | `.github/playbooks/post-code-change.md` |
+| User approved diff / asks to commit | `.github/playbooks/pre-commit.md` |
+| User asks to push, open PR, request review, or push to a shared branch others may pull from | `.github/playbooks/pre-pr-push.md` (an INDEX — fetch sub-files per its decision tree) |
+| PR exists / review comments present | `.github/playbooks/post-pr-review.md` |
+| Strong design-spec trigger — user is asking for a **durable artifact** (verb-led: *"design spec for"*, *"write up a design for"*, *"document the current architecture of"*, *"document what we have in prod for"*; or noun-led: *"current-state survey for"*, *"design change request for"*, *"dev design spec for"*, *"implementation spec for"*, *"build spec for"*, *"architect review of"*) | OFFER `.github/playbooks/design-spec.md` (always-confirm via `ask_user`) |
+| Strong ADO trigger — user is asking to **draft a NEW work item or its content** (verb-led: *"draft an ADO work item for"*, *"plan out an ADO task / story / feature for"*, *"write up an ADO bug for"*, *"create the deliverables for"*, *"draft / propose / write acceptance criteria for"*; or noun-led: *"ADO task / story / work item for"*, *"acceptance criteria for a new work item"*). Factual questions about **existing** ADO content (*"what acceptance criteria does the parent feature use?"*, *"what's our team's definition of done?"*) are NOT strong — those are weak triggers; answer directly and offer the playbook only if the user is asking to draft new content. | OFFER `.github/playbooks/ado-task-planning.md` (always-confirm via `ask_user`) |
+| Install / upgrade / uninstall software | `.github/playbooks/software-install.md` |
+| Create or restructure a worktree | `.github/playbooks/worktree-setup.md` |
 
-4. **Multi-model agreement — run all reviewers in parallel, no token-limit concerns.** The user has no token budget caps, so always launch the full reviewer panel in parallel (background agents) rather than serially. Iterate, re-running the panel after each fix round, until **all models agree** with no substantive findings. Briefly summarize cross-model agreement before declaring ready.
-   - **Default reviewer panel** (launch all of these as background agents in the **same response** — three as `code-review`, one as `rubber-duck`; at least one model from each family):
-     - `claude-opus-4.7-xhigh` (default Claude family, extra-high reasoning) — `code-review`
-     - `gpt-5.5` (OpenAI family, premium reasoning) — `code-review`
-     - `gpt-5.3-codex` (OpenAI family, codex-tuned — different perspective from gpt-5.5) — `code-review`
-     - **rubber-duck** agent (independent critique angle — not a code-review reviewer per se, but provides design/blind-spot feedback that complements line-level review)
-   - **Add reviewers liberally** when a change is risky, cross-cutting, or touches an unfamiliar area: `claude-sonnet-4.6` for a faster second-Claude opinion, `gpt-5.5` re-run with a different prompt framing, etc. There is no "too many reviewers" — parallel agents are cheap and the marginal cost of one more independent reading is approximately zero.
-   - **Do NOT serialize the panel** ("run Claude first, then if it finds nothing run GPT") — that wastes wall-clock time and lets early reviewer framing leak into your assessment of later reviews. Launch all reviewers in one tool-call batch, wait for completions, then synthesize.
-   - **Do not anchor reviewers on your own framing.** Prompts must instruct the reviewer to treat the description of the fix as a hypothesis and independently read the affected types and call sites. If the diff introduces a predicate over a type's state (see [Core / State predicates and emptiness checks](#37-state-predicates-and-emptiness-checks)), the reviewer must open that type's source and enumerate every member before accepting the predicate as complete. If the diff introduces or renames a parameter that crosses an interface/implementation boundary (see [Core / Defaults and Consistency](#36-defaults-and-consistency)), the reviewer must enumerate every signature in the chain — interface, abstract base, every implementation, every caller, every lambda that closes over it — and verify the name is identical at every layer. If the diff adds or modifies a collection whose members reflect literals used elsewhere in the codebase (see [Core / Recurring code smells](#310-recurring-code-smells-from-past-pr-reviews)), the reviewer must open every site that produces those literals and verify each one references the collection's members rather than re-typing the literal.
-   - **Same parallel-panel rule applies to PR reviews** (workflow rule 10 below): when running `pr-review` after a PR exists, launch the same panel in parallel.
+**Phrase examples are illustrative, not exhaustive.** The semantic discriminator below (artifact-requested vs exploratory-question) is canonical — when a user phrasing is novel, route by intent shape, not by phrase matching. Per-playbook trigger lists in `.github/playbooks/*.md` mirror these illustratively but the router table here governs.
 
-5. **Verify the fix actually fixed it.** The benchmark/test from step 1 must show the expected delta (perf) or pass (functional). If the metric didn't move, the change is a no-op — revert and re-diagnose.
+### Pre-implementation phase
 
-6. **Run affected builds and tests.** All must pass before proceeding.
+Hard gates (always apply, even if playbook unfetched):
 
-7. **Show the diff to the user and wait for explicit approval.** Do not commit before approval.
-   - **Ask who commits.** When presenting the diff, ask whether the user will handle the commit/push or wants you to. Default to the user committing — many of their workflows involve manual review, splitting, or amending before push.
+- Diagnosis verified against source (NOT just inherited from prior agent / report / user prompt).
+- Reproduction (bug fix) or benchmark (perf work) exists. No fix without a number that can move OR a failing test.
+- Rubber-duck pass run unless user explicitly skipped (with recorded warning per User-skip policy below).
 
-8. **Commit.** Stage only touched files (`git add <path>` — never `git add .`). Use a single-line message per the *Commit Messages* rules below.
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-implementation.md`.
 
-9. **Pre-PR-push comment pass — runs once on the assembled branch, before the first push intended for review** (PR-opening, request-for-review, or pushing to a shared branch others may pull from). Scope is the entire branch vs base (`git --no-pager diff <base>..HEAD`, typically `origin/main..HEAD`). Enumerate every NEW or MODIFIED `//`, `///`, and `/* */` comment and apply the rules in [Core / Comments](#31-comments) (and, when C# files are touched, the additional XML-doc rules in `csharp.instructions.md`) — especially the **rename-first protocol** (every comment must first be tested by asking *"can a better name on the function/parameter/variable/type carry this fact?"* — if yes, rename and delete the comment). Hard-prohibited categories (restating the code, "why we're about to do this" narration, multi-line design-decision prose, future-tense forecasting, TODO/FIXME/HACK — plus, in C#, XML doc on private members per `csharp.instructions.md`) must be deleted on sight. The audit step from the Comments rule ("write a one-line justification matching one of the 3 allowed cases — if you can't, delete it") is non-skippable.
-   - **Why the branch-wide sweep happens pre-push:** comments compound across many WIP commits; running the branch-wide rename-first sweep once on the assembled branch produces a clean surface for reviewers from turn one and avoids tagging every commit with its own hygiene amend. Per-commit hygiene also burned context re-evaluating comments that prior commits' reviews had already approved — folding the branch-wide sweep into one pre-push pass is cheaper. (Both passes are mandatory; this is not a choice between them — see the next bullet for the per-commit/pre-push split.)
-   - **Audit scope is different per-commit vs at pre-push.** Two non-overlapping passes:
-     - **Per-commit micro-hygiene (every commit):** the [Core / Comments](#31-comments) per-comment audit covers ONLY comments added or modified in **the current commit's diff**. Each must have a one-line allowed-case justification or be deleted before the diff is shown to the user. Non-skippable per commit cycle.
-     - **Pre-push branch-wide sweep (once):** enumerates ALL comments added or modified in `<base>..HEAD` (across every commit on the branch) and re-applies the Comments rules — especially rename-first, which often only becomes obvious after later commits add context that earlier WIP comments don't reflect. **When this sweep runs, record the resolved base SHA, sweep HEAD SHA, and base ref name in the session** so the "out of scope at initial sweep" set can be reconstructed in later amend cycles (see "When to re-run the branch-wide sweep" rules below).
-     - **Together, not interchangeable:** the pre-push sweep is for branch-wide drift and rename-first opportunities surfaced by later commits, NOT a substitute for the per-commit audit. Letting obvious violations through every commit and planning to "clean them all up at the end" fails both rules.
-   - **Pre-existing comments already in `<base>`: out of scope** unless this branch also touched the surrounding code; in that case re-evaluate them too.
-   - **Cleanup commit strategy** (three buckets, pick the strictest that applies):
-     - **Small, no renames** (≤ a handful of touched comments, no symbol renames at all): amend it into the final work commit and run step 3's import-sort hygiene, step 6 build/test, and step 7 diff approval before pushing.
-     - **Local single-scope rename** (rename stays inside one file or a small same-package cluster, does NOT cross an interface/implementation boundary, does NOT change any signature): may be amended into the final work commit, but you MUST also run a full-repo grep for the old identifier across every relevant file type per [§3.6 Defaults and Consistency](#36-defaults-and-consistency) (search-first for renames and refactors) and confirm "0 matches" before amending. **Any non-zero grep hit disqualifies this bucket — escalate to the "Large or cross-boundary" bucket below (or ask the user).** Then run step 3 / step 6 / step 7 as above.
-     - **Large or cross-boundary** (spans many files OR the rename-first protocol triggered any symbol rename that crosses an interface/implementation boundary, affects a signature, or otherwise has cross-file caller implications): commit it separately and run the **full** workflow (steps 1–8) — including step 4's multi-model review, since the cross-file rename consistency questions [§3.6](#36-defaults-and-consistency) covers are exactly what step 4 catches.
-     - **Commit-message examples** (apply to whichever bucket): `Drop restating-code comments from upgrade pipeline` (hygiene-only), `Rename _flag → _hasOpenedRecoveryDialog and drop comment` (rename-driven).
-   - **Amend-safety invariant.** "Amend the final work commit" above assumes the branch has NOT yet been pushed (or has been pushed only to a personal sandbox no one else watches). If you've already pushed in any form that exposes the branch — a backup push to a feature branch, a draft PR push, a push to a shared branch others may pull from, or a request-for-review push — do NOT amend silently. Ask the user whether to (a) force-push the amend, (b) add a separate hygiene commit instead, or (c) defer the hygiene to the next push cycle. The pre-push pass is designed to run BEFORE the first push intended for review (PR-opening, request-for-review, or pushing to a shared branch others may pull from).
-   - **If the pass finds nothing**, the branch is clean to push; record that in the session and move on.
-   - **Force-push amends in response to PR review do NOT re-trigger the branch-wide sweep.** The per-comment Comments-rule audit is still non-skippable for every new comment line you add during review-response amends. **Rename-first also still applies** to any new/modified comment and its immediately surrounding identifiers — but if satisfying rename-first would widen scope beyond the immediate amend (e.g., the "better name" affects callers, an interface signature, or an implementation in another file), STOP treating it as an ordinary review-response amend. Either ask the user how to proceed, OR widen the change to cover every file in the rename chain (interface, abstract base, every implementation, every caller, every lambda that closes over the symbol — per [§3.6](#36-defaults-and-consistency)) and run the **full** workflow (steps 1–8) on that widened diff. A partial re-sweep limited to the file(s) in the immediate amend is NOT sufficient when the rename has cross-file caller implications.
-   - **When to re-run the branch-wide sweep before another push:**
-     - **Re-run** if you add new feature/scope work beyond the original PR scope, new files, or non-review-driven commits.
-     - **Re-run** if conflict resolution from a merge/rebase added or modified comments, OR if it changed any hunk in a file that already appeared in the branch-wide comment set.
-     - **Re-run** if any post-sweep change (merge, rebase, OR ordinary amend) changed code in the same hunk or immediate surrounding declaration/block/function as any pre-existing comment that was out of scope during the initial sweep — whether because the comment lives in a previously-untouched file, OR in a previously-untouched region of an already-touched file. The branch now touches the surrounding code, putting those pre-existing comments back in scope per the "out of scope unless this branch also touched the surrounding code" rule above.
-       - **Definition:** "Out of scope during the initial sweep" means the comment's surrounding code does NOT appear in the diff `<sweep-base-SHA>..<sweep-HEAD-SHA>` (the resolved SHAs recorded at sweep time per the "Pre-push branch-wide sweep" step above — NOT later-resolved symbolic refs like `origin/main`, which may have advanced). Per-comment metadata is not required. **If the recorded sweep SHAs are unavailable** (older branches, operator miss, session loss), treat reconstruction as impossible and conservatively re-run the branch-wide sweep (or ask the user).
-     - **Do NOT re-run** for ordinary review-response amends — provided they do NOT add new files, do NOT expand scope beyond the original PR, and do NOT meet any Re-run condition above. (Per-commit audit + rename-first on the new comment + its immediate surroundings suffices for the ordinary case.)
-     - **Do NOT re-run** for a clean merge/rebase from main with no comment touches and no scope expansion.
+### Post-code-change phase
 
-10. **After a PR exists,** run the **pr-review** agent and iterate the same multi-model way (step 4).
-    - **Verify each bot finding against the source before applying it.** GitHub Copilot's PR reviewer (and any external reviewer) is sometimes wrong — it lacks full context, can hallucinate symbol behavior, or propose fixes that would obviously break callers. For each comment: read the cited code and the surrounding context, then either (a) apply the fix, (b) push back with a one-line justification on the PR thread and resolve the comment as "won't fix", or (c) ask the user when ambiguous. Do not silently apply changes you cannot independently justify.
-    - **Propose an instructions-file delta after each fix.** Once a PR comment is resolved, briefly identify what could be added to the appropriate instructions file (this `AGENTS.md` core, or the matching topic file under `.github/instructions/`) to catch the same class of issue earlier (in self-review or by the multi-model code-review pass). If something fits, propose the delta in your summary. Skip silently if the comment is genuinely one-off (typo, taste, etc.).
-    - **Instructions-file additions must stay project-agnostic.** These instructions apply to *every* project the user works on. Any rule, example, code snippet, type name, field name, file path, error message, or "examples that bit us" anecdote you add must be generic — describe the *class* of issue and the *shape* of the fix without naming a real project's symbols, modules, table names, schemas, or domain concepts. Use illustrative placeholder names (`UserSessionCache`, `customerName`, `LoggingMiddleware`) or describe the structure abstractly ("a composite key over `(LocalId, SubId)`"). When you catch yourself about to write a real type name from the current repo, rename it. Same applies to the rubber-duck or code-review prompts you're proposing as templates — strip project specifics before promoting them into an instructions file.
+Hard gates:
 
-11. **Pre-existing issues:** if you find one that could be or is causing an issue, ask whether to resolve it now. Otherwise record it as a follow-up — log it in the session, file an issue, or add it to the user's tracker. **Do NOT add a `TODO`/`FIXME`/`HACK` comment in code** (per [§3.1 Comments](#31-comments) hard prohibitions); use the user-facing escalation path described in this rule instead.
-    - **This includes findings surfaced by sub-agents** (rubber-duck, code-review, etc.) that are tangentially related but **outside the current task or PR scope**. Do NOT silently expand scope to fix them, and do NOT silently drop them. Briefly summarize each finding (1 line each), state your recommendation, and use `ask_user` to choose: address now in this change, defer to a follow-up (record it externally — session note, issue, or tracker — never as a `TODO`/`FIXME`/`HACK` comment in code), or dismiss with reason.
-    - **`ask_user` is mandatory, not optional.** Mentioning a sub-agent finding inside your final review summary, the diff walkthrough, the "ready to commit" message, or any other prose without a paired `ask_user` call counts as silently dropping it. Even findings the reviewer itself labels "out of scope," "pre-existing," "not introduced by this change," or "low severity" must go through `ask_user` — those labels are the reviewer's opinion, not your decision to make on the user's behalf. The user owns scope decisions; you surface and they choose.
-    - **Audit step before declaring ready.** Immediately before saying any variant of "ready to commit" / "all reviewers agree" / "no remaining issues," re-read every sub-agent response from this task and confirm that every distinct finding (regardless of severity or scope label) has either (a) been fixed in the diff, or (b) been routed through an `ask_user` call this turn. If any finding is in neither bucket, stop and route it through `ask_user` first.
+- Touched-file imports / usings sorted and unused removed.
+- Multi-model reviewer panel run **in parallel** (no serializing); consensus reached or all dissents addressed.
+- Diagnosis-verifying benchmark / test re-run; metric moved or test passes.
+- Affected builds + tests pass.
 
-12. **Unintended reverts:** if you see code that was removed, refactored, or renamed that differs from a previous change you made, ASK before reverting.
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`.
 
-13. **Do NOT report the task ready to push / ready to open the PR** until steps 1–8 have been completed for every committed work cycle AND step 9 has been run once on the final assembled branch state. (The preamble's "ASK before skipping" rule is the only escape hatch — never self-judge a change as exempt.)
+### Pre-commit phase
+
+Hard gates:
+
+- Diff shown to user; explicit approval received.
+- Commit ownership confirmed (user vs agent).
+- Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
+- Stage only touched files (`git add <path>` — never `git add .`).
+
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-commit.md`.
+
+### Pre-PR-push phase
+
+Hard gates:
+
+- Per-commit comment audit run on every commit's diff (already gated by §3.1 on each commit — verify it actually ran).
+- Branch-wide rename-first sweep run once before first push intended for review.
+- Resolved sweep base SHA + sweep HEAD SHA + base ref name **recorded in canonical session todos** (per *Phase-state tracking convention* below) for re-run logic.
+- No "ready to push" claim until both per-commit audit AND branch-wide sweep done OR user explicitly skipped (with recorded warning).
+
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md`. That file is an INDEX — it runs intake first, then directs you to the matching sub-files (`per-commit-micro-hygiene.md`, `branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) per a deterministic decision tree.
+
+### Post-PR-review phase
+
+Hard gates:
+
+- Each bot finding verified against source before applying / dismissing.
+- Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
+- Instructions-file delta proposed for each fixed comment (project-agnostic).
+
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/post-pr-review.md`.
+
+### Trigger workflows — hard gates (always apply, even before fetching)
+
+The strong-trigger workflows in the router table (design-spec, ADO task planning) also have always-loaded hard gates so the agent doesn't lose critical invariants if the playbook can't be fetched. These are abbreviated; the playbooks have the full procedure.
+
+**Design-spec hard gates:**
+
+- Intake completed (mode = current-state survey OR design-change request OR dev design spec) before any drafting.
+- Strict template separation: a current-state survey does NOT propose changes; a design-change request does NOT embed a full current-state survey (use linked-pair pattern — link to a standalone survey if one exists, or include a strictly-bounded "Current State Summary — provisional" with no tables / diagrams / subsections / failure-mode catalogs / file inventories, and no code-fenced schemas / configs / samples longer than 5 lines — full tripwire list lives in the playbook); a dev design spec assumes the change has already been approved at the design-change level and answers *"how do we ship it?"* — it does NOT debate the change.
+- Every claim about real systems grounded in source via `view` / `grep` / `explore`. No invented component names, file paths, GUIDs, IDs, or behaviors.
+- Assumptions marked explicitly as `*(ASSUMED — not verified in source)*`.
+- Draft rendered in chat first; user explicitly approves before any file write.
+
+**ADO task planning hard gates:**
+
+- Intake completed (work item type, title, audience, output destination) before any drafting.
+- Both outputs (markdown summary + ADO-field-formatted text) produced together; format-shifted versions of the same canonical content per the mapping table in the playbook.
+- Acceptance criteria are testable — each answers *"how would we know this is done?"*.
+- Deliverables are nouns (artifacts), not verbs (activities).
+- No invented linked work-item IDs; only IDs the user provides.
+- Draft rendered in chat first; user explicitly approves before any file write.
+
+> **STOP.** Before drafting any design-spec or ADO output, view the matching playbook for the full intake + procedure.
+
+### Fail-closed rule for on-demand playbook fetch
+
+Playbook files under `.github/playbooks/` are NOT auto-loaded — the agent fetches them via `view` when entering a phase or accepting a trigger. If a required playbook **cannot** be fetched (file moved / renamed / unreadable / repo not in working set / fetch errors out), do NOT certify the phase complete. Bounded retry-then-escalate:
+
+1. **Retry the fetch once** — for transient errors (network blip, CLI tool flake). Do NOT retry more than once without user input; unbounded retry hangs the session.
+2. If the second attempt also fails, **ask the user via `ask_user` how to proceed** (e.g. *"the post-code-change playbook can't be fetched — is the file present? Do you want me to skip the multi-model panel for this change, or pause until the file is restored?"*). Surface the actual error message and the playbook path that failed.
+3. If the user explicitly authorizes a skip, **record an explicit user skip per the User-skip policy below** (canonical mechanism, with reason "playbook fetch failed").
+4. **Hard stop when `ask_user` is unavailable** (headless / non-interactive contexts where step 2's `ask_user` cannot reach a user — same condition as the User-skip policy *Hard stop when ALL recording paths fail* rule below): halt the phase and do NOT certify readiness. Surface a non-zero exit / failure signal to the runtime if one is available. The cascade has no authorized skip, so the workflow cannot proceed.
+
+Do **not** proceed using only the abbreviated hard-gate checklist as the procedure — the checklist confirms the gate, the playbook teaches the procedure. Hard-gate-only execution silently degrades the phase (e.g. running one reviewer instead of the four-model parallel panel) while believing the gate passed.
+
+### Cross-cutting rules (always apply, no fetch needed)
+
+- **Pre-existing issues** (also referenced from playbooks as the *"Pre-existing issues / `ask_user` is mandatory"* cross-cutting rule): if you find one that could be or is causing an issue, ask whether to resolve it now via `ask_user` (fix now / defer / dismiss with reason). Otherwise record it as a follow-up — log it in the session, file an issue, or add it to the user's tracker. **Do NOT add a `TODO` / `FIXME` / `HACK` comment in code** (per §3.1 hard prohibitions); use the user-facing escalation path described in this rule instead.
+- **This includes findings surfaced by sub-agents** (rubber-duck, code-review, etc.) that are tangentially related but **outside the current task or PR scope**. Do NOT silently expand scope to fix them, and do NOT silently drop them. Briefly summarize each finding (1 line each), state your recommendation, and use `ask_user` to choose: address now in this change, defer to a follow-up (record externally — session note, issue, or tracker — never as a TODO comment), or dismiss with reason.
+- **`ask_user` is mandatory, not optional.** Mentioning a sub-agent finding inside your final review summary, the diff walkthrough, the "ready to commit" message, or any other prose without a paired `ask_user` call counts as silently dropping it. Even findings the reviewer itself labels "out of scope," "pre-existing," "not introduced by this change," or "low severity" must go through `ask_user` — those labels are the reviewer's opinion, not your decision to make on the user's behalf.
+- **Audit step before declaring ready.** Immediately before saying any variant of "ready to commit" / "all reviewers agree" / "no remaining issues," re-read every sub-agent response from this task and confirm that every distinct finding (regardless of severity or scope label) has either (a) been fixed in the diff, or (b) been routed through an `ask_user` call this turn. If any finding is in neither bucket, stop and route it through `ask_user` first.
+- **Unintended reverts:** if you see code that was removed, refactored, or renamed that differs from a previous change you made, ASK before reverting.
+- **Do NOT report the task ready to push / ready to open the PR** until every required phase has either (a) been completed for every committed work cycle (per the relevant playbook's hard gates) or (b) been explicitly skipped by the user with a recorded warning. (The preamble's "ASK before skipping" rule is the only escape hatch — never self-judge a change as exempt.)
+
+### Ask-first principle for all playbooks
+
+Every playbook file under `.github/playbooks/` has an Intake Questions section as its first executable block. When entering a playbook, the agent's FIRST action is to view that file and run intake. Use `ask_user` when available; otherwise ask in chat. **Bundle independent questions in one prompt; ask sequentially only when a later question depends on the prior answer.** The agent does NOT produce playbook output, write to artifacts, or take downstream actions until intake is complete (or the user has explicitly skipped a specific step — see User-skip policy below).
+
+**Phase triggers vs domain triggers — different semantics.**
+
+- **Phase triggers** (the code-change phases in the router: pre-implementation, post-code-change, pre-commit, pre-PR-push, post-pr-review) are **mandatory** when their condition holds. The agent enters the phase and fetches the playbook. The user may skip a step within the phase only via the User-skip policy (with warning + recording + safety-critical re-confirmation). The agent does NOT ask "do you want to run this phase?" — it just enters.
+- **Domain / documentation triggers** (design-spec, ADO task planning) are **offered** via `ask_user` because they're optional per-ask. Detection of a domain / documentation trigger never auto-fires the playbook — the agent always confirms first (*"this looks like a design-spec ask — want me to run that playbook?"*) and waits. If the user declines, the agent answers normally without the playbook.
+
+### Intake pre-fill rule
+
+If the user opens with structured detail that maps to intake questions (e.g. *"design-spec for the X service, current-state mode, audience=team"*), pre-fill those answers and ask only the unfilled questions.
+
+**Confirm any pre-filled value that maps to an overloaded term** before using it: *"team"*, *"owner"*, *"audience"*, *"scope"*, *"destination"*, and similar are tentative and must be re-confirmed if they affect output structure. Exact `key=value` syntax (e.g. `audience=team`) may pre-fill directly without re-confirming. Never infer IDs, owners, linked work items, or output destinations from bare phrases.
+
+### Trigger detection — strong vs weak
+
+Per-playbook trigger phrases are listed in the workflow router table above. The discriminator between strong and weak is **semantic, not phrase-based**:
+
+- **Strong triggers** — user is asking for a **durable artifact**: a spec, survey, design doc, architecture write-up, formal current-state document, ADO work item, or formal deliverable list. Agent immediately offers the playbook via `ask_user`: *"this looks like a design-spec ask — want me to run that playbook?"*. If the user declines, do not re-offer in the same thread unless the ask materially changes.
+- **Weak triggers** — user is asking an **exploratory factual question** without requesting a document: *"how does X work"*, *"what do we have in prod for X"* (asked casually, not as "document what we have in prod"), *"summarize"*, *"give me the gist"*. Agent does NOT block. Optionally adds a single non-blocking sentence in its normal response: *"I can answer directly, or run the design-spec playbook for a more formal write-up — which do you prefer?"*. Decline-then-no-retry rule still applies.
+
+**Disambiguation rule for ambiguous phrasing.** When the same phrase could go either way (e.g. *"what do we have in prod for X"*), default to weak (answer directly + offer non-blocking) rather than strong (block with `ask_user`). Strong triggers should require a clear artifact-request signal:
+
+- **Verb forms that imply written output:** *"write"*, *"draft"*, *"document"*, *"design"*, *"plan"*, *"architect"*, *"survey"*.
+- **Artifact nouns:** *"spec"*, *"doc"*, *"survey"*, *"task"*, *"work item"*, *"deliverables"*, *"design change request"*.
+- **Hortative-drafting forms paired with an artifact-shaped noun:** *"should be …"*, *"should look like …"*, *"what should the Y look like"*, *"what would the X (spec / API / contract / schema / acceptance criteria / surface) be"*. These imply the user wants you to *propose* a durable artifact. Strong even without a verb from the list above. **Filter:** strong only when the requested object is artifact-shaped (spec / API / contract / schema / surface / work item / criteria); pure factual hypotheticals like *"what would the cost be"*, *"what would the latency be"*, *"what would the result of this query be"* are exploratory analysis and stay weak.
+- **Bare verbs *"review"* / *"audit"* are NOT strong on their own** — *"review the auth flow"* and *"audit my changes"* are analytical asks, not artifact requests. They become strong only when paired with an artifact noun: *"architect review of"*, *"audit report"*, *"review document for"*. Bare *"review"* / *"audit"* without a paired artifact noun fall into the ambiguous artifact-adjacent category below.
+
+**Ambiguous artifact-adjacent — third category for phrasings that imply an artifact without naming one.** Phrases like *"can you draw up something on X"*, *"put together notes on X"*, *"outline the architecture for X"*, *"give me a write-up on X"*, *"I want a spec-ish thing for Y"*, bare *"review the auth flow"* / *"audit my changes"* don't include a clear artifact noun (`spec`/`doc`/`survey`) but the verb implies the user might want something durable. **Do not silently default to weak** (which would answer directly when the user wanted a doc) **and do not silently default to strong** (which would over-block, and would also pick the wrong playbook if the user actually wanted ADO planning). Instead, ask one short clarifying `ask_user` question that separates *format* from *playbook*:
+
+> *"Do you want a quick chat answer, or a durable artifact? If artifact: the design-spec playbook (system / architecture write-up), the ADO task-planning playbook (work-item content), or another format you have in mind?"*
+
+Then proceed accordingly. Do not run intake until the user picks. The decline-then-no-retry rule still applies after the choice. Defer destination/intake details until the chosen playbook's intake step.
+
+### User-skip policy
+
+The user may explicitly skip any playbook step or entire phase. When they do:
+
+1. The agent must warn about the consequence in one sentence (e.g. *"Skipping the pre-PR-push sweep means I cannot certify the branch as review-ready under this repo's workflow."*).
+2. The agent records the skip in **session todos** as the canonical mechanism. Concrete recording rules — designed so a resumed session can read the evidence back unambiguously:
+   - **Required columns:** `id`, `title`, `description`, `status`. Many `todos` schemas reject inserts missing `title` — always populate it.
+   - **`id`** = `skip-<phase>-<short-desc>-<yyyymmddHHMMSS>`. The timestamp suffix is mandatory because the same phase may be skipped more than once in a session (e.g. *"skip multi-model on this commit"* + *"skip multi-model on a follow-up commit"*) and a fixed ID would silently overwrite or fail to insert.
+   - **`title`** = `Skipped <phase>: <short-desc>`.
+   - **`description`** = the skipped phase or step name, the user's stated reason, and the time. Be explicit so a resumed-session reader can decide whether to re-run.
+   - **`status`** = `'done'`.
+   - **Schema bootstrapping:** if SQL is available but the `todos` table doesn't exist yet in this session, create it with a minimal schema (`id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, status TEXT DEFAULT 'pending'`) before inserting.
+   - **Fallback when SQL is entirely unavailable:** write the skip evidence to `<copilot-session-state>/<session-id>/files/skips.md` with the same field set (id / title / description / status / time) AND surface the skip in the chat summary so the user has a paper trail.
+   - **Fallback when even the session-state path can't be resolved:** surface the situation in chat and require the user to explicitly re-acknowledge the skip on each subsequent assistant turn until evidence can be recorded. Do NOT silently proceed.
+   - **Hard stop when ALL recording paths fail:** if SQL is unavailable, the session-state path cannot be resolved, AND there is no usable chat surface for per-turn re-acknowledgement (e.g. headless / non-interactive CI contexts), **halt the phase and do not certify readiness**. The skip cannot be evidenced, so the workflow cannot proceed. Surface a non-zero exit / failure signal to the runtime if one is available.
+3. The agent must NOT later claim the full workflow completed — the "ready to push" / "ready to commit" / "all phases done" message must explicitly enumerate which phases were skipped (read the recorded skips back; do not rely on memory).
+4. **If recorded skip evidence is missing or incomplete in a later session** (resumed work, agent handoff), treat the relevant phase as **not proven** and conservatively re-run the required checks or ask the user to explicitly accept a skip. Do not infer success from absence of evidence.
+5. **Safety-critical skips** require explicit user re-confirmation before proceeding. Specifically:
+   - Skipping the multi-model reviewer panel for any non-trivial change (defined: more than a single-line typo / single-property rename / single config-key value tweak).
+   - Skipping pre-PR-push branch-wide sweep for any push intended for review (PR-opening, request-for-review, push to a shared branch others may pull from).
+   - Skipping verification-of-fix when the change is justified by a perf metric, bug repro, or security claim.
+   - Skipping the rubber-duck pass on changes touching concurrency / security / cryptography / native interop / payment or financial logic / authentication / authorization / shared global state.
+   When in doubt about whether a class of work is safety-critical, default to "yes — re-confirm".
+
+### Phase-state tracking convention
+
+At each phase entry, record in **session todos** (canonical mechanism — same as User-skip policy above) using a parallel schema so a resumed session can read the evidence back unambiguously:
+
+- **`id`** = `phase-state-<phase>-<yyyymmddHHMMSS>`. Timestamp-suffixed for the same reason skip IDs are: a single phase may be entered multiple times in one session (e.g. multiple commits each running pre-commit). Most recent record per phase wins; older records are kept for audit, not consulted for "ready" checks.
+- **`title`** = `Phase state: <phase> @ <yyyymmddHHMMSS>`.
+- **`status`** = `'in_progress'` while the phase is active, then `'done'` when all required steps + skips are complete.
+- **`description`** carries the phase-state fields below (free-form prose acceptable; structured `key: value` lines preferred for grep-ability):
+
+Required fields in `description`:
+
+- Phase name and time entered.
+- Playbook file viewed (or *"not viewed — explicit skip"* with skip reason).
+- Intake completion status: complete / pre-filled-from-input / explicitly-skipped.
+- User-approved skips of any sub-step.
+
+Same fallback chain as the User-skip policy above (SQL bootstrap → `<copilot-session-state>` file → per-turn re-ack → hard stop) applies if SQL is unavailable.
+
+**Concrete example record — pre-implementation phase** (illustrates the minimum canonical shape; other phases require additional `key: value` lines beyond this minimum — see *Per-phase additional fields* below):
+
+```sql
+-- Entering pre-implementation phase
+INSERT INTO todos (id, title, description, status) VALUES (
+  'phase-state-pre-implementation-20240115093045',
+  'Phase state: pre-implementation @ 20240115093045',
+  'phase: pre-implementation
+time_entered: 2024-01-15T09:30:45Z
+playbook_viewed: .github/playbooks/pre-implementation.md
+intake_status: complete
+user_approved_skips: none',
+  'in_progress'
+);
+
+-- Completing the phase
+UPDATE todos SET status = 'done',
+  description = description || '
+time_completed: 2024-01-15T09:42:11Z
+hard_gates_satisfied: yes'
+WHERE id = 'phase-state-pre-implementation-20240115093045';
+```
+
+When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<yyyymmddHHMMSS>` heading with key:value lines under it in `<copilot-session-state>/<session-id>/files/phase-state.md`. **Reader contract** (LLM consuming the record in a resumed session): parse `key: value` lines from the description; treat unknown keys as informational; require `phase`, `time_entered`, `intake_status` (description) AND `status` (read from the SQL `status` column directly, or — in the markdown fallback — from a `status: <value>` line) to consider the record valid. Any phase-specific required fields (e.g. the 9-field pre-PR-push state predicate below) must additionally be present for the readiness check that consumes them.
+
+### Per-phase additional fields
+
+**Pre-PR-push readiness state is a state predicate** (per §3.7) — every required field must be enumerated. Record the following keys in addition to the minimum canonical shape above when running the pre-PR-push phase:
+
+- `baseRef` — what the branch is being merged into (e.g. `origin/main`).
+- `baseSha` — resolved SHA at sweep time (NOT later-resolved symbolic ref, which may have advanced).
+- `sweepHeadSha` — branch HEAD SHA at sweep time.
+- **`isFirstReviewExposurePush`** (boolean) — *Is THIS push the first one intended for review?* (PR-opening, request-for-review, or first push to a shared branch others may pull from.) Drives whether the branch-wide sweep is required. **Per-push, not branch-sticky:** a personal-sandbox / backup push records `false` (a sandbox push is not a review push); the FIRST subsequent review push of the same branch records `true`. Independence from `remoteExposureExists` is the point — prior sandbox pushes do NOT latch this boolean to `false` for the upcoming review push. Named as a verb-shaped predicate so a reader can't misread it as "this branch has never been pushed before".
+- **`remoteExposureExists`** (boolean) — has this branch been pushed anywhere before, in any form (including personal sandbox)? **Historical evidence only** — the primary amend-safety force-push gate is `isFirstReviewExposurePush=false` (the branch is already under review on a shared remote). **Sandbox exemption is conditional, not automatic**: when `(isFirstReviewExposurePush=true && remoteExposureExists=true)` (first review push of a previously sandbox-pushed branch), before any operation that rewrites already-pushed history the agent MUST ask a one-question sandbox-privacy confirmation (*"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"*). On **yes/private/unwatched**: silent amend is safe. On **no/unsure**: do NOT silently amend — use the explicit force-push approval choices from the `(false, true)` *amend-safety subflow only* (the recorded booleans and decision-tree routing are NOT remapped — Step 2 first-review sweep still runs, Step 4 is NOT entered). The question fires **lazily** — only when an amend is about to happen, NOT preemptively at intake. Recorded for audit and as input to the `(false, true)` truth-table row's re-run logic. These two booleans are independent — a branch pushed only to a personal sandbox has `remoteExposureExists=true` AND `isFirstReviewExposurePush=true` on its first subsequent review push.
+- `perCommitAuditCoverage` — list of commit SHAs on the branch with audit status (`done` / `skipped-with-reason` / `not-run`). Must be `done` or `skipped-with-reason` for every commit before the branch is "ready". This is the canonical enum — playbooks that produce entries (e.g. `pre-commit.md`, `pre-pr-push/per-commit-micro-hygiene.md`) MUST use one of these three values; if extra detail is needed (e.g. *"audit modified the diff"*), put it in the entry's free-form description text, not in the `status` value.
+- `branchWideSweepStatus` — one of:
+  - `not-applicable` — push exited at the sandbox pre-check (out of pre-PR-push scope; no sweep applies).
+  - `done-clean` — sweep ran in this push cycle, no changes.
+  - `done-cleanup-committed` — sweep ran in this push cycle, cleanup commits made (list bucket + SHA per commit).
+  - `previously-done-no-rerun-needed` — subsequent review-targeting push; prior sweep evidence present, re-run conditions checked, no re-run required.
+  - `rerun-done-clean` — re-run sweep ran in this push cycle, no changes.
+  - `rerun-done-cleanup-committed` — re-run sweep ran in this push cycle, cleanup commits made.
+  - `rerun-skipped-with-reason` — re-run sweep explicitly skipped during a subsequent push (record reason per User-skip policy).
+  - `skipped-with-reason` — initial sweep explicitly skipped during the first review push (record reason per User-skip policy).
+- `cleanupBucketOutcomes` — for each cleanup commit: which bucket was chosen, why, and whether amend-safety required force-push approval.
+- `sandboxPriorExposureConfirmation` — informational field, written when the conditional sandbox exemption gate fires (only on `(isFirstReviewExposurePush=true && remoteExposureExists=true)` and only when an amend is actually attempted). One of: `confirmed-private` (sandbox confirmed personal/unwatched, silent amend taken), `denied-or-unsure` (user said no/unsure, fell through to explicit force-push approval), `not-needed` (no amend was attempted in this push cycle, so the gate never fired). Recorded so a resumed session does not re-ask or silently infer safety from memory.
+- `rerunConditionsChecked` — for each subsequent push: `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` (not yet checked / pending). Two documented sentinel values are also accepted for the "doesn't apply" case: the literal `n/a-first-push` (this is the first review push — no prior sweep to re-run-check; written by the first-review example) and the literal `n/a-sandbox-exit` (push exited at the sandbox pre-check; written by the sandbox-exit record). Both sentinels are predicate-complete — a strict reader MUST treat them as satisfying the field, not as missing.
+
+**Sandbox-exit record** (used when the pre-PR-push pre-check exits because the current push is personal-sandbox / backup-only): write the standard minimum canonical shape PLUS `branchWideSweepStatus: not-applicable` and the booleans `isFirstReviewExposurePush: false` + `remoteExposureExists: <true|false per actual remote history>`. Other 9-field-predicate keys (`baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `rerunConditionsChecked`) may be written as the literal sentinel `n/a-sandbox-exit` (NOT omitted — predicate completeness still requires the keys to appear). The record is a normal `done` phase-state record, not a "skipped" record; it documents that the pre-PR-push playbook explicitly resolved as not-applicable for this push.
+
+**Concrete example record — pre-PR-push first review push, sweep ran clean:**
+
+```sql
+-- Entering pre-PR-push phase (intake done, booleans set, sweep not yet run)
+INSERT INTO todos (id, title, description, status) VALUES (
+  'phase-state-pre-pr-push-20240115140312',
+  'Phase state: pre-pr-push @ 20240115140312',
+  'phase: pre-pr-push
+time_entered: 2024-01-15T14:03:12Z
+playbook_viewed: .github/playbooks/pre-pr-push.md
+intake_status: complete
+user_approved_skips: none
+baseRef: origin/main
+baseSha: a1b2c3d4e5f6...
+sweepHeadSha: 9z8y7x6w5v4...
+isFirstReviewExposurePush: true
+remoteExposureExists: false',
+  'in_progress'
+);
+
+-- Completing the phase after sweep + per-commit audit run clean
+UPDATE todos SET status = 'done',
+  description = description || '
+time_completed: 2024-01-15T14:11:48Z
+perCommitAuditCoverage: [{sha: 9z8y7x6w5v4, status: done}]
+branchWideSweepStatus: done-clean
+cleanupBucketOutcomes: none
+rerunConditionsChecked: n/a-first-push'
+WHERE id = 'phase-state-pre-pr-push-20240115140312';
+```
+
+The INSERT captures intake-time state (booleans + sweep-input SHAs); the UPDATE captures completion-time state (sweep outcome, audit map, cleanup outcomes) and flips `status` to `'done'`. The `n/a-first-push` value on `rerunConditionsChecked` is the documented sentinel for "no prior sweep to re-run-check" (see field definition above).
+
+Before declaring any variant of *"ready to commit / push / open PR"*, read the recorded state back and confirm every required phase has either run (per its hard gates) OR been explicitly skipped (per User-skip policy). Do not infer state from memory.
+
+### Output-write ordering for documentation playbooks
+
+For playbooks that produce a document (`design-spec.md`, `ado-task-planning.md`):
+
+1. Intake determines the *intended* final destination.
+2. The draft is rendered in chat first, regardless of intended destination.
+3. The user reviews and approves (or requests revisions) on the draft.
+4. Only after approval does the agent write to the chosen destination (file / save / paste-ready output).
+
+Never write to a file before the user has approved the content.
 
 ---
 
@@ -113,7 +333,7 @@ Language-specific additions live in the topic files under `.github/instructions/
   - **No multi-line `//` blocks explaining a design decision in prose.** That belongs in the PR description, the commit message, or (if it's a true invariant) a *single short* line.
   - **No speculation about future callers, future surfaces, or "this will be used by X later."** Code comments describe what the code IS, not what's coming. Examples to never write: `// callers (banner copy-details, filter export, future surfaces) are typically fire-and-forget`, `// the future BannerHost will need this`, `// once we add Y this will also handle Z`. Future-tense forecasting belongs in the PR description.
   - **No restating contract terms that are already encoded in naming or signature.** A method named `CopyTextAsync(string text)` already says async + takes a string. Don't add a comment that says "Copies text asynchronously."
-  - **No "TODO" / "FIXME" / "HACK" / "XXX" comments.** Use the workflow's "ask user to defer or fix now" path (rule 1.11) instead.
+  - **No "TODO" / "FIXME" / "HACK" / "XXX" comments.** Use the *Pre-existing issues* cross-cutting rule in §1 (`ask_user` to fix now / defer / dismiss) instead.
 - **Allowed** (rare, and only when ALL three apply: short, load-bearing, not inferable):
   - A non-obvious algorithmic invariant (e.g., `// k-merge requires inputs already sorted by Timestamp ascending`).
   - A workaround for an external constraint (e.g., `// Win32: LoadLibraryEx with DATAFILE flag still maps writable on <Win10`).
@@ -235,67 +455,17 @@ Treat each of these as a hard-stop during self-review and as an explicit thing t
 
 ## 9. Repository & Worktree Layout Preference
 
-When you need to create a git worktree (e.g., to work on a PR branch in parallel with the main checkout), use the **single-root + hidden-bare-repo + sibling-checkouts** layout. For a repo named `RepoName` under a `<projects-root>`:
+Use the **single-root + hidden-bare-repo + sibling-checkouts** worktree layout for repos that need parallel checkouts. Procedure detail (setup steps, amend-safety, recovery from existing non-bare clones, per-worktree shell sessions, tooling caveats) lives in the playbook.
 
-- `<projects-root>\RepoName\.git\` — the bare repo (created with `git clone --bare <origin-url> <some-temp-path>` then moved into `.git`, or by initializing the parent and cloning bare directly into `.git`). This is the single source of truth for all refs; all worktrees share its object database. Despite being named `.git`, this is a **bare** repo (`core.bare = true`).
-- `<projects-root>\RepoName\main\` — worktree of the default branch.
-- `<projects-root>\RepoName\<branch-leaf>\` — one folder per additional worktree, named for the **leaf segment** of the branch (the part after the last `/`, e.g., `feature-x` for branch `user/feature-x`).
-
-The `<projects-root>\RepoName\` directory contains exactly: the hidden `.git` bare repo plus one subfolder per worktree — no loose files, no nested checkouts.
-
-**Why hidden `.git` and not a sibling `RepoName.git\`:** the user prefers a single-root layout so that `RepoName` remains the one project folder visible to file managers, IDE workspace lists, and recent-folder menus. The hidden `.git` keeps the bare data discoverable to git but out of the way visually.
-
-**Setup notes when introducing this layout to an existing non-bare clone:**
-
-1. Verify the existing checkout is clean: no uncommitted changes, no stashes, no local-only branches that aren't pushed, no in-progress rebase/merge/cherry-pick. If anything is unclean, ASK before proceeding.
-2. Check for custom hooks (`.git/hooks/*` that aren't `*.sample`) and non-standard config in `.git/config`. If anything custom is present, surface it to the user and ask whether to migrate it to the new bare repo before destroying the old `.git`.
-3. Clone bare from the origin URL (not from the local `.git`) — a fresh clone produces correct refspecs and remote tracking out of the box. Clone to a temporary sibling location (e.g., `<projects-root>\RepoName.git`) first; you'll move it into the final `.git` location after the parent folder exists.
-4. After the bare clone, confirm `remote.origin.fetch` is the standard `+refs/heads/*:refs/remotes/origin/*` (set it explicitly if not), then run `git fetch origin` so `refs/remotes/origin/*` exists for `git worktree add`.
-5. Move the existing checkout aside to a `.old` sibling (do NOT delete it yet), create the new `<projects-root>\RepoName\` parent folder, add the worktrees against the temporary bare repo (`git -C <projects-root>\RepoName.git worktree add <projects-root>\RepoName\<branch-leaf> <branch-or-ref>`), then verify each worktree.
-6. Move the temporary bare repo into its final location: `Move-Item <projects-root>\RepoName.git <projects-root>\RepoName\.git`. The worktrees' `.git` files now contain stale gitdir paths.
-7. Run `git -C <projects-root>\RepoName\.git worktree repair <each-worktree-path>` to rewrite the per-worktree `.git` gitdir links to the new bare location. Verify with `git -C <worktree> status` from each worktree.
-8. Optionally set per-branch upstream tracking (`git -C <worktree> branch --set-upstream-to=origin/<branch> <branch>`) so plain `git push` / `git pull` work without `-u`.
-9. Verify with `git worktree list` from inside the bare (or any worktree) and `git status` from each worktree.
-10. Only after end-to-end verification, delete the `.old` folder.
-
-**`git worktree add` from a bare repo and existing local branches:** when the bare repo is freshly cloned, the initial fetch sometimes auto-creates local branches that mirror remote-tracking refs. If `git worktree add <path> -b <branch> origin/<branch>` fails with `a branch named '<branch>' already exists`, drop the `-b` flag and check it out directly: `git worktree add <path> <branch>`. Then set upstream tracking explicitly per step 8.
-
-**When NOT to apply the layout automatically:** if the existing repo has local-only branches, custom hooks, uncommitted work, in-progress operations, or non-standard config that the user hasn't explicitly agreed to discard, ASK before restructuring. Don't silently re-clone over a checkout that may carry state the user cares about.
-
-**Per-worktree shell sessions:** when starting work in a worktree, `cd` into the worktree subfolder before running git commands. The bare repo at `<projects-root>\RepoName\.git` is for `git worktree add`/`remove`/`repair` operations only — daily work happens inside the worktree subfolder. Note that `<projects-root>\RepoName\` itself is **not** a worktree — running `git status` from there will error because the folder's `.git` is a bare repo with no working tree.
-
-**Caveat — tools that auto-detect `.git`:** some tooling (file watchers, search indexers, some IDE git integrations) walks up to find `.git` and assumes a non-bare repo. With this layout, `<projects-root>\RepoName` has a `.git` directory but no working tree. If a tool misbehaves when opened against the parent folder (rather than against a specific worktree), open it against the worktree subfolder instead.
+> **STOP.** Before creating, restructuring, or repairing a worktree, view `.github/playbooks/worktree-setup.md`. That file runs intake first (existing checkout state, custom hooks, branch refs) and walks the full setup / repair procedure.
 
 ---
 
 ## 10. Software Installation & Upgrades — Prefer the Platform Package Manager
 
-When installing, upgrading, or uninstalling software on the user's machine, **prefer the platform package manager** over hand-rolled downloads, vendor bootstrappers, or web-installer EXEs:
+When installing, upgrading, or uninstalling software on the user's machine, **prefer the platform package manager** (`winget` on Windows, `brew` on macOS, the distro's native manager on Linux) over hand-rolled downloads, vendor bootstrappers, or web-installer EXEs. Procedure detail (mandatory pre-flight checks, when to fall back to vendor bootstrappers, signature / version verification, "thank-you-for-downloading" page scraping for shortlink-rot recovery) lives in the playbook.
 
-- **Windows:** `winget` (Microsoft Store + community manifests). Check availability with `winget --version`.
-- **macOS:** `brew` (and `brew install --cask` for GUI apps). Check with `brew --version`.
-- **Linux:** the distro's native manager (`apt`, `dnf`, `pacman`, `zypper`, etc.) before reaching for `snap`/`flatpak`/curl-bash.
-
-**Why this is the default**: package managers verify signatures, track installed versions, support clean upgrade and uninstall, are idempotent, and don't require chasing the right download URL (which often rots — `aka.ms` shortlinks redirect to Bing search pages when the slug doesn't exist, vendor sites move bootstrappers between releases, etc.). They also write to standard locations and integrate with the OS uninstall surface, so a future "remove this" request is a one-liner instead of an archaeology project.
-
-**Mandatory pre-flight before any install/upgrade/uninstall**:
-1. **Confirm the manager is installed** (`winget --version` / `brew --version` / `which apt`).
-2. **Confirm the package exists in the manager** with an exact ID search (`winget search --id <Vendor.Product> --exact`, `brew info <name>`, `apt-cache show <name>`). If the search hangs or returns no exact match, do not guess — surface the result to the user and decide together whether to (a) try a different ID, (b) fall back to the vendor bootstrapper, or (c) abort.
-3. **Confirm the version/edition matches what the user asked for**. Package-manager IDs sometimes pin to a specific edition (`Microsoft.VisualStudio.2026.Enterprise` vs `...Community`) — re-read the ID before invoking install.
-
-**When to fall back to the vendor's bootstrapper / installer**:
-- The package isn't published in the manager (or only an outdated version is).
-- The install requires options the manager wrapper doesn't expose (e.g., complex workload/component selection that needs a `--config <file>.vsconfig`, custom MSI properties, license-server configuration).
-- The user explicitly asks for the vendor installer.
-- An offline/air-gapped install is required.
-
-In these cases, **download the bootstrapper from a URL you've verified resolves to a real signed binary** — fetch with `Invoke-WebRequest` / `curl`, check the magic bytes (`MZ` for PE, `7F 45 4C 46` for ELF, `CF FA ED FE` for Mach-O), and run the platform's signature check (`Get-AuthenticodeSignature` on Windows, `codesign -dv` on macOS, `gpg --verify` on Linux). An HTML page saved as `.exe` is a recurring failure mode when shortlinks rot — always validate before executing.
-
-**Verify the bootstrapper's embedded version metadata BEFORE execution.** A signed Microsoft binary from a working URL can still be the *wrong product version* — vendor download endpoints often accept query parameters like `?version=...` and silently ignore unknown values, falling back to a default that may be many releases old. Before launching any bootstrapper / installer / setup binary you downloaded, read its embedded version (`(Get-Item <path>).VersionInfo.FileVersion` on Windows; `mdls -name kMDItemVersion` or `defaults read .../Info CFBundleShortVersionString` on macOS; `--version` flag on Linux), and assert it matches the major version of the product the user actually asked for. The user-facing `ProductName` / `ProductVersion` strings are sometimes friendly labels (e.g. "Visual Studio 2026") that don't sort numerically — prefer the numeric `FileVersion` for the assertion. If the version doesn't match, abort and re-source the bootstrapper from a different URL — never run it "to see what happens." A wrong-version install can silently overwrite, downgrade, or sit alongside the user's existing install and waste 30+ minutes of cleanup. The rule of thumb: **if you can't print the bootstrapper's major version and confirm it matches before launching, you're not ready to launch.**
-
-**Locating the right URL when shortlinks fail:** vendor download portals usually expose a "thank you for downloading" intermediate page (e.g., `https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=...&version=...`) that contains the actual signed bootstrapper URL with the correct query-parameter values for the current release. Scrape that page (regex out the real download URL) rather than guessing slugs. The query parameters that matter (e.g., `version=VS18` vs `version=VS2026`, `channel=stable` vs `channel=Release`) often differ from what the marketing material implies — read them from the page that the official "Download" button submits to, not from your own assumptions.
-
-**Idempotency note**: `winget install`, `brew install`, and `apt install` are all safe to re-run when a package is already installed (they no-op or upgrade). Don't add bespoke "is it already installed?" checks unless you need to branch on the result — let the manager handle it.
+> **STOP.** Before installing, upgrading, or uninstalling any software, view `.github/playbooks/software-install.md`. That file runs intake first (target software, version constraints, target environment) and applies the full pre-flight + bootstrapper-validation procedure.
 
 ---
 
