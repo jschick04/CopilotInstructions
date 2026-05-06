@@ -429,6 +429,17 @@ When an operation can fail (throws, returns false, awaits a remote call that may
 
 > **C# / Blazor adds:** lifecycle patterns for `IJSRuntime`, `DotNetObjectReference`, `Lazy<Task<T>>`, `IAsyncDisposable`, `[Parameter]` properties, narrow JS-interop catches, and `AbortController` pairing. See `csharp.instructions.md`.
 
+### 3.9 User-facing text — must match the actual behavior
+
+Any string that a user reads — picker / dialog titles, prompts, button labels, toast / alert / banner messages, menu item text, tooltip / aria-label / alt text, error messages, status-bar copy, exception messages thrown to the user, telemetry/log strings that surface in user-visible diagnostics — is part of the contract. Treat it the same as a method signature: when the underlying behavior changes, the text must be re-read and updated to match.
+
+- **Audit nearby user-facing text whenever you change the call shape.** When you switch a single-result API to a multi-result API (`PickAsync` → `PickMultipleAsync`, `GetFirst` → `GetAll`), or vice versa; when you change the verb (`Save` → `Export`, `Delete` → `Archive`); when you change the scope (per-row → per-selection, per-tab → per-window); when you change the unit (file → folder, single record → batch) — locate every user-facing string within the same method, the same component, and the call sites you touched, and re-read each one against the new behavior. The most common failure mode is leaving plural/singular, verb tense, or scope words out of sync with the new call shape (e.g., "Please select **a** database file" on a `PickMultipleAsync` call).
+- **Re-evaluate inherited literals when you move or refactor code.** A string literal that read correctly in its old context may not read correctly after a `git mv`, an extract-method, or a parameter rename. Pre-existing copy that the diff makes visible is fair game to fix in the same change — see *"directly caused by or tightly coupled to the code you're changing"* in the global rules.
+- **Be specific and contextual, not generic.** Prefer wording that names the actual operation, the scope, and what the user is being asked to do: "Please select database files to import" beats "Please select files" beats "Please select a file." Avoid generic placeholders left from scaffolding (`"Open"`, `"Choose..."`, `"OK"`) when the surface is a real user dialog with a specific intent.
+- **Match plurality, tense, and voice to the runtime behavior.** Multi-select pickers / batch operations / list-returning APIs use plural noun forms ("files", "items", "results"). Idempotent re-runs use neutral phrasing ("Up to date") rather than action verbs ("Updated"). Async operations that may take time use progressive forms ("Importing...") not past-tense.
+- **Aria-label / alt / tooltip text describes the control's behavior, not its appearance.** A button labeled "X" with `aria-label="Close dialog"` is correct; `aria-label="X icon"` is wrong. When the behavior changes, the accessibility text changes with it.
+- **Reviewer enforcement.** When sending a diff that changes a call's shape, behavior, or scope to the rubber-duck or code-review agent, ask it to enumerate every user-facing string in the touched scope and verify each one still matches what the user will actually experience.
+
 ### 3.10 Recurring code smells from past PR reviews
 
 Treat each of these as a hard-stop during self-review and as an explicit thing to look for during the multi-model code-review pass.
