@@ -45,6 +45,8 @@ The universal test rules in `AGENTS.md` (descriptive method names as full senten
 
 The universal test-specificity and negative-assertion rules in `AGENTS.md` apply unchanged. The bullets below codify *why a test should exist at all* and what to delete during test-quality audits. Tests are code; coverage for coverage's sake is a maintenance liability that gives false confidence and slows future refactors.
 
+**The default is intent-driven, thorough tests — not coverage-driven filler.** Every test (new or existing) must justify itself by naming the regression it would catch *and* exercising the actual behavior it claims to guard. A "negative" test that does not include the stimulus it's meant to disprove is vacuous — it only proves "the system was quiet for N ms", which is trivially true on most CI runs. A "positive" test whose assertion is structurally guaranteed by the preceding code (or by the production return type) is tautological. **Coverage-driven tests are appropriate only when the user explicitly asks for "complete code coverage" or a coverage sweep** — and even then, prefer expanding the SUT's documented surface (so existing intent-driven tests cover more) over adding filler tests that pin uninteresting behavior. When in doubt about whether a coverage gap is worth a test, ask via `ask_user`.
+
 **A test is worth keeping only if it would catch a real regression.** Before writing or keeping a test, answer: "What concrete behavior change in the SUT would make this test fail?" If the answer is "I can't think of one without changing the test itself", delete or rewrite.
 
 **Do NOT test:**
@@ -63,6 +65,7 @@ The universal test-specificity and negative-assertion rules in `AGENTS.md` apply
 - **Public contract — input → output.** For every documented behavior in XML doc comments, there should be at least one test exercising it. Doc-comment-driven test discovery is a useful audit lens.
 - **State transitions.** Before/after a method call, idempotency under repeated calls, ordering guarantees. Especially for stateful services and Fluxor reducers.
 - **Concurrency contracts.** Where the type claims thread-safety, prove it under contention. Where it doesn't claim thread-safety, document the assumption and don't write a multi-threaded test that hides a real bug behind timing.
+- **Exercise the negative case, don't infer it.** A test that claims *"no event arrives after Disable"* must actually write an event after the Disable; a test that claims *"no callback fires when not subscribed"* must actually fire the source the callback would have observed. A bounded-timeout wait with no stimulus only proves the system was quiet for N milliseconds — which is trivially true on most CI runs and false-passes when the asserted behavior is broken. The pattern is: arrange the watcher → cause the disable/unsubscribe/etc. → snapshot the count → reset the signal → **emit the would-be trigger** → wait for either the signal or the timeout → assert `Assert.False(received, "...")` *and* the count is unchanged. Same energy as the negative-assertion rule in `AGENTS.md`: assert the contract — *including the contract's trigger* — not its absence in a vacuum.
 
 **Test smells — refactor or delete:**
 - **Eager tests.** One test method exercising 3 unrelated behaviors (`Test_DoesXAndYAndZ`). Split into 3 focused tests with names that read as specifications. Multi-asserts are OK only when verifying related state of *one* outcome (`result.Status == Success && result.Count == 5 && result.Errors.IsEmpty`).
@@ -398,3 +401,74 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
   - **LINQ fallback when foreach genuinely doesn't fit** (e.g. you must hand the result to another LINQ operator, or you want point-free pipeline style for a small UI-frequency callback): use `OfType<T>()` over `.Where(x => x is not null).Select(x => x!)`. `OfType<T>()` is a runtime type filter that drops `null` and yields `IEnumerable<T>`, so the rest of the pipeline is statically non-null with no `!`. Example: `results.Select(r => r?.FullPath).OfType<string>().Where(p => p.Length > 0).ToList()`. Project to the nullable first (`Select(r => r?.X)`) then `OfType<T>()` — don't filter the carrier (`Where(r => r is not null)`) and then `Select(r => r!.X)`, because the latter forces `!` on every projection. **Caveat 1**: `OfType<T>()` also drops elements whose runtime type is not `T`, so use it only when the source is conceptually `IEnumerable<T?>` (or you genuinely want a runtime type narrowing). For `IEnumerable<object?>` / `IEnumerable<Base?>` where non-`T` non-null elements should pass through, narrow differently. **Caveat 2**: `OfType<T>()` is measurably slower than `foreach` (4-25% time vs the cast-baseline, 5× allocation in the empty-source case because it instantiates its enumerator unconditionally) — fine for one-shot UI callbacks, not fine for hot paths.
 - **Particularly avoid sprinkling `!` inconsistently across multiple uses of the same value** (e.g., `@x!.A` followed by `@x.B` in Razor markup, or `x!.Method()` followed by `x.Property` in C#). Either narrow once for the whole scope or change the type.
 - **Reviewer enforcement**: when reviewing a diff that contains `!`, ask whether the suppressor could be replaced with one of the patterns above. Only accept `!` after that question has been answered with a specific reason (typically: "this is the absolute last layer of the API and the contract is enforced by upstream tests"). "It compiles" is not a reason.
+
+---
+
+## Test synchronization — eliminate `Thread.Sleep`, fail-fast on regression
+
+`Thread.Sleep(N)` in a test means "the test thread spins its wheels for N milliseconds, then checks what happened." It is wrong in both directions: too short and the test is flaky; too long and the suite is slow. Worse, in regression cases the test still waits the full N before failing, hiding the diagnostic signal. Whenever the SUT exposes a callback, event, or other observable signal, replace `Thread.Sleep` with deterministic synchronization on that signal.
+
+**Replace `Thread.Sleep(N)` with the most precise primitive available, in this order of preference:**
+
+1. **`ManualResetEventSlim` / `CountdownEvent` — when a callback or event signals completion or arrival.** Add the signal in the handler, then `signal.Wait(TimeSpan.FromMilliseconds(N), TestContext.Current.CancellationToken)`. Strictly better than `Thread.Sleep`:
+   - **Positive case** (event expected): the test wakes the moment the event fires — usually well before N ms.
+   - **Regression case** (unexpected event): the wait returns `true` immediately when the spurious event signals; assert `Assert.False(received, "...")` and the test fails with a precise message, not a timeout.
+   - **Cancellation**: honors `TestContext.Current.CancellationToken` so the suite can stop a hung test cleanly.
+2. **`await Task.Delay(TimeSpan, ct)` in `async Task` tests — when you genuinely need to space test stimulus** (e.g., asserting events arrive in order with bounded gaps between writes). Cooperative-cancellation friendly and non-blocking. Convert the test signature from `void` to `async Task` to enable this; xUnit v3 supports it natively and `TestContext.Current` flows across `await` resumption points.
+3. **`Thread.Sleep(N)` — only as a last resort**, and only when no observable signal exists from the SUT. Acceptable cases are narrow:
+   - A no-subscribers smoke test where there is literally no callback to wait on.
+   - A stress test where the sleep is *itself* the test mechanism — deliberate scheduler jitter inside `Parallel.Invoke` to interleave operations under contention, or a SQLite file-handle release backoff. These are not event waits; removing them defeats the test's purpose.
+   - When kept, the test (or the immediately surrounding code) must include a comment explaining *why* a signal-based wait is impossible.
+
+**Negative tests need the stimulus, not just the wait.** This is the same rule as the *Exercise the negative case, don't infer it* bullet under "Test purpose / DO test", restated here for the synchronization angle: a deterministic wait around no stimulus is still vacuous, just faster. The full pattern:
+
+```csharp
+int eventCount = 0;
+var received = new ManualResetEventSlim(false);
+
+watcher.EventRecordWritten += (_, _) =>
+{
+    Interlocked.Increment(ref eventCount);
+    received.Set();
+};
+
+watcher.Enabled = true;
+// ... initial events to populate state ...
+
+// Act: cause the behavior under test (Disable, Unsubscribe, etc.)
+watcher.Enabled = false;
+
+// Snapshot post-action state and clear any signal accumulated during the populate phase.
+int countBefore = Volatile.Read(ref eventCount);
+received.Reset();
+
+// The trigger that proves the action worked:
+WriteAnEvent();
+
+bool fired = received.Wait(TimeSpan.FromMilliseconds(100), TestContext.Current.CancellationToken);
+
+Assert.False(fired, "Should not receive events after Disable");
+Assert.Equal(countBefore, Volatile.Read(ref eventCount));
+```
+
+**Document non-obvious SUT contract dependencies with a one-line in-test comment.** When a test's correctness depends on a particular SUT guarantee — e.g., *"`Unsubscribe()` blocks until in-flight callbacks complete, so no handler can fire between the count capture and the `Reset()`"* — record that dependency where someone reading the test can see it. Reviewers cannot audit a contract they cannot see; future SUT optimizations that break the contract will silently flake the test.
+
+**Thread-safety on shared state read by both the test thread and a callback thread.** When a callback fires on a non-test thread (timer, native event, `RegisteredWaitHandle`, `Parallel.Invoke` worker, etc.) and the test thread reads the result, prefer thread-safe primitives:
+
+- `int eventCount = 0;` + `Interlocked.Increment(ref eventCount)` in the handler + `Volatile.Read(ref eventCount)` in the assertion — for negative tests where you only care about *whether* and *how many* events arrived.
+- `ConcurrentBag<T>` / `ConcurrentQueue<T>` — when you need the actual records.
+- A regular `List<T>.Add` from a callback thread + `.Count` from the test thread is a data race even when it usually works in practice; use it only when the callback is guaranteed not to fire concurrently with the assertion (rare, and worth a comment).
+
+**Sleep-style anti-patterns to flag during review:**
+
+- `Thread.Sleep(small)` followed by `Assert.Empty(list)` / `Assert.Equal(0, count)` with no stimulus between them: vacuous negative test — add the stimulus or delete the test.
+- `Thread.Sleep(large)` followed by `Assert.NotEmpty(list)`: positive test with a slow guard band. Replace with `signal.Wait(large, ct)`; the test now usually completes in <1 ms while still tolerating slow CI.
+- `Thread.Sleep(any)` inside a `Parallel.Invoke` / `Parallel.For` worker that *is* the SUT under stress test: NOT an event wait — it's deliberate jitter for thread-interleaving. Keep, but comment it explicitly so the next person doesn't "clean it up".
+- `await Task.Delay(N)` without a `CancellationToken` argument: convert to `await Task.Delay(N, ct)` so the suite's cancellation works.
+- `Thread.Sleep` alongside `Assert.True(thingHappened)` with no signal-based wait: replace the entire pattern with `Assert.True(signal.Wait(timeout, ct), "thingHappened did not happen within timeout")`.
+
+**When to apply this rule:**
+
+- **At authoring:** any new test that needs to wait for an asynchronous event uses a signal, not a sleep. `Thread.Sleep` in a new test is a review block unless it falls in one of the narrow last-resort cases above.
+- **During every test-quality audit:** grep the touched files for `Thread.Sleep` and `Task.Delay(`. Each occurrence is either replaced with a signal-based wait, or kept with a comment explaining why a signal is impossible.
+- **When a test goes flaky:** if the flake is at a `Thread.Sleep` boundary, the fix is the signal-based primitive — not bumping the sleep duration. Bumping the sleep masks the symptom and makes the suite slower for everyone.
