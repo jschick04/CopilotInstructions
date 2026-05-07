@@ -7,6 +7,7 @@ After implementation, run the import / using hygiene pass, the multi-model revie
 ## Hard gates (also in `AGENTS.md` — repeated here for context)
 
 - Touched-file imports / usings sorted and unused removed.
+- **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility / export / mutability surface delta** — adds a public/exported type or member; widens visibility; removes `sealed`/`final`/closed-extension; adds or widens a constructor/member/setter; exposes a field; changes package/module exports. Do NOT trigger on body-only edits to an already-public type that change no surface.
 - Multi-model reviewer panel run **in parallel**; consensus reached or all dissents addressed.
 - Diagnosis-verifying benchmark / test re-run; metric moved or test passes.
 - Affected builds + tests pass.
@@ -36,7 +37,19 @@ Use the language's ecosystem tooling for the whole touched set in one pass:
 
 Never commit a file with unsorted, duplicated, or unused imports — reviewers always flag them, and the noise hides real issues in the diff.
 
-### 2. Multi-model reviewer panel — run all in parallel
+### 2. Touched-file least-privilege audit (6-axis)
+
+Run the least-privilege audit on the touched-file scope before showing the diff. Procedure: **`.github/playbooks/least-privilege-audit.md`**, scope = touched files (`git diff --name-only <base>..HEAD`).
+
+**Trigger:** the diff has any **visibility / export / mutability surface delta** — adds a public / exported type or member; widens visibility; removes `sealed` / `final` / closed-extension; adds or widens a constructor / member / setter; exposes a field; changes package / module exports; introduces an exported Go top-level identifier; widens Rust `pub(...)` to bare `pub`. Do NOT trigger on body-only edits to an already-public type that change no surface.
+
+Goal: catch any new visibility / export / mutability surface introduced by this change that lacks a real consumer justifying the elevated visibility, before a reviewer flags it. The audit is fast at this scope (only the diff files); the highest-leverage moment is when the change is fresh.
+
+Apply all 6 axes (per the playbook): type access, sealing/final, ctor visibility, member visibility, setter, field hygiene. "Fresh grep" beats every cached classification (use the language's best source-search tool — `rg`, compiler index, language-server symbol search — not literally `grep(1)`).
+
+Skip when the diff has no visibility / export / mutability surface delta. When skipped, record explicitly which condition justified the skip ("diff touched only test fixtures + resource files, no production code", "diff was a body-only edit inside an already-public method").
+
+### 3. Multi-model reviewer panel — run all in parallel
 
 The user has no token-budget caps on this work, so always launch the full reviewer panel **in parallel** (background agents) rather than serially. Iterate, re-running the panel after each fix round, until **all models agree** with no substantive findings.
 
@@ -51,7 +64,7 @@ The user has no token-budget caps on this work, so always launch the full review
 
 **Do NOT serialize the panel** ("run Claude first, then if it finds nothing run GPT") — that wastes wall-clock time and lets early reviewer framing leak into your assessment of later reviews. Launch all reviewers in one tool-call batch, wait for completions, then synthesize.
 
-### 3. Anti-anchoring rules for reviewer prompts
+### 4. Anti-anchoring rules for reviewer prompts
 
 Do not anchor reviewers on your own framing. Prompts must instruct the reviewer to treat the description of the fix as a hypothesis and independently read the affected types and call sites.
 
@@ -60,22 +73,23 @@ Specific reviewer-prompt requirements (from recurring failure modes in past PR h
 - **State predicates** (see `AGENTS.md` §3.7): if the diff introduces a predicate over a type's state (`IsEmpty`, `IsDefault`, equality / match check), the reviewer must open that type's source and enumerate every member before accepting the predicate as complete.
 - **Cross-boundary parameter / property names** (see `AGENTS.md` §3.6 "Defaults and Consistency"): if the diff introduces or renames a parameter that crosses an interface / implementation boundary, the reviewer must enumerate every signature in the chain — interface, abstract base, every implementation, every caller, every lambda that closes over it — and verify the name is identical at every layer.
 - **Literals-in-collections** (see `AGENTS.md` §3.10): if the diff adds or modifies a collection whose members reflect literals used elsewhere in the codebase, the reviewer must open every site that produces those literals and verify each one references the collection's members rather than re-typing the literal.
+- **Public surface additions** (see `least-privilege-audit.md`): if the diff adds a new `public` / exported type or member, the reviewer must independently verify there's a real cross-asm consumer; no speculative public surface.
 
-### 4. Synthesize and iterate
+### 5. Synthesize and iterate
 
 After all reviewers complete, briefly summarize cross-model agreement. Iterate the panel after each fix round until no substantive findings remain. **Same parallel-panel rule applies to PR reviews** (post-PR-review playbook): when running `pr-review` after a PR exists, launch the same panel in parallel.
 
 Route any sub-agent finding outside the immediate scope through `ask_user` (per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule in `AGENTS.md` §1): address now / defer to a follow-up (record externally — session note, issue, tracker — never as TODO comment) / dismiss with reason.
 
-### 5. Verify the fix actually fixed it
+### 6. Verify the fix actually fixed it
 
 The benchmark / test from `pre-implementation.md` must show the expected delta (perf) or pass (functional). If the metric didn't move, the change is a no-op — revert and re-diagnose. Do not paper over a no-op fix with reviewer agreement.
 
-### 6. Run affected builds and tests
+### 7. Run affected builds and tests
 
 All must pass before proceeding to `pre-commit.md`. If a test fails:
 
-- If the test is a regression caused by your change: fix it (return to step 2).
+- If the test is a regression caused by your change: fix it (return to step 3).
 - If the test was failing before your change (pre-existing): route via `ask_user` per the *Pre-existing issues* cross-cutting rule in `AGENTS.md` §1 — never silently fix it as part of this change.
 
 ### 7. Audit before declaring done

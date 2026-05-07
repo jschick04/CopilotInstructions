@@ -41,6 +41,58 @@ The universal test rules in `AGENTS.md` (descriptive method names as full senten
 
 ---
 
+## Test purpose — every test pays for its existence
+
+The universal test-specificity and negative-assertion rules in `AGENTS.md` apply unchanged. The bullets below codify *why a test should exist at all* and what to delete during test-quality audits. Tests are code; coverage for coverage's sake is a maintenance liability that gives false confidence and slows future refactors.
+
+**A test is worth keeping only if it would catch a real regression.** Before writing or keeping a test, answer: "What concrete behavior change in the SUT would make this test fail?" If the answer is "I can't think of one without changing the test itself", delete or rewrite.
+
+**Do NOT test:**
+- **Trivial getters / setters / pass-through methods.** A test that does `x.Foo = 1; Assert.Equal(1, x.Foo);` verifies the language compiler, not your code. Same for properties whose only logic is `=> _field`.
+- **Framework code.** Don't test that EF Core saves entities, that `System.Text.Json` serializes a record, that `IServiceCollection.AddSingleton` registers a service. Test *your* code that integrates with the framework.
+- **Private implementation details.** Tests that pin internal data structures, private method signatures, or specific algorithm steps break on every refactor without catching real regressions. Test observable behavior through the public contract.
+- **Mock setup verification.** A test that does `mock.Setup(x => x.Foo()).Returns(42)` then asserts `mock.Foo() == 42` tests NSubstitute, not the SUT. The SUT must be involved between Arrange and Assert.
+- **Tautologies.** `Assert.Equal(x, x)`, `Assert.True(true)`, `Assert.NotNull(new Foo())` (constructor null-returning is impossible in C# without exceptions). If the assertion is structurally guaranteed by the code preceding it, delete the test.
+- **Generated code.** `[GeneratedRegex]`, source-generator output, designer-generated partials. Test the inputs and the consumed outputs, not the generator.
+- **Auto-implemented `record` `Equals`/`GetHashCode`/`ToString` for the trivial cases.** Test these only when you've manually overridden them or when value semantics are a load-bearing contract that consumers depend on.
+
+**DO test:**
+- **Boundary conditions.** Empty/null/single-element collections, min/max numeric values, max string lengths, off-by-one boundaries (e.g., the `>=` vs `>` boundary in pagination, time-window cutoffs).
+- **Failure paths.** The branches reviewers are most likely to break: error returns from native interop, `try`/`catch` fallback paths, retry logic, cancellation, partial failure in batch operations. These are *higher* value than happy-path tests.
+- **Integration seams.** Where YOUR code talks to a dependency: cache hit vs miss, fallback chain ordering, eviction semantics, concurrent access coalescence. The interesting bugs live at these seams.
+- **Public contract — input → output.** For every documented behavior in XML doc comments, there should be at least one test exercising it. Doc-comment-driven test discovery is a useful audit lens.
+- **State transitions.** Before/after a method call, idempotency under repeated calls, ordering guarantees. Especially for stateful services and Fluxor reducers.
+- **Concurrency contracts.** Where the type claims thread-safety, prove it under contention. Where it doesn't claim thread-safety, document the assumption and don't write a multi-threaded test that hides a real bug behind timing.
+
+**Test smells — refactor or delete:**
+- **Eager tests.** One test method exercising 3 unrelated behaviors (`Test_DoesXAndYAndZ`). Split into 3 focused tests with names that read as specifications. Multi-asserts are OK only when verifying related state of *one* outcome (`result.Status == Success && result.Count == 5 && result.Errors.IsEmpty`).
+- **Mystery guest data.** Test inputs hidden in a builder/fixture/JSON file far from the test body, where the reader can't tell what's load-bearing for the assertion. Inline the data, or make the fixture name self-documenting (`AnEventWithNoMatchingProvider()` not `BuildEvent()`).
+- **Conditional logic in tests.** `if`, `foreach`, `switch`, `Skip` in test bodies usually signals two tests pretending to be one (or a missing `[Theory]`). Convert loops to `[Theory]` + `[InlineData]`; convert conditionals to separate test methods.
+- **Magic values without explanation.** A literal `0x3A9D` in an assert needs a `nameof(SomeNamedConstant)` reference or a comment explaining why that exact value is the expected outcome.
+- **Brittle ordering / count assertions on diagnostic logs.** `mock.Received(3).LogTrace(...)` breaks every time someone adds a log line that doesn't change behavior. Assert log content (the message that proves the path was taken) at most once, or don't assert on logs at all if there's a stronger observable to check.
+- **Slow tests masquerading as unit tests.** A "unit test" that opens a real SQLite database, hits the file system, or sleeps is an integration test. Move to the integration suite or replace the dependency with an in-memory fake. Unit tests should be < 100ms each.
+- **Tests that pass when the SUT is deleted.** Run the test mentally after `throw new NotImplementedException();` is the only thing in the SUT. If it still passes (e.g., it only verified mock setups, or it only asserted that an exception was thrown without checking which one), the test has no purpose.
+
+**Mocking guidance:**
+- **Mock at architectural boundaries** — databases, HTTP, file system, time, native interop, message queues. These are the interfaces you control; substituting them keeps tests fast and deterministic.
+- **Do NOT mock value objects, DTOs, simple data structures, or types you own that are pure functions.** Construct real instances. Mocking a record / struct / model class is almost always a smell.
+- **Do NOT mock the SUT.** If you find yourself mocking part of the type under test, the type has too many responsibilities — split it.
+- **Do NOT mock methods on classes you don't own without an interface seam.** Wrap them in your own interface first; then mock that.
+- **Verify behavior, not implementation.** Assert what the SUT *did* (the side effect on the mock that consumers observe), not how it called internal helpers. `Received(1)` on a single boundary call is fine; `Received(N)` on a chain of internal helper calls is brittle.
+
+**Coverage as guide, not goal:**
+- 100% coverage on critical paths and complex branching logic is the target.
+- 0% coverage on trivial code (auto-properties, single-line wrappers) is fine and preferred over filler tests.
+- A high coverage number with mostly trivial-getter tests is *worse* than a lower number with high-value tests, because it hides the real coverage gaps.
+- When evaluating a coverage report, ignore the percentage and look at the uncovered lines: are the uncovered lines important behavior? If yes, write tests. If no (auto-property, exception branch that can't be reached, dead code), don't.
+
+**When to evaluate test purpose:**
+- **At authoring:** before writing each test, articulate the regression it would catch in one sentence. If you can't, don't write it.
+- **During every test-mirror / refactor PR:** audit the existing tests in scope. Delete tests that fail the "what regression would this catch" question. Rewrite eager tests as focused tests. Move slow tests out of the unit suite.
+- **When a test breaks during a refactor with no behavior change:** that test was probably testing implementation, not behavior. Fix or delete the test rather than reverting the refactor.
+
+---
+
 ## Async, disposal, and JS interop lifecycle (Blazor / .NET)
 
 These patterns recur in every Blazor + JS-interop PR review. Apply them whenever touching a `.razor.cs`, `IJSRuntime`, `DotNetObjectReference`, `IAsyncDisposable`, or any fire-and-forget async path.
@@ -53,6 +105,130 @@ These patterns recur in every Blazor + JS-interop PR review. Apply them whenever
 - **`invokeMethodAsync` from JS needs `.catch(() => {})`** at minimum (preferably with logging) — otherwise a disconnected circuit produces an unhandled promise rejection in the browser.
 - **`DisposeAsync` vs domain-specific tear-down.** If a service has a meaningful "stop using me but stay alive" operation (e.g., `UnregisterAsync`, `CloseAsync`), do not collapse it into `DisposeAsync`. `DisposeAsync` is for terminal cleanup; the domain method is for revocable lifecycle.
 - **`[Parameter]` properties are framework-owned — never mutate them.** Compute a derived value or copy into a local field; do not assign to a `[Parameter]` from `OnParametersSetAsync`, `OnInitialized`, or any handler. Blazor will overwrite your value on the next render and the bug surfaces as "value snaps back".
+
+---
+
+## Access modifiers — least-permissive that still compiles
+
+Default to the most-restrictive access modifier at every level. Promoting later expands the API surface, ties the codebase to consumers you didn't intend to support, and makes future tightening a breaking change. Demoting later requires combing through every consumer site (markup, reflection, DI, attributes, friend assemblies). Start tight; widen only when a real consumer demands it.
+
+**Restrictive-to-permissive progression in C# — these are the six axes the cross-language audit playbook (`.github/playbooks/least-privilege-audit.md`) checks for every public type:**
+
+- **Type:** `file > private (nested) > internal > protected internal > public`. Top-level types get `internal` by default; promote to `public` only when an external consumer actually exists.
+- **Class modifier:** `sealed > unsealed`. Add `sealed` to every non-abstract class with no derivers in the same assembly. `sealed` enables compiler/JIT devirtualization and prevents accidental subclassing.
+- **Constructor:** `private > internal > protected internal > public`. DI-instantiated services and reflection-constructed types rarely need a `public` ctor — `internal` is enough when the friend-asm relationship covers the registering assembly.
+- **Method / property:** `private > protected private > internal > protected internal > public`. A member only consumed within the declaring assembly should be `internal` even on a `public` type.
+- **Property setter:** `init-only > no setter > private set > internal set > public set`. Default to `init` for state set in the constructor; promote only if mutation after construction is genuinely required.
+- **Field:** `readonly` first, then `private > internal > public`. Public fields should almost never exist (use a property); the rare exception is `public const` or `public static readonly`.
+
+**When the audit runs:**
+
+- **At authoring** — pick the most restrictive modifier that satisfies the immediate consumer set; don't future-proof speculatively.
+- **At end of a unit of work** — touched-file scope of the audit fires automatically as part of `post-code-change.md` (any new `public` type/member must be justified by a real consumer or demoted before the diff is shown).
+- **Before first review push** — branch-wide scope of the audit fires automatically as part of `pre-pr-push.md` when the branch touches public API surface across multiple files.
+- **On demand** — user requests an "API tightening", "visibility audit", "least-privilege sweep", or similar; the canonical procedure is in `.github/playbooks/least-privilege-audit.md` (single source of truth — do NOT re-derive the 6-axis matrix here).
+
+**C#-specific reflection caveats — verify these still work after tightening:**
+
+- **Fluxor** (`[FeatureState]`, `[ReducerMethod]`, `[EffectMethod]`) uses `Assembly.GetTypes()` (not `GetExportedTypes`), so internal types are discovered, but constructor/method visibility still matters — build + dispatcher round-trip after tightening.
+- **`System.Text.Json` polymorphism / converters** — works for internal types in the same assembly; verify a round-trip from a consumer assembly when the converter or attribute crosses the assembly boundary.
+- **EF Core** entity / converter discovery — works for internal types. **EF Core `DbContext`** subclasses are usually NOT sealed (runtime proxy generation needs vtable slots).
+- **`Microsoft.Maui.Hosting` / `Microsoft.Extensions.DependencyInjection`** — works for internal types when the registering assembly has visibility (friend asm).
+- **Generic component constraints in Razor** (e.g., `IModalService.Show<TModal, TResult> where TModal : IComponent`) — internal `TModal` works fine across friend assemblies.
+- **Razor markup binding from another assembly** — `<InternalComponent />` works when IVT is granted; the Razor compiler in the consuming assembly resolves through friend visibility. Use `rg --type-add 'razor:*.razor' -t razor` (or `-t html`) when searching for Razor markup consumers, plus `_Imports.razor` and `@inherits` directives.
+- **Razor `[Parameter]` properties** — must be `public` with a `public` setter (framework parameter binding asserts this). **`[CascadingParameter]`** is also framework-set, but Blazor's component activator uses non-public reflection and current versions accept non-public cascading parameters; verify with build + a render test before tightening (some house styles still keep them public for consistency — codify your stance per project). **`[Inject]`** properties can be non-public / `internal`; verify the injection still resolves after tightening. **`[JSInvokable]`** methods invoked from JavaScript must be `public` (the JS interop dispatcher uses public reflection).
+- **Source generators** may have visibility assumptions; build after tightening.
+
+**C#-specific friend-assembly mechanism:** when an `internal` type / member needs to be reachable from another assembly we own (test project, MAUI head consuming a UI service), grant access via `[InternalsVisibleTo("OtherAssembly")]`. Two declaration locations:
+
+- **Preferred (.NET 5+):** csproj `<ItemGroup><InternalsVisibleTo Include="OtherAssembly" /></ItemGroup>`. SDK-style projects auto-generate the assembly-level attribute at build time, keeping `Properties/AssemblyInfo.cs` empty (or absent entirely).
+- **Legacy:** `[assembly: InternalsVisibleTo("OtherAssembly")]` in `Properties/AssemblyInfo.cs`. Still works; migrate to csproj when convenient.
+
+The audit playbook's hard gate "friend-asm mechanism verified before recommending internalization" applies in C# as: open the project's csproj AND `Properties/AssemblyInfo.cs` (if present) and confirm the IVT entry covers the friend you expect. Don't recommend `internal` without the grant in place; if missing, the recommendation is *internalize-and-add-IVT-entry*.
+
+**C#-specific common misses caught in past reviews** (these are the failure-mode catalog the audit playbook's per-language tuning should catch):
+
+- Service registered as `AddSingleton<IFoo, Foo>` declared `public class Foo` even though no caller outside the registering assembly references `Foo` directly → should be `internal sealed class Foo`.
+- Razor component used only in same-assembly markup declared `public partial class MyComponent` → should be `internal sealed partial class MyComponent`.
+- `public set` on a property only assigned in the constructor → change to `init`.
+- `public static readonly` field with no consumer outside the assembly → demote to `internal static readonly`.
+- Synthesized record `public` constructor on a type only constructed inside its assembly → demote both the record and its consumers' usage; record primary ctors inherit the record's declared accessibility, so making the record `internal` is enough.
+
+---
+
+## File organization — split multi-type files when contents are unrelated
+
+The default is **one top-level type per file**, with the filename matching the type name. Multi-type files are a maintenance hazard: they hide types from search-by-filename, conceal coupling, fight diff readability, and make `git mv` rename-tracking less reliable.
+
+**Acceptable reasons to keep multiple types in one file:**
+- **Tight pattern of related variants sharing private support.** Example: a private/internal base struct + a small set of public variant structs that all delegate to it (e.g., interpolated string handlers per log level sharing one private `LogHandlerCore`). Splitting would obscure the pattern and force the private base to widen.
+- **Primary type with file-scoped support types it owns exclusively.** A `private` nested class, file-scoped record used only by the primary type's implementation, or `[JsonConverter]` paired with its converter type when the converter has no other consumers.
+- **Single cohesive native API surface.** A file representing one native library's enum / flag / constant set (e.g., one file per Win32 module's `Evt*` enums for `wevtapi.dll`, one file per POSIX header's flag constants). The types are siblings of one external interface and travel together because they're audited together against external docs (MSDN, man pages). Document the exception with a one-line comment naming the API surface.
+- **Generated / partial / source-generator files** that the tool requires to be co-located.
+
+**Unacceptable patterns — always split:**
+- Enums sitting alongside an unrelated class. P/Invoke flags enums (`EvtRenderFlags`, `LoadLibraryFlags`, etc.) belong in their own files in the `Interop/` folder, not bundled into `NativeMethods.cs` or a method wrapper class. One enum per file unless the enums form a tightly-related set (e.g., `HttpStatusCategory` + `HttpStatusCode` extension on the same concept).
+- An interface bundled with an unrelated class (interfaces co-locate with their implementation when name-matched per the rules below, not with random helpers).
+- Unrelated utility / helper types lumped together in a `Helpers/`-style file (e.g., `Helpers/EventMethods.cs` containing a P/Invoke wrapper + 12 unrelated enum definitions). Split into one-type-per-file and distribute by concern.
+- Domain models stacked together "because they're small" — each model gets its own file; small files are fine.
+- Records nested inside other records / classes that act as a fake namespace (e.g., `EventLogAction.AddEvent`, `EventLogAction.Clear` nested under a container record). Split into one record per file unless the nested type is genuinely private and only used by the outer type.
+
+**Interface-and-implementation co-location (sibling pattern) — visibility gates the merge decision:**
+
+The "sibling pattern" (interface + implementation in **one** file) is a narrow exception to the one-type-per-file default. Apply it ONLY when **all** of the following hold:
+- Both the interface and the implementation are `internal` (or stricter — `file`/`private` nested).
+- The implementation name is exactly `I` + interface name (`IFoo` + `Foo`).
+- There is exactly one implementation in the same assembly, and the interface exists primarily as a testing or DI seam, not as a public contract.
+
+When any of those conditions fails, **keep two files** in the same feature folder. Specifically:
+
+- **Public interfaces always live in their own file.** Even when the impl name matches and the impl is in the same assembly, a `public interface` is part of the assembly's API surface; consumers (in this repo or downstream) navigate to it by file name (`IFoo.cs`), tooling (Go-to-File, source-link, NuGet docs, IntelliSense peek-definition) assumes one-public-type-per-file, and bundling it with the impl makes future tightening / a second implementation a noisier diff. This matches Microsoft's own large repos (.NET runtime, ASP.NET Core, EF Core), StyleCop SA1402/SA1649, and the "vertical slice / feature folder" convention.
+- **Mismatched names always stay as two files** (`IFileLogger` + `DebugLogService`, `ILogWatcherService` + `LiveLogWatcherService`). The mismatch signals that the implementation has its own concept beyond "default impl of the interface".
+- **Multiple implementations of one interface always stay as separate files** (one for the interface, one per impl).
+- **Cross-assembly interfaces** (impl lives in a different assembly than the interface — e.g., `IDatabaseCollectionProvider` defined in `EventLogExpert.Eventing` but implemented by `DatabaseService` in `EventLogExpert.UI`) **always stay in their own file** in the defining assembly, regardless of whether the consuming assembly happens to have a single matching impl.
+
+**Folder placement is independent of file count.** Whether you co-locate into one file or keep two files, both belong in the **same feature folder** (`Services/User/IUserService.cs` + `Services/User/UserService.cs`, or `Services/User/UserService.cs` containing both). Avoid an `Interfaces/` folder — that's an "organize by kind" anti-pattern; organize by feature / domain concept instead.
+
+**Restructure decision flow:**
+1. Are both types `internal` (or stricter)? If no → two files in the feature folder.
+2. Do the names match (`IFoo` ↔ `Foo`)? If no → two files in the feature folder.
+3. Is there exactly one impl in the same assembly? If no → two files in the feature folder.
+4. All three yes → single file using the sibling pattern (`internal interface IFoo` + `internal sealed class Foo : IFoo`), filename matches the implementation.
+
+**When to evaluate file splits:**
+- **At authoring:** if you're about to add a second top-level type to a file, ask whether the new type genuinely shares the file's purpose. If not, create a new file.
+- **During reorgs / restructure passes:** scan every file for multi-type contents and apply the rules above. Document any deliberately retained multi-type files with a one-line comment explaining why (the "tight pattern" rationale).
+
+---
+
+## Folder organization — feature folders, no catch-all "Helpers"
+
+`Helpers/`, `Utilities/`, `Common/`, `Misc/`, and similar catch-all folders are anti-patterns: they collect unrelated code that has no other home, hide coupling, and grow without bound. Every file should live in a folder that names a domain concept or technical concern, not a generic bucket.
+
+**Standard folder conventions per project type:**
+- **.NET class libraries (Eventing-style):** feature folders (`EventResolvers/`, `Providers/`, `Readers/`), `Interop/` for P/Invoke + handles + native structs (per FxCop CA1060), `Logging/` for tracing primitives, `Extensions/` for true extension method classes (named `*Extensions`, not `*Methods`). Avoid `Models/` as a flat catch-all — distribute models into their owning feature folder.
+- **Blazor component libraries:** components grouped by feature / page area; shared layout components in `Layout/`; modals in `Modals/`; small reusable presentational components in `Controls/` or grouped with their consumers.
+- **Fluxor state stores:** `Store/<FeatureName>/` per Fluxor official tutorial — one folder per feature containing `<Feature>State.cs`, `Effects.cs`, `Reducers.cs`, and one file per action record. Drop the feature prefix from `Effects` / `Reducers` class names since the folder already namespaces them.
+- **MAUI heads:** `Layout/` (MainLayout, exception handler), `Panels/` or feature-named folders for major UI sections; avoid wrapping everything in a `Components/` parent.
+- **Console / CLI tools:** `Commands/` for command handlers, `Sources/` or feature folders for data sources; `Program.cs` at root.
+
+**`InternalsVisibleTo` placement:** in csproj, not `Properties/AssemblyInfo.cs`. Csproj keeps the friend-asm policy visible alongside dependencies, survives reorgs, and avoids a near-empty `AssemblyInfo.cs` whose only contents are IVT directives. Use:
+```xml
+<ItemGroup>
+  <InternalsVisibleTo Include="OtherAssembly" />
+</ItemGroup>
+```
+Delete `Properties/AssemblyInfo.cs` if IVT was its only content.
+
+**Naming conventions for utility classes:**
+- Extension method classes: `<TypeName>Extensions` (e.g., `StringExtensions`, `EventRecordExtensions`), not `<TypeName>Methods`.
+- P/Invoke classes: `NativeMethods` (per FxCop CA1060), `internal static class`. Split per native API surface when one file gets large (`NativeMethods.Evt.cs`, `NativeMethods.Wevtapi.cs` as partials, or separate classes if no shared state).
+- Constants / defaults: `<Domain>Defaults` or `<Domain>Constants`, grouped in a `Defaults/` or `Constants/` folder when there are multiple.
+
+**When to evaluate folder structure:**
+- **At project creation:** lay out the folder convention up front per the project type above.
+- **At every reorg PR:** validate against the conventions; document deliberate deviations with rationale in PR description.
+- **Whenever a `Helpers/` or `Utilities/` folder appears:** treat as a refactor signal. Each file in it should move to a feature folder, an `Extensions/`, an `Interop/`, or be promoted to a domain concept folder.
 
 ---
 
@@ -181,6 +357,7 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 - Place `using` directives **outside** the namespace.
 - Don't separate import groups.
 - Don't prioritize System directives first.
+- **When sorting / removing usings, the formatter must respect the repo's `.editorconfig` AND any ReSharper `.DotSettings` overrides.** Specifically, honor `dotnet_separate_import_directive_groups`, `dotnet_sort_system_directives_first`, and `csharp_using_directive_placement`. Use `dotnet format` (which honors `.editorconfig` natively) or ReSharper / Rider cleanup with the solution's settings. Do NOT use a tool that defaults to "System first" sorting and ignores `.editorconfig` — it produces a churn diff that fights the project convention. If you cannot determine which tool is in use, do NOT bulk-resort usings; only remove the genuinely unused entries and leave the order alone. The same rule applies to manual edits: never re-order existing using lines just because one block "looks tidier" — the convention is whatever the project's `.editorconfig` says, period.
 
 ### Concurrency Primitives
 

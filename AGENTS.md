@@ -23,6 +23,7 @@ This section is a **phase index**, not a procedure. Each phase has a small **har
 | PR exists / review comments present | `.github/playbooks/post-pr-review.md` |
 | Strong design-spec trigger — user is asking for a **durable artifact** (verb-led: *"design spec for"*, *"write up a design for"*, *"document the current architecture of"*, *"document what we have in prod for"*; or noun-led: *"current-state survey for"*, *"design change request for"*, *"dev design spec for"*, *"implementation spec for"*, *"build spec for"*, *"architect review of"*) | OFFER `.github/playbooks/design-spec.md` (always-confirm via `ask_user`) |
 | Strong ADO trigger — user is asking to **draft a NEW work item or its content** (verb-led: *"draft an ADO work item for"*, *"plan out an ADO task / story / feature for"*, *"write up an ADO bug for"*, *"create the deliverables for"*, *"draft / propose / write acceptance criteria for"*; or noun-led: *"ADO task / story / work item for"*, *"acceptance criteria for a new work item"*). Factual questions about **existing** ADO content (*"what acceptance criteria does the parent feature use?"*, *"what's our team's definition of done?"*) are NOT strong — those are weak triggers; answer directly and offer the playbook only if the user is asking to draft new content. | OFFER `.github/playbooks/ado-task-planning.md` (always-confirm via `ask_user`) |
+| Strong least-privilege-audit trigger — user is asking for an **API tightening / visibility audit / access-modifier sweep / surface-area review** (verb-led: *"tighten the API surface for"*, *"audit visibility on"*, *"sweep access modifiers in"*, *"do a least-privilege pass on"*; or noun-led: *"least-privilege audit of"*, *"API tightening report for"*, *"visibility audit of"*, *"access-modifier matrix for"*). Bare unpaired *"audit"* / *"review"* falls into the ambiguous artifact-adjacent category and triggers one short clarifying `ask_user`. | OFFER `.github/playbooks/least-privilege-audit.md` (always-confirm via `ask_user`) |
 | Install / upgrade / uninstall software | `.github/playbooks/software-install.md` |
 | Create or restructure a worktree | `.github/playbooks/worktree-setup.md` |
 
@@ -43,11 +44,12 @@ Hard gates (always apply, even if playbook unfetched):
 Hard gates:
 
 - Touched-file imports / usings sorted and unused removed.
+- **Touched-file least-privilege audit applied.** Trigger: the diff has any **visibility / export / mutability surface delta** — adds a public/exported type or member; widens visibility; removes `sealed` / `final` / closed-extension; adds or widens a constructor / member / setter; exposes a field; changes package / module exports; introduces an exported Go top-level identifier; widens Rust `pub(...)` to bare `pub`. Each such delta is justified by a real same-file / same-asm / cross-asm consumer. Unjustified additions are demoted before the diff is shown. Do NOT trigger on body-only edits to an already-public type that change no surface. Procedure: run `least-privilege-audit.md` (touched-file scope) — applies all 6 axes (type access, sealing/final, ctor visibility, member visibility, setter, field hygiene). The "fresh grep beats cached survey" rule is non-negotiable.
 - Multi-model reviewer panel run **in parallel** (no serializing); consensus reached or all dissents addressed.
 - Diagnosis-verifying benchmark / test re-run; metric moved or test passes.
 - Affected builds + tests pass.
 
-> **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`.
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`. That playbook references `.github/playbooks/least-privilege-audit.md` for the touched-file 6-axis pass.
 
 ### Pre-commit phase
 
@@ -66,10 +68,11 @@ Hard gates:
 
 - Per-commit comment audit run on every commit's diff (already gated by §3.1 on each commit — verify it actually ran).
 - Branch-wide rename-first sweep run once before first push intended for review.
+- **Branch-wide least-privilege audit run** when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as the touched-file gate above) across the branch. Multiple small commits each individually fine can together leak too-public surface; the branch-wide pass re-greps with the final branch state. Procedure: run `least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches). Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended, so the audit sees the final branch state. Fresh grep at audit time; cached classifications from earlier in the branch are stale.
 - Resolved sweep base SHA + sweep HEAD SHA + base ref name **recorded in canonical session todos** (per *Phase-state tracking convention* below) for re-run logic.
-- No "ready to push" claim until both per-commit audit AND branch-wide sweep done OR user explicitly skipped (with recorded warning).
+- No "ready to push" claim until per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) are done OR user explicitly skipped (with recorded warning).
 
-> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md`. That file is an INDEX — it runs intake first, then directs you to the matching sub-files (`per-commit-micro-hygiene.md`, `branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) per a deterministic decision tree.
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md`. That file is an INDEX — it runs intake first, then directs you to the matching sub-files (`per-commit-micro-hygiene.md`, `branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) per a deterministic decision tree. The least-privilege-audit playbook (`.github/playbooks/least-privilege-audit.md`) is a sibling invocation when the branch touches public API surface.
 
 ### Post-PR-review phase
 
@@ -83,7 +86,7 @@ Hard gates:
 
 ### Trigger workflows — hard gates (always apply, even before fetching)
 
-The strong-trigger workflows in the router table (design-spec, ADO task planning) also have always-loaded hard gates so the agent doesn't lose critical invariants if the playbook can't be fetched. These are abbreviated; the playbooks have the full procedure.
+The strong-trigger workflows in the router table — design-spec, ADO task planning, and least-privilege audit — also have always-loaded hard gates so the agent doesn't lose critical invariants if the playbook can't be fetched. These are abbreviated; the playbooks have the full procedure.
 
 **Design-spec hard gates:**
 
@@ -102,7 +105,17 @@ The strong-trigger workflows in the router table (design-spec, ADO task planning
 - No invented linked work-item IDs; only IDs the user provides.
 - Draft rendered in chat first; user explicitly approves before any file write.
 
-> **STOP.** Before drafting any design-spec or ADO output, view the matching playbook for the full intake + procedure.
+**Least-privilege-audit hard gates** (also fires automatically as a sub-step of `post-code-change.md` for touched-file scope and `pre-pr-push.md` for branch-wide scope):
+
+- "Fresh grep" = a fresh source search using the best tool for the language (`rg`, compiler index, language-server symbol search, package-export inspection, etc.) — not literally `grep(1)`. Beats every cached classification: survey docs, prior audit notes, checkpoints are HINTS only, never ground truth. When you find a contradiction with a prior survey, record it explicitly so the survey can be corrected.
+- All 6 axes evaluated for every public type in scope (type access / sealing-or-final / ctor visibility / member visibility / setter / field hygiene). Type-level internalization is one of six axes, not the only one.
+- Per-type matrix as output, with consumer evidence (file:line citations from the actual grep) for every internalization recommendation.
+- Whole-scope consumer search — when auditing a project, search the WHOLE solution / workspace, not just the declaring project. Cross-project consumers are exactly what the audit checks for.
+- Friend-asm / module-export mechanism verified before recommending internalization. Check the relevant metadata for the language / project: C# csproj `<InternalsVisibleTo>` AND `Properties\AssemblyInfo.cs` (when present), Java `module-info.java` `exports ... to`, Kotlin module / Gradle friend paths, TypeScript `package.json` `exports` subpaths, Rust crate / module visibility, Go `internal/` directory pattern, etc. Don't recommend `internal` without confirming the corresponding grant; if missing, the recommendation is *internalize-and-add-friend-grant* (one extra change to surface to the user).
+- Framework-mandated visibility (Razor `[Parameter]`, Spring beans, EF Core proxies, Fluxor reducers, etc.) flagged with NOTE, not auto-recommended for tightening.
+- Applies to ALL languages (C#, Java, Kotlin, TypeScript, Rust, Go, C++, Swift, Python by convention) — see the per-language tooling table in the playbook.
+
+> **STOP.** Before drafting any design-spec / ADO output, OR before invoking the least-privilege audit at any scope, view the matching playbook for the full intake + procedure.
 
 ### Fail-closed rule for on-demand playbook fetch
 

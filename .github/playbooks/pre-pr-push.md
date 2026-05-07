@@ -10,8 +10,9 @@ Fires when the user is preparing to push for code review — opening a PR, reque
 
 - Per-commit comment audit run on every commit's diff (already gated by `AGENTS.md` §3.1 on each commit — verify it actually ran).
 - Branch-wide rename-first sweep run once before first push intended for review.
+- **Branch-wide least-privilege audit** run when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as `post-code-change.md`'s touched-file gate) across the branch. Procedure: `.github/playbooks/least-privilege-audit.md` with branch-wide scope restricted to the projects touched. Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. **Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended** (so the audit sees the final branch state, not a sweep-mutated working tree). Fresh-source-search at audit time; per-commit classifications from earlier in the branch are stale by the time the branch is push-ready.
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
-- No "ready to push" claim until both per-commit audit AND branch-wide sweep done OR user explicitly skipped (with recorded warning per User-skip policy).
+- No "ready to push" claim until per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
 ## Pre-check: is this push intended for review at all?
 
@@ -83,6 +84,20 @@ If the branch-wide sweep modifies any files, fetch:
 > `.github/playbooks/pre-pr-push/cleanup-commit-buckets.md`
 
 …and pick the **strictest matching bucket** (no-renames / single-scope rename / cross-boundary). Apply the chosen bucket's commit / amend strategy. **Amend-safety check:** if `isFirstReviewExposurePush=false` (the branch is already under review on a shared remote), the buckets that say "amend into the work commit" require explicit user confirmation (force-push approval) — see the cleanup-commit-buckets amend-safety section. If `(isFirstReviewExposurePush=true && remoteExposureExists=true)`, the sandbox exemption is **conditional** — before silently amending, the agent MUST ask the one-question sandbox-privacy confirmation per `remoteExposureExists` definition above; on **yes**, silent amend is safe; on **no/unsure**, fall through to the same explicit force-push approval choices as `(false, true)` (booleans + routing stay unchanged).
+
+### Step 3b — IF the branch has any visibility / export / mutability surface delta: branch-wide least-privilege audit
+
+**Run AFTER Steps 2 + 3 are settled** (sweep changes committed / amended) so the audit sees the final branch state, not a sweep-mutated working tree.
+
+Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** — adds a public / exported type or member; widens visibility; removes `sealed` / `final` / closed-extension; adds or widens a constructor / member / setter; exposes a field; changes package / module exports; introduces an exported Go top-level identifier; widens Rust `pub(...)` to bare `pub`. Do NOT trigger on body-only edits to already-public types that change no surface.
+
+> `.github/playbooks/least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches)
+
+This catches the "many small commits each individually fine, but together leaking too-public surface" failure mode before reviewers see it. Per-commit `post-code-change.md` audits cover touched-file scope only — they don't see cross-commit accumulation. The branch-wide pass re-greps with the ACTUAL final state of the branch.
+
+**Audit-fix commit grouping is NOT cleanup-commit-buckets.** Cleanup buckets classify rename / comment / hygiene churn from the branch-wide sweep; they don't classify API-surface tightening. If the audit recommends changes, group them per `least-privilege-audit.md`'s own commit-grouping section (per-type or per-axis), not per the cleanup-buckets file.
+
+Skip ONLY when the branch has no visibility / export / mutability surface delta. Record the skip explicitly with the justifying file list (e.g., test-only / docs-only / config-only / body-only-edits branches).
 
 ### Step 4 — IF `isFirstReviewExposurePush=false` AND `remoteExposureExists=true`: re-run rules
 
