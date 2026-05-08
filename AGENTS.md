@@ -476,6 +476,33 @@ Treat each of these as a hard-stop during self-review and as an explicit thing t
 
 > **C# adds (high-impact):** the **`nameof()` for code symbols inside ANY string** rule (including the test-mirror-via-named-argument pattern), brittle `Received(N)` count assertions on log/diagnostic mocks, **native interop / Win32 / P/Invoke return-value validation**, and **`LoadLibraryEx` / `Path.IsPathRooted` DLL-planting / wrong-binary risk**. See `csharp.instructions.md`. These bullets are the single highest-incidence smell class in the C# review history — read them once when first opening a C# file in a session.
 
+### 3.11 Project and library structure
+
+Every codebase — production app, library, CLI, sample — uses its language ecosystem's blessed project layout. **Do not invent a custom directory hierarchy** "because it makes more sense to me" or "because we only have one project right now." Tooling defaults (test discovery, build cache keys, IDE indexers, linters, package publishers, language servers, profiler attach paths) are written against the standard layout; deviating from it produces "works on my dev box, fails in CI" mysteries and forces every new contributor to learn a project-specific shape before their first useful edit.
+
+| Ecosystem | Production | Tests | Root-level files |
+|---|---|---|---|
+| .NET (C#, F#, VB) | `src/<Project>/` | `tests/<Project>.Tests/`; with > 2 test projects split into `tests/Unit/` + `tests/Integration/` | `*.slnx` / `*.sln`, `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `global.json` |
+| Node.js / TypeScript | `src/` | `test/` or framework-default (`__tests__/` for Jest, `test/` for Vitest) | `package.json`, `tsconfig.json`, lockfile |
+| Python | `src/<package>/` (**src layout, mandatory**) | `tests/` | `pyproject.toml`, `README.md` |
+| Rust | `src/main.rs` (binary) or `src/lib.rs` (library), `benches/` for benchmarks | `tests/` for integration; unit `#[cfg(test)] mod tests` inline | `Cargo.toml`, `Cargo.lock` |
+| Go | `cmd/<binary>/main.go`, `internal/<pkg>/`, `pkg/<pkg>/` | `_test.go` files alongside the code under test | `go.mod`, `go.sum` |
+| Java / Kotlin (Maven, Gradle) | `src/main/java/`, `src/main/kotlin/`, `src/main/resources/` | `src/test/java/`, `src/test/resources/` | `pom.xml` / `build.gradle` / `settings.gradle`, lockfiles |
+
+When the ecosystem documents a "blessed" layout (Python's src layout, Go's `cmd/` + `internal/`, Maven's standard directory layout, .NET's `src/` + `tests/`), use it even when an alternative seems cleaner. The blessed layout is what tools assume; hand-rolled layouts cost everyone reading or building the project for the rest of its life.
+
+**Surface deviations via `ask_user`, do not silently work around them.** When opening or working in an existing project, if you notice the layout deviates from its ecosystem standard in a way that has actual cost — test discovery breaks, CI configs hand-list project paths, contributors have to pass non-default `--working-directory`, build-config files (`Directory.Build.props`, `pyproject.toml`, `tsconfig.json`, `Cargo.toml`) sit below the projects they should govern, integration tests live next to unit tests with no separation, production code is intermixed with tests in the same root folder, lockfiles are duplicated across nested subdirectories — call `ask_user` with the deviation, the cost, and 3 options:
+
+1. **Fix in this PR** (when the diff is naturally touching the affected area or the restructure is small).
+2. **Fix as a separate PR** (recommended when the in-flight PR is already large or the restructure would dominate the diff and bury the actual change).
+3. **Leave as-is and record the exception** (only when there is a documented constraint — vendored monorepo, downstream build system that hardcodes paths, ecosystem-specific reason — and the user confirms the cost is understood).
+
+Do **not** silently work around the deviation by adding extra `cd` steps in pipelines, custom relative-path globs, per-project hand-maintained lists, or non-default `--working-directory` / `--project-dir` flags. Each workaround is a load-bearing assumption the future can lose; the layout fix is the actual repair.
+
+**When restructuring an existing repo onto the standard layout**, use `git mv` (not `Move-Item` / `mv` / IDE drag-drop) to preserve git rename detection — otherwise `git log --follow`, `git blame`, and the code-review diff hunks all lose history at the move boundary. Move solution-level config files (linter configs, build props, package manifests, lock files) so they remain at or above the level of the projects they govern; don't leave them in the old location with relative paths the consumers can't see. After moving, immediately run the build and test commands locally to surface stale relative paths in `<ProjectReference>` / `<Compile Include>` / `import` / `require` / `extends` / `include` directives — the compiler / interpreter / bundler will find them faster than a code review will.
+
+> **C# adds:** `src/` + `tests/Unit/` + `tests/Integration/` shape, the `IsTestProject` declaration requirement on every test csproj, the `dotnet sln add/remove` slnx-comment-stripping gotcha, and the directory-classified CI `dotnet test` loop pattern. See `csharp.instructions.md`.
+
 ---
 
 ## 9. Repository & Worktree Layout Preference
@@ -500,7 +527,7 @@ The following files live under `.github/instructions/` and are loaded automatica
 
 | File | Loads when working with files matching | Adds |
 |---|---|---|
-| `csharp.instructions.md` | `**/*.cs`, `**/*.csx`, `**/*.csproj`, `**/*.razor`, `**/*.razor.cs`, `**/*.cshtml`, `**/*.aspx` | C# / .NET style, XML-doc comment rules, `nameof()` requirement, NSubstitute / native-interop / `LoadLibraryEx` smells, Blazor + JS interop lifecycle, `TestUtils` folder + `Constants` partial-class convention |
+| `csharp.instructions.md` | `**/*.cs`, `**/*.csx`, `**/*.csproj`, `**/*.razor`, `**/*.razor.cs`, `**/*.cshtml`, `**/*.aspx` | C# / .NET style, XML-doc comment rules, `nameof()` requirement, NSubstitute / native-interop / `LoadLibraryEx` smells, Blazor + JS interop lifecycle, `TestUtils` folder + `Constants` partial-class convention, `src/` + `tests/Unit/` + `tests/Integration/` solution layout, directory-classified CI `dotnet test` loops |
 | `cpp.instructions.md` | `**/*.cpp`, `**/*.h`, `**/*.hpp`, `**/*.cc`, `**/*.cxx`, `**/*.c` | C++ naming, formatting, member ordering |
 | `javascript-typescript.instructions.md` | `**/*.ts`, `**/*.tsx`, `**/*.mts`, `**/*.cts`, `**/*.js`, `**/*.jsx`, `**/*.mjs`, `**/*.cjs` | JS/TS naming, formatting, expression preferences, imports |
 | `html.instructions.md` | `**/*.html`, `**/*.htm`, `**/*.razor`, `**/*.cshtml` | HTML formatting, attribute order, semantic / accessibility best practices |
