@@ -224,12 +224,14 @@ When any of those conditions fails, **keep two files** in the same feature folde
 
 ---
 
-## Folder organization — feature folders, no catch-all "Helpers"
+## Folder organization — feature folders, no catch-all "Helpers" (extends [Core / Within-assembly folder topology](../../AGENTS.md#312-within-assembly-folder-topology--vertical-slice--clean-architecture))
 
-`Helpers/`, `Utilities/`, `Common/`, `Misc/`, and similar catch-all folders are anti-patterns: they collect unrelated code that has no other home, hide coupling, and grow without bound. Every file should live in a folder that names a domain concept or technical concern, not a generic bucket.
+`Helpers/`, `Utilities/`, `Misc/`, **flat `Common/`** (no sub-folders), and similar catch-all folders are anti-patterns: they collect unrelated code that has no other home, hide coupling, and grow without bound. Every file should live in a folder that names a domain concept or technical concern, not a generic bucket.
+
+**Cross-cutting / cross-assembly domain types live in `Common/<Domain>/`** — not in flat `Common/` and not in any slice folder. The parent `Common/` is a navigational marker; the `<Domain>/` sub-folder (`Common/Events/`, `Common/Channels/`, `Common/Databases/`) is the actual domain-named feature folder per the rule. Sub-divide `Common/` by DOMAIN, not by KIND (no `Common/Models/` + `Common/Helpers/`). See [Core §3.12](../../AGENTS.md#312-within-assembly-folder-topology--vertical-slice--clean-architecture) for the full topology rule and [§3.13](../../AGENTS.md#313-plan-structure-for-growth-not-for-current-file-count) for the plan-for-growth threshold (create the `<Domain>/` sub-folder up front when you can name 2+ likely future additions, even with a single file today).
 
 **Standard folder conventions per project type:**
-- **.NET class libraries (Eventing-style):** feature folders (`EventResolvers/`, `Providers/`, `Readers/`), `Interop/` for P/Invoke + handles + native structs (per FxCop CA1060), `Logging/` for tracing primitives, `Extensions/` for true extension method classes (named `*Extensions`, not `*Methods`). Avoid `Models/` as a flat catch-all — distribute models into their owning feature folder.
+- **.NET class libraries (Eventing-style):** feature folders (`EventResolvers/`, `Providers/`, `Readers/`), `Common/<Domain>/` for cross-slice domain types (DTOs, contracts, well-known constants, algorithm helpers), `Interop/` for P/Invoke + handles + native structs (per FxCop CA1060), `Logging/` for tracing primitives, `Extensions/` for true extension method classes (named `*Extensions`, not `*Methods`). Avoid `Models/` as a flat catch-all — distribute slice-internal models into their owning feature folder, and cross-slice models into `Common/<Domain>/`.
 - **Blazor component libraries:** components grouped by feature / page area; shared layout components in `Layout/`; modals in `Modals/`; small reusable presentational components in `Controls/` or grouped with their consumers.
 - **Fluxor state stores:** `Store/<FeatureName>/` per Fluxor official tutorial — one folder per feature containing `<Feature>State.cs`, `Effects.cs`, `Reducers.cs`, and one file per action record. Drop the feature prefix from `Effects` / `Reducers` class names since the folder already namespaces them.
 - **MAUI heads:** `Layout/` (MainLayout, exception handler), `Panels/` or feature-named folders for major UI sections; avoid wrapping everything in a `Components/` parent.
