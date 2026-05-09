@@ -390,6 +390,27 @@ Cases that warrant the ask:
 
 When choices clearly differ only in style (and not in intent), pick one and move on — do not over-ask.
 
+### 3.3.1 Opportunistic rename suggestions for existing symbols
+
+When working in or touching a file (any reason — bug fix, feature, refactor, review), if you encounter an **existing** type / method / property / parameter / record / class / interface name that doesn't describe its intent well or has a clearly better name available, **stop and ask the user via `ask_user`** before renaming. Phrase it as: *"While here I noticed `OldName` doesn't describe its intent well — proposing `NewName` because [one-line rationale]. Rename now / leave / propose alternative?"*
+
+When to surface a rename:
+- Name is generic where a domain term applies (`Manager`, `Processor`, `Helper`, `Util`, `Data`, `Info` for non-`xxxInfo` types).
+- Name describes implementation, not intent (`StringDictionary` vs `UserPreferences`, `IntList` vs `RetryDelays`).
+- Name disagrees with current behavior because the type evolved (`SyncCache` that's now async, `ReadOnlyList` that exposes mutation).
+- Name uses an outdated abbreviation or one that conflicts with project terminology (`Pkg` vs `Package`, `Auth` ambiguous between authentication / authorization).
+- Name shadows a type (PascalCase local / parameter `LogPathType LogPathType`) — flag as a code-quality rename even if it currently compiles.
+- Name uses pre-rename terminology that survived only because the rename pass missed it (e.g., a member named `XLogNames` on a class renamed to `LogChannelNames` should probably become `XLogChannels`).
+- An interface name doesn't communicate the role (`IDatabaseCollectionProvider` for what's really an "active databases" provider).
+
+When NOT to surface a rename:
+- Name is locally consistent with project conventions even if it's not your preferred name (style-only).
+- Rename would touch many unrelated files and the user is mid-flight on a different scope (defer to a follow-up via `ask_user` per the *Pre-existing issues* rule above).
+- The "better" name is only marginally better and the cost of churn (PR diff noise, blame loss, downstream breakage) outweighs the clarity gain.
+- Public API surface that's already shipped to external consumers — needs explicit deprecation strategy, not a silent rename.
+
+The same `ask_user` choice template as §3.3 applies: present 2–4 candidates with one-line rationale each, let the user pick. Bundle multiple rename candidates in one prompt when reviewing a single file, but ask one prompt per file (don't bundle across files — the user loses track of context).
+
 ### 3.4 Tests and Benchmarks
 
 - **Intent over coverage — the default for every test, new or existing.** Before writing or keeping a test, answer in one sentence: *"What concrete regression in the SUT would make this test fail?"* If the answer is "I can't think of one without changing the test itself", do not write it (or delete it if it already exists). The default is **intent-driven, thorough tests** that exercise real behavior, including the trigger that proves the asserted contract — not coverage-driven filler that pins trivial getters, framework code, language-guaranteed type checks, or "nothing happened" without including the would-be stimulus. Coverage-driven tests are appropriate **only** when the user explicitly asks for "complete code coverage", a coverage sweep, or similar. When a coverage report points at uncovered lines that don't represent real behavior (auto-properties, unreachable defensive branches, generated code), leave them uncovered — a high coverage number built from filler hides the real coverage gaps. When auditing a file you're editing, flag tests that fail this question for deletion or rewrite rather than preserving them out of inertia. See `csharp.instructions.md` for the full audit-and-delete framework, including the deterministic-synchronization rules for tests that wait on async events.
