@@ -68,6 +68,8 @@ The user has no token-budget caps on this work, so always launch the full review
 
 **Do NOT serialize the panel** ("run Claude first, then if it finds nothing run GPT") — that wastes wall-clock time and lets early reviewer framing leak into your assessment of later reviews. Launch all reviewers in one tool-call batch, wait for completions, then synthesize.
 
+**Sub-agents must NEVER prompt the user.** Reviewer / rubber-duck agents run autonomously in the background — the user is typically away from the keyboard. Every panel-prompt must include the explicit instruction: *"Do not call `ask_user` or any other tool that prompts the user. If the task is ambiguous, make a reasonable assumption, document it in your output, and continue. Return findings only."* Sub-agents that block on user input deadlock the panel, defeat the parallel-launch design, and leave the user with no way to make progress when they return. The orchestrator (you) is the only agent allowed to call `ask_user` — collect findings from all sub-agents, then surface decisions to the user yourself.
+
 ### 4. Anti-anchoring rules for reviewer prompts
 
 Do not anchor reviewers on your own framing. Prompts must instruct the reviewer to treat the description of the fix as a hypothesis and independently read the affected types and call sites.
