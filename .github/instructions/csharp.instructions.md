@@ -360,6 +360,7 @@ Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: A
 - Prefer tuple swap.
 - Prefer UTF-8 string literals where applicable.
 - Prefer throw expressions.
+- Use `nameof(X)` over hardcoded identifier strings (log/trace/exception messages, attribute args, debug output) — survives renames; mandatory for any type/member/parameter/namespace name appearing in a string literal.
 - Use discards for unused values.
 
 ### Code Block Preferences
