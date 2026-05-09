@@ -43,7 +43,7 @@ Hard gates (always apply, even if playbook unfetched):
 
 Hard gates:
 
-- Touched-file imports / usings sorted and unused removed.
+- **Pre-commit hygiene cleanup runs whole-solution, not just touched files** — moves and rename refactors leave stale `using`s and over-qualified type references in *consumer* files that the diff doesn't list. Restrict the cleanup to the using/qualifier hygiene diagnostics so it doesn't churn unrelated style (collection initializers, expression preferences, etc.). Touched-file imports / usings sorted and unused removed.
 - **Touched-file least-privilege audit applied.** Trigger: the diff has any **visibility / export / mutability surface delta** — adds a public/exported type or member; widens visibility; removes `sealed` / `final` / closed-extension; adds or widens a constructor / member / setter; exposes a field; changes package / module exports; introduces an exported Go top-level identifier; widens Rust `pub(...)` to bare `pub`. Each such delta is justified by a real same-file / same-asm / cross-asm consumer. Unjustified additions are demoted before the diff is shown. Do NOT trigger on body-only edits to an already-public type that change no surface. Procedure: run `least-privilege-audit.md` (touched-file scope) — applies all 6 axes (type access, sealing/final, ctor visibility, member visibility, setter, field hygiene). The "fresh grep beats cached survey" rule is non-negotiable.
 - Multi-model reviewer panel run **in parallel** (no serializing); consensus reached or all dissents addressed.
 - Diagnosis-verifying benchmark / test re-run; metric moved or test passes.

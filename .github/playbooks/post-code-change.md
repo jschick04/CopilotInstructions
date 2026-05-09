@@ -22,20 +22,24 @@ Bundle these in one prompt:
 
 ## Procedure
 
-### 1. Imports / usings hygiene
+### 1. Imports / usings hygiene — whole-solution, scoped diagnostics
 
-Sort and clean up imports / usings on every touched file before sending the diff for review. Mandatory hygiene step on any file added, modified, or moved — sort imports / usings into the project's canonical order and remove unused ones.
+Run on every commit, before showing the diff. Scope is the **whole solution / workspace**, not just touched files: a file move or namespace change can leave a `using` orphaned or a fully-qualified prefix simplifiable in any consumer of the moved type — including consumers the current diff doesn't list. Skipping unchanged files leaves stale hygiene that the next commit's grep / reviewer will flag.
 
-Use the language's ecosystem tooling for the whole touched set in one pass:
+Restrict the cleanup to the using / qualifier hygiene diagnostics — do **not** run a blanket `dotnet format --severity info` (whole-solution), because it triggers unrelated style fixers (collection-initializer simplification, expression preferences, member ordering, ...) that produce a churn diff and can crash the formatter on unrelated workspace edges.
+
+Use the language's ecosystem tooling for the whole solution / workspace in one pass:
 
 | Language | Command |
 | --- | --- |
-| .NET | `dotnet format --severity info --diagnostics IDE0005 IDE0065` (unused / misplaced usings) plus a sort pass |
+| .NET | `dotnet format style <slnx-or-csproj> --no-restore --severity warn --diagnostics IDE0001 IDE0002 IDE0005 IDE0065` (Simplify name / Simplify member access / Remove unused using / Misplaced using). If the repo's `.editorconfig` does not set these to at least `warning` AND the project does not set `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`, IDE0005 in particular is silent and the cleanup is a no-op. Workaround: append a temporary `dotnet_diagnostic.IDE000{1,2,5,65}.severity = warning` block to `.editorconfig`, run `dotnet format`, restore the original `.editorconfig`, then commit the cleanup separately from the override revert. The proper fix is to add the severity entries (or `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`) to the repo permanently — propose that to the user when the workaround fires twice on the same repo. |
 | TS / JS | `eslint --fix` plus the editor's "Organize Imports" |
 | Python | `ruff check --select I --fix` or `isort` |
 | Java / Kotlin | IntelliJ "Optimize Imports" |
 
-Never commit a file with unsorted, duplicated, or unused imports — reviewers always flag them, and the noise hides real issues in the diff.
+After the cleanup, run the language's verify-no-changes form (`dotnet format --verify-no-changes` for .NET) — if it reports work, the cleanup was incomplete; iterate. Then run build + tests; the cleanup should be functionally inert.
+
+Never commit a file with unsorted, duplicated, unused, or over-qualified imports — reviewers always flag them, and the noise hides real issues in the diff.
 
 ### 2. Touched-file least-privilege audit (6-axis)
 
