@@ -320,7 +320,7 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 
 ### Member Ordering (StyleCop Layout) — mandatory pre-commit
 
-Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: Apply file layout` cleanup profile (only `CSReorderTypeMembers` enabled — no other touches). Invoke: `jb cleanupcode --settings="<path>\ReSharper.DotSettings" --profile="Joe: Apply file layout" --include="<files>" --no-build <solution>` (`JetBrains.ReSharper.GlobalTools` global tool provides `jb`).
+Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: Apply file layout` cleanup profile (`CSReorderTypeMembers` + `CSOptimizeUsings` enabled — sorts/prunes usings as a side effect; no other formatting touched). Invoke: `jb cleanupcode --settings="<path>\ReSharper.DotSettings" --profile="Joe: Apply file layout" --include="<files>" --no-build <solution>` (`JetBrains.ReSharper.GlobalTools` global tool provides `jb`).
 
 **Kind order** (top-to-bottom): Constants → Static fields → Instance fields → Constructors/destructors → Delegates → Events → Enums → Interfaces → Properties → Indexers → Methods → Operators → Nested structs → Nested classes. For Events / Properties / Indexers / Methods: Public group first, then Interface-impl group, then Other group.
 
