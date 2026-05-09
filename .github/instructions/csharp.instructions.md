@@ -301,6 +301,12 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
   - Three+ letter acronyms: PascalCase (`Xml`, `Json`, `Html`).
   - In camelCase context: `userId`, `xmlParser`, `htmlContent`.
 
+### Type Suffix Conventions
+
+Type suffixes carry semantic weight. Pick a suffix only when it conveys information the bare type name cannot — default to no suffix (BCL precedent: `DateTime`, `Uri`, `Stopwatch`). Standard .NET framework suffixes (`Exception`, `Attribute`, `EventArgs`, `EventHandler`, `Async`) remain mandatory per Microsoft Framework Design Guidelines.
+
+- **`Model` suffix:** reserved for *schema/template* types — definitions of what data looks like (provider message templates, DTO shape definitions, ORM entity templates). Runtime/domain types drop the suffix. Examples: `EventModel`/`MessageModel` keep it (they ARE provider message-template definitions); `ResolvedEvent` (was `DisplayEventModel`) drops it (runtime carrier of a resolved event). `Model` is otherwise an MVC convention (`*ViewModel`/`*PageModel`), not a general naming rule. **Review action:** when a `*Model` type is found whose role is runtime state, behavior, or carrying resolved/derived data (not describing data shape), surface a rename suggestion as part of the review — do not let the suffix slip into runtime types unchallenged.
+
 ### Code Formatting
 
 - 4 spaces for indentation (no tabs).
