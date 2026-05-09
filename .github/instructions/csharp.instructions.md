@@ -306,7 +306,8 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 - 4 spaces for indentation (no tabs).
 - File-scoped namespaces.
 - Opening braces on new lines (Allman style).
-- Use `var` only when the type is evident from the right-hand side.
+- Use `var` only when the type is evident from a **non-constructor** right-hand side (LINQ, casts, expressions). For object instantiation use `Type x = new()` — never `var x = new Type()` (RHS type is redundant) or `Type x = new Type()` (type-on-both-sides). The LHS type doubles as documentation; target-typed `new()` drops the redundant repeat.
+- Use collection expressions (`[]`) over `new List<T>()` / `new T[0]` / `Array.Empty<T>()` / `Enumerable.Empty<T>()`. Prefer `List<X> items = [];` and `int[] empty = [];` (target-typed; same LHS-as-documentation rationale as above).
 - Use expression-bodied members when applicable (methods, properties, accessors, constructors, local functions).
 - Require braces for `if`, `for`, `foreach`, `while` statements.
 - No `this.` qualification unless necessary.
@@ -317,22 +318,21 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 - Insert a final newline in every file.
 - Namespace must match folder structure.
 
-### Member Ordering (StyleCop Layout)
+### Member Ordering (StyleCop Layout) — mandatory pre-commit
 
-1. Constants
-2. Static fields
-3. Instance fields
-4. Constructors and destructors
-5. Delegates
-6. Events (public first, then interface implementations, then others)
-7. Enums
-8. Interfaces
-9. Properties (public first, then interface implementations, then others)
-10. Indexers
-11. Methods (public first, then interface implementations, then others)
-12. Operators
-13. Nested structs
-14. Nested classes
+Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: Apply file layout` cleanup profile (only `CSReorderTypeMembers` enabled — no other touches). Invoke: `jb cleanupcode --settings="<path>\ReSharper.DotSettings" --profile="Joe: Apply file layout" --include="<files>" --no-build <solution>` (`JetBrains.ReSharper.GlobalTools` global tool provides `jb`).
+
+**Kind order** (top-to-bottom): Constants → Static fields → Instance fields → Constructors/destructors → Delegates → Events → Enums → Interfaces → Properties → Indexers → Methods → Operators → Nested structs → Nested classes. For Events / Properties / Indexers / Methods: Public group first, then Interface-impl group, then Other group.
+
+**Sort within entry:**
+
+- Public events / properties / indexers / methods: Static → Name.
+- Interface-impl events / properties / indexers / methods: ImmediateInterface → Name.
+- Other events / properties / indexers / methods + Constants / Fields / Enums / Interfaces / Delegates / Operators: Access (Internal → ProtectedInternal → Protected → Private) → Static (where applicable) → Readonly (fields only) → Name.
+- Constructors / destructors: Static → Kind (Constructor → Destructor) → Access. *No name sort.*
+- Nested structs / nested classes: Static → Access → Name.
+
+**Mandatory rename hygiene:** Every rename shifts the member's alphabetical position within its (kind, access, static) bucket. Re-run `Joe: Apply file layout` on touched files before staging, OR move manually. Reviewers (human and bot) flag out-of-position members on sight — most common rename-PR round-N comment. Self-check when the tool is unavailable: list members per access bucket and confirm alphabetical.
 
 ### Expression Preferences
 
@@ -355,7 +355,7 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 - Prefer method group conversion.
 - Prefer simple `default` expression (`default` not `default(T)`).
 - Prefer deconstructed variable declarations.
-- Prefer target-typed `new()` when type is evident.
+- Prefer target-typed `new()` when type is evident — `Type x = new()` over `var x = new Type()` (see Code Formatting above).
 - Prefer inline variable declarations (`out var`).
 - Prefer tuple swap.
 - Prefer UTF-8 string literals where applicable.
