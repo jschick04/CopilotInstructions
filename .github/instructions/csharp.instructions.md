@@ -104,9 +104,21 @@ The universal test-specificity and negative-assertion rules in `AGENTS.md` apply
 - When evaluating a coverage report, ignore the percentage and look at the uncovered lines: are the uncovered lines important behavior? If yes, write tests. If no (auto-property, exception branch that can't be reached, dead code), don't.
 
 **When to evaluate test purpose:**
-- **At authoring:** before writing each test, articulate the regression it would catch in one sentence. If you can't, don't write it.
-- **During every test-mirror / refactor PR:** audit the existing tests in scope. Delete tests that fail the "what regression would this catch" question. Rewrite eager tests as focused tests. Move slow tests out of the unit suite.
+- **At authoring:** before writing each test, articulate the regression it would catch in one sentence. If you can't, don't write it. **Also** name one SUT behavior in scope that does not yet have a test — and decide whether that gap is acceptable for this commit.
+- **During every test-mirror / refactor PR:** audit the existing tests in scope in *both* directions — delete tests that fail the "what regression would this catch" question; AND list every SUT behavior in scope that has no test. Rewrite eager tests as focused tests. Move slow tests out of the unit suite. Surface every observed gap in the PR description or session note.
+- **When porting or decomposing tests** (slice rework, god-object split, file relocation): port verbatim in the mechanical commit so the diff stays reviewable, but capture the gap list in the same commit's session note / reviewer-panel prompts. Propose a follow-up "harden test surface" commit that adds the missing intent-driven tests. Never silently inherit a gap into the new file structure.
 - **When a test breaks during a refactor with no behavior change:** that test was probably testing implementation, not behavior. Fix or delete the test rather than reverting the refactor.
+
+**Test gap audit — missing tests are also defects (the second direction of [Core / Tests and Benchmarks](../../AGENTS.md#34-tests-and-benchmarks)).**
+
+Every time you touch a SUT or its tests, run the audit in *two* directions, not one:
+
+1. **Existing tests → kept or deleted** (covered by the rules above): does each test pin a real regression?
+2. **SUT behaviors → covered or gap**: enumerate every behavior of the SUT in scope (every public/internal entry point, every documented failure path, every boundary, every branch of every `switch`/`if`, every reverse/descending mode, every null-valued or empty input, every integration seam) and ask which of them has *no* test.
+
+The second direction is what catches the high-test-count gaps that hide behind green CI: "we have 11 tests for `SortEvents` ascending and zero for descending", "every reducer has a happy-path test and zero failure-path tests", "we test `MergeSorted` indirectly through one caller and never directly", "every column comparer has an ascending-only test and no null-valued-input test". A 1000-test file with one-direction coverage is *worse* than a 200-test file with two-direction coverage, because the high count gives false confidence and slows the next refactor.
+
+**When code-reviewing a diff that touches tests OR a SUT branch**: do not only ask "is this test correct?" — also ask "does the SUT behavior the diff modifies have any test now? does it have one *that would have failed before the change and now passes*?" If a behavior change has no test with that property, the diff is incomplete (or the author's test is testing the wrong thing). Reviewers must NOT accept "tests pass and coverage didn't drop" as evidence of correctness — that only proves the existing one-direction tests still hold.
 
 ---
 
