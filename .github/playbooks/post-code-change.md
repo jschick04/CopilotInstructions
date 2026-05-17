@@ -53,6 +53,27 @@ Apply all 6 axes (per the playbook): type access, sealing/final, ctor visibility
 
 Skip when the diff has no visibility / export / mutability surface delta. When skipped, record explicitly which condition justified the skip ("diff touched only test fixtures + resource files, no production code", "diff was a body-only edit inside an already-public method").
 
+### 2.5 Touched-file review-recurring-pattern sweep
+
+Run on touched files only — fast greps catching patterns that historically appear in PR reviews (GitHub Copilot, human reviewers) but aren't covered by language-native analyzers or the least-privilege audit. Each item is a single `rg` / grep query; if it returns matches, fix before showing the diff. The point is to make the recurring patterns *deterministically caught*, not encoded as rules the agent has to remember.
+
+**Universal patterns** (apply to all languages):
+
+- **Local variable name shadows the type name (any casing).** Pattern: a single-statement declaration where the LHS identifier matches the RHS type identifier ignoring case (`var Filter = new Filter(...)`, `let user = new User(...)`, `result := Result{...}` when `result` is reused as a variable name within Result's scope). The locals make assertions ambiguous (`Filter.IsX` reads as type access) and shadow the type token. Use a distinguishing name (`filter`, `appliedFilter`, `sut`).
+  - C# rg: `rg --type cs 'var (\w+) = new \1\(' <touched files>` (case-sensitive ASCII match is enough; review the hit manually for the camelCase variant).
+- **Stale identifier after rename.** When a commit message contains "Rename X to Y" / "Rename X → Y" / `X→Y` / file rename `X.* → Y.*`, every occurrence of the OLD identifier in the diff and in same-feature consumer files (tests, comments, log strings, doc crefs) must be renamed too. Two queries: (1) on the touched files, `rg '\bX\b' <files>` — must be empty (or each remaining match must be intentional and commented); (2) on the language's same-feature test directory, `rg '\bX\b' tests/<feature>/` — flag any survivors. Apply to: type names, method names, action / record names, property names, slice / namespace tokens, comment references, log message symbols.
+- **Test class name does not match test file name.** For each new or renamed `*Tests.{cs,ts,py,go}` (or language-equivalent test convention), the top-level test class / suite identifier must match the file basename. Catches "FilterModelTests in SavedFilterTests.cs" drift after a type rename.
+
+**Language-specific additions** (delegated to per-language instructions):
+
+- **C# (.NET / Razor):** see `csharp.instructions.md` *Recurring code smells* for the catalog of patterns to grep beyond the universal three above (e.g., redundant `using NamespaceName;` inside a file whose namespace is `NamespaceName`).
+
+**DI / IoC registration vs smoke-test parity.** When the diff modifies a DI composition extension method (`RegisterUiLibrary`, `AddServices`, `ConfigureServices`, language-equivalent), the matching smoke test that builds the provider and resolves each registered abstraction must be updated in the same commit. Without this, a missing or incorrect registration compiles fine and fails only at app startup.
+
+- Procedure: identify the DI extension touched (`rg 'public static.*IServiceCollection ' <diff>` or grep for `services.AddSingleton<` lines added/removed); locate its smoke test by name convention (`<ExtensionMethodName>Tests.cs` or co-located `Tests/DependencyInjection/*Tests.cs`); for each `services.AddSingleton<IFoo, Foo>` line added, the smoke test must have an `[InlineData(typeof(IFoo))]` (xUnit), `@ParameterizedTest` source (JUnit), `pytest.mark.parametrize` value (pytest), table-test entry (Go), etc.
+- The smoke test should provide stub instances for every *upstream* dependency the registered services need (mock factories / `Substitute.For<...>` / fakes), not just `IDispatcher` / `IServiceProvider`. Letting the provider actually build each abstraction is the whole point of the smoke test — otherwise it only proves the registration line compiles, not that DI can produce an instance.
+- If a registered abstraction transitively depends on a framework-scoped runtime type (e.g., Fluxor's auto-discovered `Effects`), document the exclusion in a comment next to the test and rely on the framework-init test (or production launch) to cover it.
+
 ### 3. Multi-model reviewer panel — run all in parallel
 
 The user has no token-budget caps on this work, so always launch the full reviewer panel **in parallel** (background agents) rather than serially. Iterate, re-running the panel after each fix round, until **all models agree** with no substantive findings.
