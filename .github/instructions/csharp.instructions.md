@@ -184,7 +184,7 @@ Default to the most-restrictive access modifier at every level. Promoting later 
 
 **C#-specific reflection caveats — verify these still work after tightening:**
 
-- **Fluxor** (`[FeatureState]`, `[ReducerMethod]`, `[EffectMethod]`) uses `Assembly.GetTypes()` (not `GetExportedTypes`), so internal types are discovered, but constructor/method visibility still matters — build + dispatcher round-trip after tightening.
+- **Fluxor** (`[FeatureState]`, `[ReducerMethod]`, `[EffectMethod]`) uses `Assembly.GetTypes()` (not `GetExportedTypes`), so internal types are discovered, but constructor/method visibility still matters — build + dispatcher round-trip after tightening. **EffectMethod signature is enforced at registration time:** when `[EffectMethod(typeof(SomeAction))]` is used (the typed form that doesn't infer action type from a parameter), the method MUST take exactly one parameter and it MUST be `IDispatcher` (`public async Task HandleX(IDispatcher dispatcher)`). Fluxor's `EffectMethodInfoFactory` throws `ArgumentException` at host startup if a parameterless signature slips in — unit tests that call the method directly will NOT catch it (they bypass Fluxor's binding). When adding or refactoring an `[EffectMethod(typeof(...))]`, verify the `IDispatcher` parameter is present even when the body doesn't use it.
 - **`System.Text.Json` polymorphism / converters** — works for internal types in the same assembly; verify a round-trip from a consumer assembly when the converter or attribute crosses the assembly boundary.
 - **EF Core** entity / converter discovery — works for internal types. **EF Core `DbContext`** subclasses are usually NOT sealed (runtime proxy generation needs vtable slots).
 - **`Microsoft.Maui.Hosting` / `Microsoft.Extensions.DependencyInjection`** — works for internal types when the registering assembly has visibility (friend asm).
@@ -207,6 +207,7 @@ The audit playbook's hard gate "friend-asm mechanism verified before recommendin
 - `public set` on a property only assigned in the constructor → change to `init`.
 - `public static readonly` field with no consumer outside the assembly → demote to `internal static readonly`.
 - Synthesized record `public` constructor on a type only constructed inside its assembly → demote both the record and its consumers' usage; record primary ctors inherit the record's declared accessibility, so making the record `internal` is enough.
+- **`public sealed record FooAction(...)` for a Fluxor action only dispatched and reduced inside the declaring assembly → should be `internal sealed record FooAction(...)`.** Fluxor's reflection-based discovery works on internal types (it uses `Assembly.GetTypes()`, not `GetExportedTypes()`), so internal actions / reducers / effects are first-class. Cascade caveat: if the action is a method parameter on a `public` Reducer class, demoting the action requires demoting the Reducer class too (CS0051 "inconsistent accessibility"). Tests reference the action by type via `[InternalsVisibleTo]` IVT grant.
 
 ---
 
@@ -333,7 +334,7 @@ The universal smells in `AGENTS.md` (constants single source of truth, list-of-X
 - **Const fields (class-level):** PascalCase (`DefaultTimeout`).
 - **Public/Internal fields:** PascalCase (`CustomerDetails`) — but prefer properties over public fields.
 - **Protected fields:** avoid; use protected properties to maintain encapsulation for derived classes.
-- **Parameters and local variables:** camelCase (`userRecord`, `returnValue`).
+- **Parameters and local variables:** camelCase (`userRecord`, `returnValue`). **Locals must not share an identifier with the type name (any casing variant).** `var Filter = new Filter(...)` is forbidden — the local shadows the type token, makes assertions like `Filter.IsX` ambiguous (type access vs instance member), and reads as a copy-paste oversight on review. Use a distinguishing name (`filter`, `appliedFilter`, `sut`). Same rule applies when the same scope already has a different-typed lowercase `filter` — rename the other local (e.g., `savedFilter` for the `SavedFilter` input) to free `filter` for the type-under-test. Caught deterministically by `post-code-change.md` step 2.5.
 - **Local constants:** camelCase, same as local variables (`maxRetryCount`).
 - **Type parameters:** prefix with `T`, PascalCase (`TResult`).
 - **Abbreviations:**
