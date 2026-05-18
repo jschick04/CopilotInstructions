@@ -1,3 +1,19 @@
+---
+name: ado-task-planning
+description: Use when user wants to draft a NEW Azure DevOps work item or its content (task, story, feature, epic, bug). Produces two paired outputs — a markdown summary + an ADO-field-formatted block (Title / Description / Acceptance Criteria / Definition of Done / Tags). Does NOT modify existing ADO content; for factual questions about existing work items, answer directly without invoking this playbook.
+triggers:
+  - "draft an ADO work item for"
+  - "plan out an ADO task for"
+  - "write up an ADO bug for"
+  - "create the deliverables for"
+  - "draft acceptance criteria for"
+  - "propose acceptance criteria for"
+  - "ADO task for"
+  - "ADO story for"
+  - "ADO feature for"
+  - "acceptance criteria for a new work item"
+---
+
 # Playbook: ADO task planning
 
 ## Purpose

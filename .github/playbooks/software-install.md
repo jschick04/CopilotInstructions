@@ -1,3 +1,16 @@
+---
+name: software-install
+description: Use when user wants to install, upgrade, or uninstall software on the user's machine. Prefers the platform package manager (winget on Windows, brew on macOS, distro native on Linux) over hand-rolled downloads; falls back to vendor bootstrappers and raw binaries with signature / checksum / magic-bytes / version-cross-check verification.
+triggers:
+  - "install"
+  - "upgrade"
+  - "uninstall"
+  - "set up <tool>"
+  - "get <tool> on my machine"
+  - "winget install"
+  - "brew install"
+---
+
 # Playbook: Software install / upgrade / uninstall
 
 ## Purpose

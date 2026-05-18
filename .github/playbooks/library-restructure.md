@@ -1,3 +1,15 @@
+---
+name: library-restructure
+description: Use when user wants to restructure a library or assembly's folder topology (vertical slice + clean-architecture overlay per §3.12), plan growth structure pre-emptively, or de-duplicate methods across consumers. Includes consumer-audit checklist, namespace migration, test-mirror moves, IVT vs public trade-off, and behavior-tracing for de-duplication.
+triggers:
+  - "restructure this library"
+  - "restructure the folder topology"
+  - "plan the structure for"
+  - "de-duplicate this method across"
+  - "consolidate these duplicate methods"
+  - "library restructure for"
+---
+
 # Playbook: Library restructure — VSA topology, growth planning, de-duplication
 
 ## Purpose

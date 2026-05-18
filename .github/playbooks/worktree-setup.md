@@ -1,3 +1,15 @@
+---
+name: worktree-setup
+description: Use when user wants to create, restructure, or repair a git worktree using the single-root + hidden-bare-repo + sibling-checkouts layout. Also use for stacked-PR worktree creation when current work is review-blocked but follow-up work is ready.
+triggers:
+  - "set up worktree"
+  - "hidden bare repo layout"
+  - "create a worktree for"
+  - "stacked worktree for"
+  - "restructure my worktree"
+  - "fix my worktree layout"
+---
+
 # Playbook: Worktree setup
 
 ## Purpose

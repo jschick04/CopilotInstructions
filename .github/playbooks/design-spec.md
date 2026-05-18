@@ -1,3 +1,19 @@
+---
+name: design-spec
+description: Use when user wants to draft a current-state survey, design-change request, or dev design spec for a system, service, or component. Strong-trigger discriminator from codebase-architecture-audit (audit / review / find-debt) — design-spec produces a durable artifact, audit produces a ranked findings list.
+triggers:
+  - "design spec for"
+  - "write up a design for"
+  - "document the current architecture of"
+  - "document what we have in prod for"
+  - "current-state survey for"
+  - "design change request for"
+  - "dev design spec for"
+  - "implementation spec for"
+  - "build spec for"
+  - "architect review of"
+---
+
 # Playbook: Design-spec generation
 
 ## Purpose

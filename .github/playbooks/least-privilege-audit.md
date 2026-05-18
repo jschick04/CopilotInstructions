@@ -1,3 +1,18 @@
+---
+name: least-privilege-audit
+description: Use when user wants an API tightening, visibility audit, access-modifier sweep, or surface-area review on a defined scope (single type / touched-file diff / single project / whole solution / whole monorepo). Cross-language 6-axis checklist with consumer-evidence matrix output. Also invoked automatically by post-code-change (touched-file scope) and pre-pr-push (branch-wide scope) when the diff has a visibility / export / mutability surface delta.
+triggers:
+  - "tighten the API surface for"
+  - "audit visibility on"
+  - "sweep access modifiers in"
+  - "do a least-privilege pass on"
+  - "least-privilege audit of"
+  - "API tightening report for"
+  - "visibility audit of"
+  - "access-modifier matrix for"
+  - "surface area review of"
+---
+
 # Playbook: Least-privilege audit (cross-language)
 
 ## Purpose
