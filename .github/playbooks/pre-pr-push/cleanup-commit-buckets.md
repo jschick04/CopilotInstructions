@@ -17,9 +17,28 @@ Bundle these in one prompt:
 1. **What did the sweep change?** Comment-only deletions / a symbol rename / both? If renames: how many files touched and does any rename cross an interface or change a signature?
 2. **Has this branch been pushed already?** And if yes — only to a personal sandbox no one else watches, OR to a feature branch / draft PR / shared branch that someone else may have pulled?
 
+## Default grouping — coarser is better
+
+Before reaching for the three cleanup-specific buckets below, apply the **default commit grouping**: one commit per **natural unit**. Per-finding micro-commits are appropriate only when each finding has (a) independent rollback semantics OR (b) independent reviewer ownership; otherwise default to coarser bundling. Reviewer panels work better at "diff per natural unit" than at 20 tiny mechanical commits.
+
+**Natural unit definitions** (ordered for non-circular reading — each definition uses only prior-defined terms):
+
+- **File rewrite** — all edits within one file.
+- **SUT family** — all edits to one type and its direct test mirror.
+- **Lens** — all findings from one `codebase-architecture-audit/lens-*.md` sub-file (state-predicates, deferred-mutations, recurring-smells, project-layout, vertical-slice-clean-arch).
+- **Audit category** — union of lens / step / sweep outputs from a single audit run (typically aggregates ≥1 lens plus related findings from non-lens sweeps).
+- **Slice** — all changes within one vertical slice / feature boundary.
+
+**Per-finding micro-commits allowed only when**:
+
+- Each finding has independent **rollback** semantics — reverting one must not require reverting the others.
+- OR each finding has independent **reviewer ownership** — different reviewers are on the hook for different findings (rare; typically only on stacked PRs that distribute review responsibility).
+
+**Staging-sprawl guard**: coarser commits still require **explicit path staging** (`git add <path>`) per `pre-commit.md`'s hard gate. **Never `git add .` / `git add -A` / glob staging.** Coarser does not mean indiscriminate — every path staged must be intentional and justified by the natural-unit grouping above.
+
 ## The three buckets
 
-Pick the **strictest** (numbered most-strict to least-strict — bucket 3 is strictest). When in doubt, escalate one bucket up.
+Pick the **strictest matching bucket** (listed lightest to strictest — bucket 1 is lightest, bucket 3 is strictest). When in doubt, escalate one bucket up.
 
 ### Bucket 1 — No renames anywhere
 

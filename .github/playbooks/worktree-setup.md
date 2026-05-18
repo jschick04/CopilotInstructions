@@ -85,6 +85,27 @@ If the existing repo has local-only branches, custom hooks, uncommitted work, in
 
 When starting work in a worktree, `cd` into the worktree subfolder before running git commands. The bare repo at `<projects-root>\RepoName\.git` is for `git worktree add`/`remove`/`repair` operations only — daily work happens inside the worktree subfolder. Note that `<projects-root>\RepoName\` itself is **not** a worktree — running `git status` from there will error because the folder's `.git` is a bare repo with no working tree.
 
+## Stacked worktrees for stacked PRs
+
+When the current branch is review-blocked but follow-up work is ready to start, **create a new worktree stacked on the current branch** rather than continuing to add commits to the in-review branch. The current branch keeps its review state stable while you make progress on the next change.
+
+**Rule**: do NOT add new-PR commits to the in-review branch. New work goes on a stacked branch in a stacked worktree.
+
+**Branch name template**: `<owner>/<descriptive-name>` (kebab-case for the descriptive segment). The `<owner>` placeholder is intentionally generic — substitute your username, team handle, or whatever owner convention your repo uses. Examples (illustrative only, NOT a hardcoded prefix):
+
+- `<owner>/test-hardening`
+- `<owner>/ui-restructure`
+- `<owner>/phase7-consolidation`
+
+**Procedure**:
+
+1. From the bare repo: `git worktree add ../<new-branch-checkout> -b <owner>/<descriptive-name> <in-review-branch>` (stacks the new branch on top of the in-review branch).
+2. Open the new worktree for the follow-up work.
+3. When the in-review branch lands, rebase the stacked branch onto the merged target (typically `main`).
+4. When opening the stacked PR, set `--base` to the in-review branch (or the merged target, depending on the host's stacked-PR convention).
+
+**Why this matters**: adding new-PR commits to an in-review branch (a) muddies the review (reviewers see both the original change and the follow-up in the same diff), (b) blocks the in-review branch from landing cleanly, and (c) makes amend-safety reasoning harder because the branch now has commits beyond what was reviewed.
+
 ## Caveat — tools that auto-detect `.git`
 
 Some tooling (file watchers, search indexers, some IDE git integrations) walks up to find `.git` and assumes a non-bare repo. With this layout, `<projects-root>\RepoName` has a `.git` directory but no working tree. If a tool misbehaves when opened against the parent folder (rather than against a specific worktree), open it against the worktree subfolder instead.
