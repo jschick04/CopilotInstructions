@@ -25,10 +25,36 @@ Sub-files of a heavy playbook live in a sibling subfolder named after the parent
 
 Every playbook file starts with these sections in this order:
 
+0. **Manifest frontmatter** (trigger-fired playbooks only — domain + utility classifications; phase playbooks skip this section). See *Manifest frontmatter* below.
 1. **Purpose** — one paragraph: when this playbook applies and what it produces.
 2. **Hard gates** (when applicable) — the rules that MUST hold for the phase / artifact to count as completed. Mirrored in `AGENTS.md` so the gate survives playbook-fetch failure (per the fail-closed rule).
 3. **Intake questions** — the questions the agent must ask (or pre-fill from upfront input) as the first executable block, before doing anything else. Bundle independent questions; ask sequentially only when a later question depends on an earlier answer.
 4. **Procedure** — the actual step-by-step. May reference sibling playbooks or other files.
+
+### Manifest frontmatter (trigger-fired playbooks only)
+
+Trigger-fired playbooks (domain + utility classifications) carry YAML frontmatter at the very top of the file:
+
+```yaml
+---
+name: design-spec
+description: Use when user wants to draft a design spec, current-state survey, or implementation spec for a system or service.
+triggers:
+  - "design spec for"
+  - "write up a design for"
+  - "document the current architecture of"
+---
+```
+
+Fields:
+
+- `name`: kebab-case slug; must equal the filename without `.md`. For folder-indexed playbooks (e.g. `least-privilege-audit.md` with sibling `least-privilege-audit/` sub-files), `name` matches the index file's slug.
+- `description`: one paragraph in the form *"Use when user wants to X, mentions Y, or asks for Z"*.
+- `triggers` (optional): list of canonical strong-trigger phrases — **illustrative only**.
+
+**Frontmatter is metadata only.** It does NOT drive initial trigger detection — detection happens before the playbook is fetched. The `AGENTS.md` semantic discriminator (strong / weak / ambiguous artifact-adjacent) is canonical. Frontmatter aids discoverability (humans reading the file directly) and is mirrored into `.github/playbooks/manifest.yaml` for post-classification disambiguation when router rows alone do not distinguish adjacent triggers.
+
+**Phase playbooks** (`pre-implementation.md`, `post-code-change.md`, `pre-commit.md`, `pre-pr-push.md`, `post-pr-review.md`) do NOT use frontmatter — they fire from workflow state, not from trigger detection.
 
 ### Intake-questions rules
 
@@ -65,7 +91,16 @@ Never write to a file before the user has approved the content.
 | **Weak trigger** (exploratory factual question — *"how does X work?"*, *"what do we have in prod for X?"* asked casually) | Agent does NOT block. Optionally adds a single non-blocking sentence: *"I can answer directly, or run the design-spec playbook for a more formal write-up — which do you prefer?"*. |
 | **Phase trigger** (workflow-state-driven, e.g. user just approved a diff) | Agent enters the phase, fetches the playbook, runs intake. **Fail-closed on fetch failure** (per `AGENTS.md` *Fail-closed rule for on-demand playbook fetch*): retry the fetch once for transient errors; if it still fails, ask the user via `ask_user` how to proceed; record an explicit user skip per the User-skip policy ONLY if the user explicitly authorizes one. Do NOT retry more than once without user input. The abbreviated hard-gate checklist in `AGENTS.md` confirms the gate; it does NOT substitute for the playbook procedure. |
 
-The semantic discriminator (artifact-requested vs exploratory-question) is canonical per `AGENTS.md` *Trigger detection — strong vs weak*. Per-playbook strong-trigger phrase lists are illustrative — they help readers recognize the shape of the ask but are not exhaustive and do not override the discriminator.
+The semantic discriminator (artifact-requested vs exploratory-question) is canonical per `AGENTS.md` *Trigger detection — strong vs weak*. Per-playbook strong-trigger phrase lists are illustrative — they help readers recognize the shape of the ask but are not exhaustive and do not override the discriminator. Playbook frontmatter (`description`, `triggers`) and `.github/playbooks/manifest.yaml` are metadata / discoverability aids only — they do NOT drive detection. After AGENTS.md has selected or shortlisted a workflow, the manifest may be consulted for disambiguation prose on adjacent trigger pairs.
+
+## Authoring conventions cross-reference
+
+Conventions that span multiple playbooks plus AGENTS.md, summarized here with pointers to the canonical source:
+
+- **Manifest frontmatter** (trigger-fired playbooks only) — see *Manifest frontmatter (trigger-fired playbooks only)* in the Conventions section above. Metadata only; does not drive trigger detection.
+- **Evidence gates** — structured chat-visible audit output the agent MUST produce before declaring a phase / task complete or before producing an artifact. Every gate output includes: search scope (files / globs / method used), file:line citations for each item counted, and zero-count justification (e.g. "scope X has 0 items per scan command Y") for any audit category that finds nothing. `pre-pr-push.md` state read-back is the documented carve-out — it prints the state predicate verbatim and has no zero-count concept. Applies to: `AGENTS.md` §3.1 comment audit (spec hosted in `post-code-change.md`), cross-cutting findings audit (spec in `multi-model-review/evidence-gate-spec.md`), pre-PR-push state read-back (spec in `pre-pr-push.md`), `post-pr-review.md` per-finding audit, and every new domain playbook's procedure section.
+- **Discoverability manifest** — `.github/playbooks/manifest.yaml` is the sibling-of-the-router index. One entry per trigger-fired playbook with `name`, `path`, `classification` (phase | domain | sub-step | utility), `description`, `triggers`, `status`, optional `discrimination`. Generated / derived from playbook frontmatter — keep it in sync when a playbook's frontmatter changes. Consulted only AFTER the AGENTS.md router has shortlisted a workflow; never drives initial trigger detection.
+- **Multi-model review loop** — `multi-model-review.md` codifies the panel-of-reviewers convergence pattern. Trigger-fired as a domain playbook for plan / design / spec reviews; utility-called by `post-code-change.md`'s multi-model reviewer panel hard gate. Three convergence models selected at intake: unanimous (default), threshold (≥75% READY + 0 unaddressed blocking findings), confidence-weighted (≥80% avg confidence + 0 unaddressed blocking). Max-loop default 5 rounds; escalate via `ask_user` on exceedance. Holdout blocking findings always require explicit `ask_user` routing regardless of convergence model. Sole-NEEDS-reviewer dissent on precise polish (1–2 line fixes, no architectural concern) auto-routes to C2 `routed-deferred` rather than triggering another round — the asymptotic-convergence pattern documented in `multi-model-review/convergence-models.md`.
 
 ## User-skip policy
 
