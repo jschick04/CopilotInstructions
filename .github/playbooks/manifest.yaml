@@ -1,0 +1,375 @@
+# Playbook discoverability manifest
+#
+# Sibling-of-the-router index. Generated / derived from each trigger-fired playbook's frontmatter.
+# Consulted ONLY AFTER the AGENTS.md router has selected or shortlisted a workflow — does NOT
+# drive initial trigger detection. The AGENTS.md semantic discriminator stays canonical for
+# detection. This manifest carries optional `discrimination` prose with examples for ambiguous
+# trigger pairs that router rows alone cannot disambiguate.
+#
+# Keep in sync when a playbook's frontmatter changes. Phase playbooks have no frontmatter
+# (they fire from workflow state, not from trigger detection) — their entries here are
+# authored inline.
+
+playbooks:
+
+  # ─── Phase playbooks (workflow-state-driven; no frontmatter) ───
+
+  - name: pre-implementation
+    path: .github/playbooks/pre-implementation.md
+    classification: phase
+    description: >-
+      Run before any code is written: deepened diagnose procedure
+      (reproduce → minimise → hypothesise → instrument → reproduction-locked),
+      G3 approach-selection gate, G5 safety-critical-skip evaluation, rubber-duck pass.
+    triggers: []
+    status: active
+
+  - name: post-code-change
+    path: .github/playbooks/post-code-change.md
+    classification: phase
+    description: >-
+      Run immediately after code edits land, before showing diff: hygiene cleanup,
+      touched-file least-privilege audit, recurring-pattern sweep, multi-model reviewer panel
+      (via `multi-model-review.md` with unanimous convergence), verify-the-fix, builds + tests.
+    triggers: []
+    status: active
+
+  - name: pre-commit
+    path: .github/playbooks/pre-commit.md
+    classification: phase
+    description: >-
+      Run after user approves the diff: commit ownership, single-line message,
+      no `Co-authored-by` trailer, stage only touched files (`git add <path>`; never glob).
+    triggers: []
+    status: active
+
+  - name: pre-pr-push
+    path: .github/playbooks/pre-pr-push.md
+    classification: phase
+    description: >-
+      Run before pushing for review or opening PR: per-commit comment audit, branch-wide
+      rename-first sweep, branch-wide least-privilege audit (when applicable), 9-field
+      state predicate read-back. INDEX — dispatches to sub-files under `pre-pr-push/`.
+    triggers: []
+    status: active
+
+  - name: post-pr-review
+    path: .github/playbooks/post-pr-review.md
+    classification: phase
+    description: >-
+      Run after PR review comments arrive: verify each finding against source, route via
+      `ask_user` as needed, propose instructions-file delta per fix.
+    triggers: []
+    status: active
+
+  # ─── Domain playbooks (strong-trigger; opt-in via user invocation) ───
+
+  - name: scope-planning
+    path: .github/playbooks/scope-planning.md
+    classification: domain
+    description: >-
+      Light planning before any code is written. Defines problem, users, success criteria,
+      in-scope vs out-of-scope, and constraints. No codebase reading beyond scope validation;
+      technical claims marked `assumed` unless verified later by downstream playbooks.
+    triggers:
+      - "plan this idea"
+      - "scope this out"
+      - "what's the scope"
+      - "scope planning for"
+      - "let's plan before I start"
+      - "before I start coding"
+    status: active
+    discrimination: >-
+      Adjacent to `implementation-planning` and `design-spec`. scope-planning is for the
+      WHAT (problem space) — no codebase reading. implementation-planning is for the HOW
+      (solution space) — reads the codebase. design-spec is for a DURABLE artifact (spec /
+      survey / design change request) — produces a saved doc that survives the session.
+
+  - name: project-vocabulary
+    path: .github/playbooks/project-vocabulary.md
+    classification: domain
+    description: >-
+      Bootstrap or refresh a per-repo vocabulary doc that disambiguates project-specific
+      terms, overloaded concepts, or jargon. Repo-local artifact (NOT always-loaded).
+    triggers:
+      - "create vocabulary doc"
+      - "disambiguate project terms"
+      - "refresh the project vocabulary"
+      - "document the shared vocabulary"
+      - "build a glossary for"
+      - "project glossary"
+    status: active
+
+  - name: implementation-planning
+    path: .github/playbooks/implementation-planning.md
+    classification: domain
+    description: >-
+      Deep planning for a specific code change, codebase-aware. Reads the modules being
+      touched, surfaces missed callers / undocumented decisions / jargon mismatches.
+      Optional enrichment from scope-planning output and a project vocabulary doc.
+      Produces an implementation plan that feeds the pre-implementation phase.
+    triggers:
+      - "plan this change in detail"
+      - "deep planning for"
+      - "ready to design the change"
+      - "implementation plan for"
+      - "design this change"
+    status: active
+    discrimination: >-
+      Middle stage of the planning chain: scope-planning (WHAT) → implementation-planning
+      (HOW) → pre-implementation (verify + rubber-duck). Each fires independently; chain
+      only when the change warrants the depth. Distinct from design-spec — implementation
+      plans are session-scoped chat output, not durable docs.
+
+  - name: system-framing
+    path: .github/playbooks/system-framing.md
+    classification: domain
+    description: >-
+      Layered map (symbol → module → assembly → product surface) + short narrative for
+      unfamiliar code or a proposed change. Used when joining a module, briefing someone,
+      or when the agent's reasoning feels too narrow.
+    triggers:
+      - "explain this in context"
+      - "walk me through how X flows"
+      - "where does this fit in the system"
+      - "system framing for"
+      - "broader context of"
+      - "zoom out on"
+    status: active
+
+  - name: codebase-architecture-audit
+    path: .github/playbooks/codebase-architecture-audit.md
+    classification: domain
+    description: >-
+      Read-only audit of an existing codebase against established practices: state
+      predicates (§3.7), deferred mutations (§3.8), recurring smells (§3.10), project
+      layout (§3.11), vertical-slice + clean-architecture overlay (§3.12). Produces a
+      ranked list of improvement opportunities with file:line citations. Index file;
+      lens sub-files under `codebase-architecture-audit/`.
+    triggers:
+      - "architecture audit for"
+      - "audit my architecture"
+      - "codebase architecture review"
+      - "where is this codebase weak"
+      - "ball-of-mud check"
+      - "find architectural debt"
+    status: active
+    discrimination: >-
+      Adjacent to `design-spec` and `least-privilege-audit`. codebase-architecture-audit
+      produces a ranked FINDINGS LIST (audit / review / find-debt). design-spec produces
+      a DURABLE ARTIFACT (current-state survey / design-change request / dev design spec).
+      `least-privilege-audit` is a NARROWER audit covering only the 6-axis visibility /
+      mutability surface — invoke it specifically when the user asks for API tightening
+      or visibility audit. codebase-architecture-audit's lenses do NOT duplicate the
+      least-privilege axes.
+
+  - name: design-exploration
+    path: .github/playbooks/design-exploration.md
+    classification: domain
+    description: >-
+      Throwaway prototype for design-theory exploration (architectural alternatives, UI
+      variations). Loudly throwaway: folder under `prototypes/<name>/`, canonical header
+      on comment-capable files, sibling README marker for non-commentable, build-isolated,
+      0 production-to-prototype imports, cleanup-or-expiry gate.
+    triggers:
+      - "build a prototype"
+      - "throwaway prototype"
+      - "explore this design"
+      - "design exploration for"
+      - "spike on"
+      - "UI variations to explore"
+    status: active
+    discrimination: >-
+      Companion to `performance-comparison`. design-exploration is for DESIGN THEORIES
+      (architectural alternatives, UI variations) — qualitative trade-offs.
+      performance-comparison is for PERFORMANCE METRICS (latency / throughput /
+      allocations) — quantitative numbers with a benchmark harness. Both share the
+      throwaway-hardening discipline.
+
+  - name: performance-comparison
+    path: .github/playbooks/performance-comparison.md
+    classification: domain
+    description: >-
+      Throwaway prototype with a benchmark harness for performance comparison between
+      alternative implementations. Same throwaway hardening as design-exploration.
+      Mandatory `software-install.md` handoff when benchmark tooling needs install.
+    triggers:
+      - "compare perf of"
+      - "benchmark these approaches"
+      - "perf spike on"
+      - "performance comparison for"
+      - "throw together a benchmark"
+      - "measure these alternatives"
+    status: active
+
+  - name: design-spec
+    path: .github/playbooks/design-spec.md
+    classification: domain
+    description: >-
+      Use when user wants to draft a current-state survey, design-change request, or dev
+      design spec for a system, service, or component. Produces a durable artifact saved
+      to a user-approved destination.
+    triggers:
+      - "design spec for"
+      - "write up a design for"
+      - "document the current architecture of"
+      - "document what we have in prod for"
+      - "current-state survey for"
+      - "design change request for"
+      - "dev design spec for"
+      - "implementation spec for"
+      - "build spec for"
+      - "architect review of"
+    status: active
+    discrimination: >-
+      Adjacent to `codebase-architecture-audit`. design-spec produces a DURABLE ARTIFACT
+      (the spec / survey / design change request) — saved to disk. codebase-architecture-audit
+      produces a RANKED FINDINGS LIST — chat output that becomes follow-up changes through
+      the phase playbook chain.
+
+  - name: ado-task-planning
+    path: .github/playbooks/ado-task-planning.md
+    classification: domain
+    description: >-
+      Use when user wants to draft a NEW Azure DevOps work item or its content
+      (task / story / feature / epic / bug). Produces two paired outputs — a markdown
+      summary + an ADO-field-formatted block (Title / Description / Acceptance Criteria /
+      Definition of Done / Tags).
+    triggers:
+      - "draft an ADO work item for"
+      - "plan out an ADO task for"
+      - "write up an ADO bug for"
+      - "create the deliverables for"
+      - "draft acceptance criteria for"
+      - "propose acceptance criteria for"
+      - "ADO task for"
+      - "ADO story for"
+      - "ADO feature for"
+      - "acceptance criteria for a new work item"
+    status: active
+    discrimination: >-
+      Factual questions about EXISTING ADO content (*"what acceptance criteria does the
+      parent feature use?"*, *"what's our team's definition of done?"*) do NOT fire this
+      playbook. Answer directly. This playbook fires only when the user wants to DRAFT
+      new work-item content.
+
+  - name: worktree-setup
+    path: .github/playbooks/worktree-setup.md
+    classification: domain
+    description: >-
+      Use when user wants to create, restructure, or repair a git worktree using the
+      single-root + hidden-bare-repo + sibling-checkouts layout. Includes stacked-worktree
+      discipline for stacked PRs.
+    triggers:
+      - "set up worktree"
+      - "hidden bare repo layout"
+      - "create a worktree for"
+      - "stacked worktree for"
+      - "restructure my worktree"
+      - "fix my worktree layout"
+    status: active
+
+  - name: software-install
+    path: .github/playbooks/software-install.md
+    classification: domain
+    description: >-
+      Use when user wants to install, upgrade, or uninstall software on the user's machine.
+      Prefers the platform package manager (winget / brew / distro native); falls back to
+      vendor bootstrappers and raw binaries with signature / checksum / magic-bytes /
+      version-cross-check verification.
+    triggers:
+      - "install"
+      - "upgrade"
+      - "uninstall"
+      - "set up <tool>"
+      - "get <tool> on my machine"
+      - "winget install"
+      - "brew install"
+    status: active
+
+  - name: library-restructure
+    path: .github/playbooks/library-restructure.md
+    classification: domain
+    description: >-
+      Use when user wants to restructure a library or assembly's folder topology (vertical
+      slice + clean-architecture overlay per §3.12), plan growth structure pre-emptively,
+      or de-duplicate methods across consumers.
+    triggers:
+      - "restructure this library"
+      - "restructure the folder topology"
+      - "plan the structure for"
+      - "de-duplicate this method across"
+      - "consolidate these duplicate methods"
+      - "library restructure for"
+    status: active
+
+  - name: least-privilege-audit
+    path: .github/playbooks/least-privilege-audit.md
+    classification: domain
+    description: >-
+      Use when user wants an API tightening, visibility audit, access-modifier sweep, or
+      surface-area review on a defined scope. Cross-language 6-axis checklist with
+      consumer-evidence matrix output. Index file; axis sub-files under
+      `least-privilege-audit/`. Also invoked automatically by post-code-change
+      (touched-file scope) and pre-pr-push (branch-wide scope) when the diff has a
+      visibility / export / mutability surface delta.
+    triggers:
+      - "tighten the API surface for"
+      - "audit visibility on"
+      - "sweep access modifiers in"
+      - "do a least-privilege pass on"
+      - "least-privilege audit of"
+      - "API tightening report for"
+      - "visibility audit of"
+      - "access-modifier matrix for"
+      - "surface area review of"
+    status: active
+    discrimination: >-
+      NARROWER than `codebase-architecture-audit`. least-privilege-audit covers ONLY the
+      6 visibility / mutability axes (type access, sealing / final, ctor visibility, member
+      visibility, setter, field hygiene) plus the G6 dead-code default-delete clause.
+      codebase-architecture-audit's lenses cover state predicates (§3.7), deferred mutations
+      (§3.8), recurring smells (§3.10), project layout (§3.11), and vertical-slice + clean
+      architecture (§3.12) — no overlap with the LPA axes.
+
+  # ─── Sub-step (auto-fires within a phase) ───
+
+  - name: intent-driven-testing
+    path: .github/playbooks/intent-driven-testing.md
+    classification: sub-step
+    description: >-
+      Phase-sub-step that operationalizes AGENTS.md §3.4 (intent over coverage; gap audit
+      in both directions). Two firing behaviors — prospective in pre-implementation (when
+      implementation-planning emits non-empty `behaviors_to_cover`) and retrospective in
+      post-code-change (when the diff has new test files or SUT branch / API delta).
+      Inherits §3.4 checklist verbatim.
+    triggers:
+      - "use TDD"
+      - "intent-driven testing"
+      - "red-green-refactor"
+      - "test-first loop"
+      - "let's write tests first"
+      - "tracer bullet"
+    status: active
+
+  # ─── Utility (callable by other playbooks; also trigger-fired domain) ───
+
+  - name: multi-model-review
+    path: .github/playbooks/multi-model-review.md
+    classification: domain
+    utility_callable: true
+    description: >-
+      Panel-of-reviewers convergence pattern. ≥3 reviewers across model families, mandatory
+      VERDICT line per reviewer, three convergence models (unanimous default / threshold
+      ≥75% / confidence-weighted ≥80%), max-loop escalation. Trigger-fired as a domain
+      playbook for plan / design / spec reviews; ALSO utility-called by
+      `post-code-change.md`'s multi-model reviewer panel hard gate (the `utility_callable`
+      flag marks this dual role). Index file; sub-files under `multi-model-review/`.
+    triggers:
+      - "multi-model review for"
+      - "review panel on"
+      - "panel review of"
+      - "run the reviewer panel"
+      - "convergence review"
+      - "cross-model critique"
+    status: active
