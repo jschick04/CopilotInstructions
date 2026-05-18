@@ -13,6 +13,7 @@ Fires when the user is preparing to push for code review — opening a PR, reque
 - **Branch-wide least-privilege audit** run when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as `post-code-change.md`'s touched-file gate) across the branch. Procedure: `.github/playbooks/least-privilege-audit.md` with branch-wide scope restricted to the projects touched. Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. **Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended** (so the audit sees the final branch state, not a sweep-mutated working tree). Fresh-source-search at audit time; per-commit classifications from earlier in the branch are stale by the time the branch is push-ready.
 - **PR title + body free of internal plan markers.** Before invoking `gh pr create` / `gh pr edit`, re-read the title + body and strip any session-internal references: plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`, etc.), session file paths (`files/foo-audit.md`, `aa2fde9c/plan.md`), upstream commit SHAs that won't survive a rebase, or stage / phase markers from the agent's internal task tracker. The audience is the public repo, not the agent's planning workspace; the title + body must stand on their own. Concrete patterns that have leaked in past PRs and were caught only post-open: `"... (T1)"` suffix, `"Carries out the T1 audit from files/f3-test-quality-audit.md"`, `"... already shipped upstream by d3fcfa9"`. **Use the SUT names, the behavior change, and the test count delta** — never the internal phase IDs.
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
+- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim — structured chat block enumerating the 9-field state predicate + sandbox-confirmation informational field (10 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
 - No "ready to push" claim until per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
 ## Pre-check: is this push intended for review at all?
@@ -121,6 +122,26 @@ Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical
 - `rerunConditionsChecked`— `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases — `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
 
 Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
+
+### Evidence-gate output before declaring "ready"
+
+Print the state-predicate read-back as a structured chat block before claiming ready — the 9 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (10 lines total in the block; the field set is referred to as the "9-field state predicate" in `AGENTS.md` and the sandbox-confirmation field is the always-present informational tenth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` — state read-back prints state verbatim; there is no audit-count concept here).
+
+```
+Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
+- isFirstReviewExposurePush: <true | false>
+- remoteExposureExists: <true | false>
+- baseRef: <e.g., origin/main>
+- baseSha: <40-char SHA at sweep time>
+- sweepHeadSha: <40-char SHA at sweep time>
+- perCommitAuditCoverage: { <SHA>: <done | skipped-with-reason | not-run>, ... } — must be `done` or `skipped-with-reason` for every commit
+- branchWideSweepStatus: <one of 8 enum values per AGENTS.md Phase-state tracking convention>
+- cleanupBucketOutcomes: <list of (bucket, commit-sha, amend-safety-result) tuples; empty when no cleanup>
+- sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
+- rerunConditionsChecked: <true | false | n/a-first-push | n/a-sandbox-exit>
+```
+
+Any "ready" claim that lacks this structured output is a workflow violation per `AGENTS.md` cross-cutting findings audit rule. Re-confirm every field by reading session todos before emitting — values inferred from memory are NOT acceptable.
 
 ## When the user explicitly skips a pre-PR-push step
 

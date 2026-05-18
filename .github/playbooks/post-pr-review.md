@@ -11,6 +11,7 @@ Fires when a PR has been opened and either an automated reviewer (GitHub Copilot
 - Each bot finding verified against source before applying / dismissing.
 - Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
 - Instructions-file delta proposed for each fixed comment (project-agnostic).
+- **Per-finding C2-status-enum audit emitted** at the end of the review pass (see step 6) — structured chat block listing each finding with its disposition (`fixed | routed-now | routed-deferred | dismissed-source-grounded`), the citation backing the disposition, and `subagent_ask_user_calls=0` confirmation.
 
 ## Intake questions
 
@@ -65,11 +66,27 @@ Use illustrative placeholder names (`UserSessionCache`, `customerName`, `Logging
 
 Same applies to the rubber-duck or code-review prompts you're proposing as templates — strip project specifics before promoting them into an instructions file.
 
-### 6. Audit before declaring done
+### 6. Audit before declaring done — evidence-gate output
 
 Re-read every sub-agent response and PR comment in this iteration. Confirm every distinct finding has either (a) been fixed in the diff, (b) been pushed back on with justification, or (c) been routed through an `ask_user` call this turn.
 
 If any finding is in none of those buckets, route it via `ask_user` before reporting "ready to push the review-response commit".
+
+**MANDATORY EVIDENCE-GATE OUTPUT** (same C2 status enum as `multi-model-review/evidence-gate-spec.md` *C2 findings audit format*). Emit before claiming ready:
+
+```
+PR review audit: <N> findings total this iteration.
+- <source bot / reviewer + comment id>: <finding summary>: status=<fixed | routed-now | routed-deferred | dismissed-source-grounded>: <citation per status>.
+- (one bullet per finding)
+- subagent_ask_user_calls=0 (orchestrator-only routing verified per AGENTS.md cross-cutting rule).
+```
+
+**Status definitions** (canonical in `multi-model-review/evidence-gate-spec.md`; reproduced here for context):
+
+- `fixed` — finding addressed by an edit in the response commit. **Citation**: `file:line` of the change.
+- `routed-now` — finding routed via `ask_user`; user decided in this turn. **Citation**: `ask_user` call ref + user decision summary.
+- `routed-deferred` — finding deferred to a future PR / session / external work item. **Citation**: issue tracker URL / session note path / external record id. NOT acceptable: deferral with no external record.
+- `dismissed-source-grounded` — finding refuted by evidence from source. **Citation**: source location (`file:line`, doc URL, RFC, ADR) refuting the finding. NOT acceptable: *"out of scope per reviewer"* without source grounding.
 
 ### 7. Apply pre-PR-push rules to the review-response push
 

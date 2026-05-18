@@ -9,6 +9,7 @@ After implementation, run the import / using hygiene pass, the touched-file recu
 - Touched-file imports / usings sorted and unused removed.
 - **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility / export / mutability surface delta** — adds a public/exported type or member; widens visibility; removes `sealed`/`final`/closed-extension; adds or widens a constructor/member/setter; exposes a field; changes package/module exports. Do NOT trigger on body-only edits to an already-public type that change no surface.
 - **Touched-file review-recurring-pattern sweep run with explicit findings count reported** (see step 2.5). MANDATORY on every commit-bound change — silent skip is the failure mode this gate exists to prevent.
+- **§3.1 comment audit evidence-gate output emitted** (see step 2.6) before the diff is shown — structured chat block enumerating every NEW comment line with one-line justifications per the §3.1 self-review pass rule.
 - Multi-model reviewer panel run via `multi-model-review.md` (utility-called by this phase) with `unanimous` convergence model; cumulative log shows convergence reached with 0 unaddressed blocking findings and `subagent_ask_user_calls=0` per round.
 - Diagnosis-verifying benchmark / test re-run; metric moved or test passes.
 - Affected builds + tests pass.
@@ -95,6 +96,23 @@ Step 2.5 sweep: ran, <N> findings.
 
 - **C# (.NET / Razor):** see `csharp.instructions.md` *Recurring code smells* for the catalog of patterns to grep beyond the universal patterns above (e.g., `using NamespaceName;` inside a file whose namespace is `NamespaceName` — `rg '^using ([\w.]+);' <touched .cs files>` cross-referenced against each file's `namespace X;` declaration).
 
+### 2.6 §3.1 Comment audit evidence gate
+
+Run the §3.1 comment-audit evidence gate before the multi-model panel kicks off (step 3). The audit happens BEFORE the diff is shown to the user, matching §3.1's "Mandatory self-review pass before showing diff" rule.
+
+**Note on scope**: this evidence gate is chat audit output — NOT §3.1-governed source-code comments. §3.1's hygiene rules apply to comments IN the source code; this audit produces a structured chat-visible report ABOUT those comments. The two never collide.
+
+**MANDATORY OUTPUT REQUIREMENT.** Same discipline as step 2.5: no silent skip. The agent MUST emit this output before showing the diff:
+
+```
+Comment audit: scope=<files in diff>, <N> new comment lines in diff, <J> justified, <D> deleted.
+- <file:line>: <justification matching one of §3.1's 3 allowed cases ("non-obvious invariant" / "external constraint" / "deliberate trade-off")> OR "deleted"
+- (one bullet per new comment line in the diff)
+- Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD | grep '^+\s*\(//\|#\|/\*\)'`" (or equivalent language-specific pattern).
+```
+
+**Throwaway-marker exception** (per `design-exploration.md` / `performance-comparison.md`): when a comment in the diff is the canonical `THROWAWAY: <prototype-name>` header on a comment-capable file under `prototypes/<name>/`, it is justified under the narrow §3.1 exception clause hosted by those two playbooks. Cite the playbook in the justification (e.g., `// THROWAWAY: lock-vs-lockfree-queue → justified per design-exploration.md narrow §3.1 exception (folder + file header marker; load-bearing, not narrative)`).
+
 ### 3. Multi-model reviewer panel (via `multi-model-review.md`)
 
 Run the panel via `multi-model-review.md` with the following post-code-change invocation parameters:
@@ -137,6 +155,8 @@ Sub-agent findings outside the immediate scope are routed via `ask_user` per the
 
 The benchmark / test from `pre-implementation.md` must show the expected delta (perf) or pass (functional). If the metric didn't move, the change is a no-op — revert and re-diagnose. Do not paper over a no-op fix with reviewer agreement.
 
+**Intent-driven testing retrospective dispatch**: if the diff contains new test files OR a production SUT branch / public API delta vs the prior commit, `intent-driven-testing.md` (retrospective mode) fires as a phase sub-step — produces the Test-loop audit evidence-gate output (Direction A regression-pinning + Direction B gap list) per that playbook. Surfaces gaps as C2 follow-up candidates; does NOT fail this phase for missing tests on a mechanical-port commit.
+
 ### 7. Run affected builds and tests
 
 All must pass before proceeding to `pre-commit.md`. If a test fails:
@@ -144,9 +164,9 @@ All must pass before proceeding to `pre-commit.md`. If a test fails:
 - If the test is a regression caused by your change: fix it (return to step 3).
 - If the test was failing before your change (pre-existing): route via `ask_user` per the *Pre-existing issues* cross-cutting rule in `AGENTS.md` §1 — never silently fix it as part of this change.
 
-### 7. Audit before declaring done
+### 8. Audit before declaring done
 
-Immediately before reporting "ready for diff review" / "all reviewers agree" / "no remaining issues," re-read every sub-agent response from this task and confirm that every distinct finding (regardless of severity or scope label) has either (a) been fixed in the diff, or (b) been routed through an `ask_user` call this turn. If any finding is in neither bucket, stop and route it through `ask_user` first.
+Immediately before reporting "ready for diff review" / "all reviewers agree" / "no remaining issues," re-read every sub-agent response from this task and confirm that every distinct finding (regardless of severity or scope label) has been routed via the canonical C2 status enum per `multi-model-review/evidence-gate-spec.md`: (a) `fixed` (citation: file:line of the change in this diff), (b) `routed-now` (citation: `ask_user` call ref + user decision summary), (c) `routed-deferred` (citation: external record — session-todo id / issue URL / tracker entry), or (d) `dismissed-source-grounded` (citation: source location refuting the finding). Emit the C2 audit output (see `multi-model-review/evidence-gate-spec.md` C2 findings audit format, including the zero-count form when N=0) with `subagent_ask_user_calls=0` confirmation. If any finding is in none of the four C2 buckets, stop and route it via `ask_user` first.
 
 ## Next phase
 
