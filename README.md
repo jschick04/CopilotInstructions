@@ -15,21 +15,51 @@ CopilotInstructions/
 │   │   ├── html.instructions.md                        # HTML / Razor / cshtml markup
 │   │   └── css.instructions.md                         # CSS / SCSS / SASS / LESS
 │   └── playbooks/                                      # NOT auto-loaded — agent fetches on demand per phase / trigger
-│       ├── README.md                                   # folder convention + required playbook structure (Purpose / Hard gates / Intake / Procedure)
-│       ├── pre-implementation.md                       # diagnose + rubber-duck (was AGENTS.md §1 steps 1–2)
-│       ├── post-code-change.md                         # multi-model review + verify + tests (was steps 3–6)
-│       ├── pre-commit.md                               # diff approval + commit hygiene (was steps 7–8)
-│       ├── pre-pr-push.md                              # INDEX — runs intake then dispatches to sub-files (was step 9)
-│       ├── pre-pr-push/                                # heaviest playbook split into 4 sub-files
-│       │   ├── per-commit-micro-hygiene.md             # per-commit comment audit
-│       │   ├── branch-wide-sweep.md                    # branch-wide rename-first sweep
-│       │   ├── cleanup-commit-buckets.md               # 3-bucket cleanup commit strategy
-│       │   └── when-to-re-run-sweep.md                 # re-run rules after merges / rebases / amends
-│       ├── post-pr-review.md                           # pr-review iteration + instructions delta (was step 10)
-│       ├── worktree-setup.md                           # was AGENTS.md §9
-│       ├── software-install.md                         # was AGENTS.md §10
-│       ├── design-spec.md                              # ask-first design-spec generator (current-state survey, design-change request, or dev design spec)
-│       ├── ado-task-planning.md                        # ask-first ADO work-item planning generator
+│       ├── README.md                                   # folder convention + required playbook structure (frontmatter / Purpose / Hard gates / Intake / Procedure) + evidence-gate / manifest / multi-model-review cross-reference
+│       ├── manifest.yaml                               # discoverability index — generated/derived from playbook frontmatter; consulted AFTER router shortlists; never drives initial detection
+│       ├── pre-implementation.md                       # deepened diagnose + G3 approach-selection + G5 safety-critical-skip + rubber-duck (phase)
+│       ├── post-code-change.md                         # hygiene + LPA + recurring-pattern sweep + §3.1 comment audit gate + multi-model-review (utility) + verify-the-fix + builds/tests (phase)
+│       ├── pre-commit.md                               # diff approval + commit hygiene (phase)
+│       ├── pre-pr-push.md                              # INDEX — runs intake then dispatches to sub-files (phase)
+│       ├── pre-pr-push/                                # heaviest phase playbook split into 4 sub-files
+│       │   ├── per-commit-micro-hygiene.md
+│       │   ├── branch-wide-sweep.md
+│       │   ├── cleanup-commit-buckets.md               # natural-unit grouping default (G2) + 3 cleanup buckets + staging-sprawl guard
+│       │   └── when-to-re-run-sweep.md
+│       ├── post-pr-review.md                           # bot-finding audit + C2 status enum + instructions delta (phase)
+│       ├── worktree-setup.md                           # hidden-bare + sibling-checkouts layout + stacked-worktree-for-stacked-PR discipline (G7)
+│       ├── software-install.md                         # platform-package-manager-first install + fallbacks
+│       ├── design-spec.md                              # current-state survey / design-change request / dev design spec (durable artifact)
+│       ├── ado-task-planning.md                        # ADO work-item content (markdown summary + ADO-field block)
+│       ├── library-restructure.md                      # VSA topology + growth planning + de-duplication
+│       ├── least-privilege-audit.md                    # 6-axis index — fires from post-code-change (touched) / pre-pr-push (branch-wide) / strong trigger
+│       ├── least-privilege-audit/                      # 6 axis sub-files (Axis 1 hosts G6 dead-code default-delete with exported-API + predicate-field carve-outs)
+│       │   ├── axis-1-type-access.md
+│       │   ├── axis-2-sealing-finality.md
+│       │   ├── axis-3-ctor-visibility.md
+│       │   ├── axis-4-member-visibility.md
+│       │   ├── axis-5-setter-visibility.md
+│       │   └── axis-6-field-hygiene.md
+│       ├── scope-planning.md                           # light planning before any code (problem / users / success / scope / constraints)
+│       ├── project-vocabulary.md                       # per-repo vocabulary doc bootstrap / refresh
+│       ├── implementation-planning.md                  # deep codebase-aware planning for a specific code change; output feeds pre-implementation
+│       ├── system-framing.md                           # symbol → module → assembly → product surface map
+│       ├── intent-driven-testing.md                    # phase-sub-step — operationalizes §3.4 (prospective in pre-impl, retrospective in post-code-change)
+│       ├── codebase-architecture-audit.md              # 5-lens read-only audit index (NOT a durable design doc)
+│       ├── codebase-architecture-audit/                # 5 lens sub-files for §3.7 / §3.8 / §3.10 / §3.11 / §3.12
+│       │   ├── lens-state-predicates.md
+│       │   ├── lens-deferred-mutations.md
+│       │   ├── lens-recurring-smells.md
+│       │   ├── lens-project-layout.md
+│       │   └── lens-vertical-slice-clean-arch.md
+│       ├── design-exploration.md                       # throwaway prototype (design alternatives / UI variations)
+│       ├── performance-comparison.md                   # throwaway benchmark prototype + mandatory software-install.md handoff
+│       ├── multi-model-review.md                       # panel-of-reviewers convergence (index) — domain trigger + utility-called by post-code-change
+│       ├── multi-model-review/                         # intake / procedure / convergence-models / evidence-gate-spec (incl. C2 status enum)
+│       │   ├── intake.md
+│       │   ├── procedure.md
+│       │   ├── convergence-models.md
+│       │   └── evidence-gate-spec.md
 │       └── templates/                                  # skeleton / example reference files
 │           ├── current-state-survey.md
 │           ├── design-change-request.md
@@ -69,27 +99,49 @@ Quick reference for what's in `.github/playbooks/`. Each file is loaded only whe
 
 | Playbook | Fires when | Produces |
 | --- | --- | --- |
-| `pre-implementation.md` | Phase trigger — code edit requested before any implementation | Verified diagnosis + rubber-duck-reviewed plan |
-| `post-code-change.md` | Phase trigger — files modified, diff not yet shown | Multi-model reviewer panel results + verified-the-fix delta + clean build/tests |
+| `pre-implementation.md` | Phase trigger — code edit requested before any implementation | Deepened diagnosis (reproduce → minimise → hypothesise → instrument → reproduction-locked) + G3 approach-selection + G5 safety-critical-skip evaluation + rubber-duck-reviewed plan |
+| `post-code-change.md` | Phase trigger — files modified, diff not yet shown | Hygiene cleanup + touched-file LPA + recurring-pattern sweep + §3.1 comment audit gate + `multi-model-review.md` panel + verify-the-fix + builds/tests |
 | `pre-commit.md` | Phase trigger — user approved diff | Single-line commit (per `AGENTS.md` §2), no `Co-authored-by` trailer |
-| `pre-pr-push.md` (INDEX) | Phase trigger — user asks to push, open PR, or request review | Per-commit audit + branch-wide rename-first sweep + bucket-routed cleanup commits + recorded 9-field state predicate (10th informational field for sandbox-confirmation outcome) |
+| `pre-pr-push.md` (INDEX) | Phase trigger — user asks to push, open PR, or request review | Per-commit audit + branch-wide rename-first sweep + branch-wide LPA + state read-back of 9-field predicate before "ready" |
 | `pre-pr-push/per-commit-micro-hygiene.md` | Sub-trigger — per-commit comment audit needed | Audited / amended commit + `perCommitAuditCoverage` entry |
 | `pre-pr-push/branch-wide-sweep.md` | Sub-trigger — first push intended for review | Sweep evidence (base SHA + head SHA + base ref) recorded |
-| `pre-pr-push/cleanup-commit-buckets.md` | Sub-trigger — sweep produced changes | Bucket-1 amend / Bucket-2 single-scope rename amend (with full-repo grep verification) / Bucket-3 separate-commit cross-boundary rename + amend-safety matrix routing |
-| `pre-pr-push/when-to-re-run-sweep.md` | Sub-trigger — subsequent push on a branch already swept | Re-run decision + copy-forward of prior 9-field state |
-| `post-pr-review.md` | Phase trigger — PR exists / review comments present | Verified-against-source bot finding responses + proposed instructions delta per fix |
-| `design-spec.md` | Strong trigger — *"design spec for…"* / *"current-state survey"* / *"design change request"* / *"dev design spec"* / *"implementation spec"* / *"build spec"* / *"architect review"* | One of three modes — Current-State Survey (what's there), Design-Change Request (what should change and why), or Dev Design Spec (how the approved change will be built / deployed / observed / tested) — markdown rendered in chat first; saved to chosen destination only after user approval |
-| `ado-task-planning.md` | Strong trigger — *"ADO task / story / work item for…"* / *"acceptance criteria"* / *"definition of done"* / *"draft an ADO …"* | Two paired outputs — structured markdown summary + paste-ready ADO-field block (Title / Description / AC / DoD / Tags + per-type extras for Bug / Story / Task / Feature / Epic) |
-| `worktree-setup.md` | Strong trigger — *"set up worktree"* / *"hidden bare repo layout"* | Hidden-bare + sibling-checkouts layout per `AGENTS.md` §9 |
-| `software-install.md` | Phase trigger — install / upgrade / uninstall request | Platform-package-manager-first install (winget / brew / apt / dnf / pacman) with vendor-bootstrapper fallback (signature + magic-bytes + embedded-version-metadata gate) and raw single-file binary fallback (provenance + signed checksum + magic bytes + post-install `--version` cross-check) |
+| `pre-pr-push/cleanup-commit-buckets.md` | Sub-trigger — sweep produced changes | Default-coarser grouping (file / SUT family / lens / audit category / slice) + 3 cleanup buckets + staging-sprawl guard |
+| `pre-pr-push/when-to-re-run-sweep.md` | Sub-trigger — subsequent push on a branch already swept | Re-run decision + copy-forward of prior state |
+| `post-pr-review.md` | Phase trigger — PR exists / review comments present | Verified bot finding responses + C2-status-enum per-finding audit + instructions delta |
+| `design-spec.md` | Strong trigger — design spec / current-state survey / design-change request / dev design spec | Markdown rendered in chat first; saved to chosen destination only after user approval |
+| `ado-task-planning.md` | Strong trigger — ADO task / story / work item drafting | Markdown summary + paste-ready ADO-field block |
+| `worktree-setup.md` | Strong trigger — worktree setup / stacked-PR worktree | Hidden-bare + sibling-checkouts layout; `<owner>/<descriptive-name>` branch convention for stacked PRs |
+| `software-install.md` | Phase trigger — install / upgrade / uninstall request | Platform-package-manager-first install with vendor-bootstrapper + raw-binary fallbacks |
+| `library-restructure.md` | Strong trigger — folder topology restructure / growth planning / de-duplication | VSA topology + clean-arch overlay per §3.12 |
+| `least-privilege-audit.md` + `least-privilege-audit/` | Phase trigger (post-code-change touched / pre-pr-push branch-wide) + strong trigger | Per-type matrix across 6 axes with consumer evidence; G6 dead-code default-delete clause in Axis 1 (with exported-API + predicate-field carve-outs) |
+| `scope-planning.md` | Strong trigger — light planning before any code | Q&A summary (problem / users / success / scope / constraints) feeding `implementation-planning.md` |
+| `project-vocabulary.md` | Strong trigger — per-repo vocabulary doc bootstrap / refresh | Repo-local glossary with stable `### <Term>` headings (NOT always-loaded) |
+| `implementation-planning.md` | Strong trigger — deep codebase-aware planning | Implementation plan + decision records + `behaviors_to_cover` (triggers `intent-driven-testing.md` prospective mode) |
+| `system-framing.md` | Strong trigger — explain code in context | Layered map (symbol → module → assembly → product surface) + narrative |
+| `intent-driven-testing.md` | Phase-sub-step — auto-fires when `behaviors_to_cover` non-empty OR diff has test / SUT delta | Prospective one-test-then-implement loop OR retrospective gap audit; inherits §3.4 checklist |
+| `codebase-architecture-audit.md` + `codebase-architecture-audit/` | Strong trigger — read-only audit | Ranked findings list across 5 lenses (§3.7 / §3.8 / §3.10 / §3.11 / §3.12); each picked proposal becomes a normal change through phase playbooks |
+| `design-exploration.md` | Strong trigger — throwaway design prototype | Working variants + decision log; throwaway-hardening (folder + header + build-isolation + 0 production imports + cleanup gate) |
+| `performance-comparison.md` | Strong trigger — throwaway benchmark prototype | Variants + benchmark metric + delta + decision log; mandatory `software-install.md` handoff when tooling needs install |
+| `multi-model-review.md` + `multi-model-review/` | Strong trigger (panel review) + utility-called by `post-code-change.md` panel hard gate | ≥3 reviewers across model families with mandatory `VERDICT:` per reviewer; 3 convergence models (unanimous / threshold ≥75% / confidence ≥80%); max-loop escalation; C2 status enum for findings dispositions |
 
 Cross-cutting (not playbooks — always-loaded in `AGENTS.md`):
 
-- **Trigger detection** (strong vs weak) — strong triggers offer the playbook via `ask_user`; weak triggers append a non-blocking sentence offering it.
-- **Ask-first principle** — every playbook's first executable block is an Intake Questions section; the agent runs intake before producing any output.
-- **User-skip policy** — explicit skips are warned, recorded in canonical session todos, and enumerated in any "ready to commit / push" message; safety-critical skips require re-confirmation.
-- **Phase-state tracking convention** — every phase entry records `phase`, `time_entered`, `intake_status`, `playbook_viewed`, plus per-phase additional fields (e.g. the 9-field pre-PR-push state predicate plus the informational `sandboxPriorExposureConfirmation`).
-- **Output-write ordering** — documentation playbooks render the draft in chat first, save to destination only after user approval.
+- **Trigger detection** — strong triggers offer the playbook via `ask_user`; weak triggers append a non-blocking offer. Frontmatter + `manifest.yaml` are metadata aids; the router governs detection.
+- **Evidence-gate pattern** — structured chat-visible audit output (scope + file:line citations + zero-count justification) required for §3.1 comment audit, cross-cutting findings audit (C2 status enum), pre-PR-push state read-back (carve-out from zero-count — state printed verbatim), post-pr-review per-finding audit, and every new domain playbook's procedure section.
+- **Ask-first principle** — every playbook's first executable block is Intake Questions.
+- **User-skip policy** — explicit skips warned + recorded; safety-critical skips require re-confirmation. G5 augments the safety-critical set with public-API / folder-restructure / test-migration triggers + ≥3-of-N softer signals.
+- **Phase-state tracking** — every phase entry records `phase`, `time_entered`, `intake_status`, `playbook_viewed`, plus per-phase additional fields (e.g. the 9-field pre-PR-push state predicate).
+- **Output-write ordering** — documentation playbooks render the draft in chat first.
+
+## Manifest frontmatter, evidence gates, manifest.yaml, multi-model review loop, sharpened defaults
+
+This repo introduces five cross-cutting patterns layered on top of the existing phase + topic-file architecture. Each is detailed in `.github/playbooks/README.md` *Authoring conventions cross-reference*:
+
+- **Manifest frontmatter** on trigger-fired playbooks (`name` + `description` + optional `triggers`) — metadata only; does NOT drive trigger detection. AGENTS.md semantic discriminator stays canonical.
+- **Evidence gates** — structured chat-visible audit output (with scope + citations + zero-count justification) required before declaring a phase / task complete or producing an artifact. Applied to §3.1 comment audit, cross-cutting findings audit, pre-PR-push state read-back, post-pr-review per-finding, and every new domain playbook's procedure.
+- **`.github/playbooks/manifest.yaml`** — sibling-of-the-router discoverability index, generated / derived from playbook frontmatter. Consulted only AFTER AGENTS.md router has shortlisted; never drives initial detection. Carries optional `discrimination` prose for ambiguous trigger pairs.
+- **Multi-model review loop** (`multi-model-review.md`) — codifies the panel-of-reviewers convergence pattern. Trigger-fired domain + utility-called by `post-code-change.md`'s panel hard gate. Three convergence models; max-loop escalation; C2 status enum for findings dispositions.
+- **Sharpened defaults** — §3.1 stale-comment-disposition (rename-first runs first; then default DELETE) + canonical THROWAWAY: header exception; §3.6 convention precedence (dominant or closest-in-purpose sibling first); pre-implementation G3 (in-scope-only approach-selection) + G5 (safety-critical-skip augmenting User-skip set); cleanup-commit-buckets default coarser grouping; G6 dead-code default-delete folded into LPA Axis 1; worktree-setup stacked-PR discipline.
 
 ## Setup (one-time)
 
