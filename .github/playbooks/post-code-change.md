@@ -2,14 +2,14 @@
 
 ## Purpose
 
-After implementation, run the import / using hygiene pass, the multi-model reviewer panel, the verify-the-fix-actually-fixed-it check, and the affected builds + tests. Fires immediately after code edits land, before showing the diff to the user. Output: a green build with all reviewers in agreement and the diagnosis-verifying metric / test passing.
+After implementation, run the import / using hygiene pass, the touched-file recurring-pattern sweep, the multi-model reviewer panel (via `multi-model-review.md`), the verify-the-fix-actually-fixed-it check, and the affected builds + tests. Fires immediately after code edits land, before showing the diff to the user. Output: a green build with the panel converged and the diagnosis-verifying metric / test passing.
 
 ## Hard gates (also in `AGENTS.md` — repeated here for context)
 
 - Touched-file imports / usings sorted and unused removed.
 - **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility / export / mutability surface delta** — adds a public/exported type or member; widens visibility; removes `sealed`/`final`/closed-extension; adds or widens a constructor/member/setter; exposes a field; changes package/module exports. Do NOT trigger on body-only edits to an already-public type that change no surface.
 - **Touched-file review-recurring-pattern sweep run with explicit findings count reported** (see step 2.5). MANDATORY on every commit-bound change — silent skip is the failure mode this gate exists to prevent.
-- Multi-model reviewer panel run **in parallel**; consensus reached or all dissents addressed.
+- Multi-model reviewer panel run via `multi-model-review.md` (utility-called by this phase) with `unanimous` convergence model; cumulative log shows convergence reached with 0 unaddressed blocking findings and `subagent_ask_user_calls=0` per round.
 - Diagnosis-verifying benchmark / test re-run; metric moved or test passes.
 - Affected builds + tests pass.
 
@@ -95,24 +95,25 @@ Step 2.5 sweep: ran, <N> findings.
 
 - **C# (.NET / Razor):** see `csharp.instructions.md` *Recurring code smells* for the catalog of patterns to grep beyond the universal patterns above (e.g., `using NamespaceName;` inside a file whose namespace is `NamespaceName` — `rg '^using ([\w.]+);' <touched .cs files>` cross-referenced against each file's `namespace X;` declaration).
 
-### 3. Multi-model reviewer panel — run all in parallel
+### 3. Multi-model reviewer panel (via `multi-model-review.md`)
 
-The user has no token-budget caps on this work, so always launch the full reviewer panel **in parallel** (background agents) rather than serially. Iterate, re-running the panel after each fix round, until **all models agree** with no substantive findings.
+Run the panel via `multi-model-review.md` with the following post-code-change invocation parameters:
 
-**Default reviewer panel** (launch all of these as background agents in the **same response** — three as `code-review`, one as `rubber-duck`; at least one model from each family):
+- **target**: `diff` (staged or branch-vs-base per the change shape).
+- **convergence-model**: `unanimous` (default for post-code-change — do not relax for code review without explicit user direction).
+- **max-loop**: 5.
+- **prior-round-findings sharing**: enabled (each iteration shares prior round's findings with the panel so it can verify amendments were applied).
+- **reviewer count + model selection**: default 4-reviewer slate from `multi-model-review/intake.md`. For this phase, launch the standard panel with three `code-review` agents (one from each family) plus one `rubber-duck` agent:
+  - `claude-opus-4.7-xhigh` (default Claude family, extra-high reasoning) — `code-review`.
+  - `gpt-5.5` (OpenAI family, premium reasoning) — `code-review`.
+  - `gpt-5.3-codex` (OpenAI family, codex-tuned — different perspective from gpt-5.5) — `code-review`.
+  - **rubber-duck** agent (independent critique angle — provides design / blind-spot feedback complementing line-level review).
+  Add reviewers liberally for risky / cross-cutting / unfamiliar-area changes — there's no "too many reviewers".
+- **critique focus areas** — pass these in addition to the panel's default critique focus (see *Anti-anchoring focus areas to pass to the panel* below for the full list of diff-review-specific focus areas).
 
-- `claude-opus-4.7-xhigh` (default Claude family, extra-high reasoning) — `code-review`
-- `gpt-5.5` (OpenAI family, premium reasoning) — `code-review`
-- `gpt-5.3-codex` (OpenAI family, codex-tuned — different perspective from gpt-5.5) — `code-review`
-- **rubber-duck** agent (independent critique angle — not a code-review reviewer per se, but provides design / blind-spot feedback that complements line-level review)
+The panel procedure (parallel launch, no serialization, sub-agent tooling discipline, synthesis, loop-vs-escalate, evidence-gate output) lives in `multi-model-review/procedure.md` + `multi-model-review/evidence-gate-spec.md`. Do not duplicate that procedure here.
 
-**Add reviewers liberally** when a change is risky, cross-cutting, or touches an unfamiliar area: `claude-sonnet-4.6` for a faster second-Claude opinion, `gpt-5.5` re-run with a different prompt framing, etc. There is no "too many reviewers" — parallel agents are cheap and the marginal cost of one more independent reading is approximately zero.
-
-**Do NOT serialize the panel** ("run Claude first, then if it finds nothing run GPT") — that wastes wall-clock time and lets early reviewer framing leak into your assessment of later reviews. Launch all reviewers in one tool-call batch, wait for completions, then synthesize.
-
-**Sub-agents must NEVER prompt the user.** Reviewer / rubber-duck agents run autonomously in the background — the user is typically away from the keyboard. Every panel-prompt must include the explicit instruction: *"Do not call `ask_user` or any other tool that prompts the user. If the task is ambiguous, make a reasonable assumption, document it in your output, and continue. Return findings only."* Sub-agents that block on user input deadlock the panel, defeat the parallel-launch design, and leave the user with no way to make progress when they return. The orchestrator (you) is the only agent allowed to call `ask_user` — collect findings from all sub-agents, then surface decisions to the user yourself.
-
-### 4. Anti-anchoring rules for reviewer prompts
+### 4. Anti-anchoring focus areas to pass to the panel
 
 Do not anchor reviewers on your own framing. Prompts must instruct the reviewer to treat the description of the fix as a hypothesis and independently read the affected types and call sites.
 
@@ -124,11 +125,13 @@ Specific reviewer-prompt requirements (from recurring failure modes in past PR h
 - **Public surface additions** (see `least-privilege-audit.md`): if the diff adds a new `public` / exported type or member, the reviewer must independently verify there's a real cross-asm consumer; no speculative public surface.
 - **Test intent and coverage gaps** (see `AGENTS.md` §3.4 and `csharp.instructions.md` "Test purpose" / "Test gap audit"): when the diff touches tests OR adds/modifies a SUT branch, the reviewer must run a *two-direction* audit. Direction A — judge whether each present test pins a real regression; flag tautological / coverage-driven / mock-only / framework-testing tests for deletion. Direction B — enumerate the SUT's behaviors in scope and call out behaviors that have *no* test (failure paths, boundary conditions, reverse/descending modes, null-valued inputs, each branch of each `switch`/`if`, integration seams). Missing tests for these are defects of the same severity as filler tests. Reviewers must NOT accept "tests pass and coverage didn't drop" as evidence of correctness — that only proves the existing one-direction tests still hold. For mechanical port / decompose commits the panel should not demand new tests in the same commit, but it MUST surface the gap list as a follow-up commit candidate.
 
-### 5. Synthesize and iterate
+### 5. Done when panel converges
 
-After all reviewers complete, briefly summarize cross-model agreement. Iterate the panel after each fix round until no substantive findings remain. **Same parallel-panel rule applies to PR reviews** (post-PR-review playbook): when running `pr-review` after a PR exists, launch the same panel in parallel.
+When `multi-model-review.md` returns CONVERGED, the multi-model hard gate is passed. Verify the cumulative log per `multi-model-review/evidence-gate-spec.md` *Verification* section (≥1 round; convergence outcome emitted; 0 unaddressed blocking findings; `subagent_ask_user_calls=0` on every round). Then proceed to step 6+ of this playbook.
 
-Route any sub-agent finding outside the immediate scope through `ask_user` (per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule in `AGENTS.md` §1): address now / defer to a follow-up (record externally — session note, issue, tracker — never as TODO comment) / dismiss with reason.
+PR reviews (the `post-pr-review.md` playbook) call the same `multi-model-review.md` panel with the same convergence settings — do not maintain a parallel panel definition.
+
+Sub-agent findings outside the immediate scope are routed via `ask_user` per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule (address now / defer with external record / dismiss with source-grounded rationale) — `multi-model-review/evidence-gate-spec.md` `C2 findings audit format` is the canonical disposition format.
 
 ### 6. Verify the fix actually fixed it
 
