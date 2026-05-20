@@ -69,7 +69,8 @@ Hard gates:
 Hard gates:
 
 - Diff shown to user; explicit approval received.
-- Commit ownership confirmed (user vs agent).
+- **Commit author identity verified per §4.1** — `git config user.name` / `user.email` AND `git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT` resolve to a non-empty human identity (not a "disallowed automation identity" per §4); for `--amend` / `cherry-pick` / `rebase` / `am`, the preserved author + committer on the target commit are ALSO not disallowed automation identities. On missing OR disallowed identity, prompt the user via `ask_user`; write LOCAL repo scope by default (`git config --local`); promote to global ONLY on explicit user opt-in (boolean, default false). NEVER guess identity from machine username, GitHub session principal, or any other heuristic.
+- Commit ownership confirmed (user vs agent) — the `ask_user` prompt MUST display the resolved `<user.name> <<user.email>>` + scope, AND use the literal labels `the agent` / `you (the user)` in both message body and option titles (no bare `I` / `me` / `you`). Push-ownership is asked SEPARATELY in pre-PR-push — never bundled.
 - Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
 - Stage only touched files (`git add <path>` — never `git add .`).
 
@@ -79,13 +80,14 @@ Hard gates:
 
 Hard gates:
 
+- **Push credentials verified as the user's per §4.2** — applies to EVERY push (including personal-sandbox / backup pushes that exit the review-readiness playbook at the sandbox pre-check, AND ref-publishing commands that implicitly push such as `gh pr create` against an un-pushed branch). Mechanism-aware verification (HTTPS+`gh` → `gh api user --jq .login`; HTTPS+system credential helper → user-confirm via `ask_user` when helper can't expose principal; SSH → `ssh -T git@<host>` greeting; ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` / `SSH_AUTH_SOCK` → STOP unless user confirms). Recorded as `pushCredentialsVerified` (10th predicate field) — values `yes` / `user-confirmed-unverifiable` / `blocked`. A `blocked` value fails the readiness gate. Push-ownership `ask_user` is SEPARATE from commit-ownership (never bundled) and uses the same explicit `the agent` / `you (the user)` actor labels.
 - Per-commit comment audit run on every commit's diff (already gated by §3.1 on each commit — verify it actually ran).
 - Branch-wide rename-first sweep run once before first push intended for review.
 - **Branch-wide least-privilege audit run** when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as the touched-file gate above) across the branch. Multiple small commits each individually fine can together leak too-public surface; the branch-wide pass re-greps with the final branch state. Procedure: run `least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches). Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended, so the audit sees the final branch state. Fresh grep at audit time; cached classifications from earlier in the branch are stale.
 - **No internal plan markers in PR titles or bodies.** PR title + body are public artifacts and must be readable without access to the planning artifacts. Forbidden in both: session plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`, etc.), session file paths (`files/foo-audit.md`, `aa2fde9c/plan.md`), upstream commit SHAs that won't survive a rebase, and stage / phase markers from the agent's internal task tracker. Acceptable: the actual SUT names being modified, the actual behavior change being shipped, the actual test count delta. Audit the title + body for these markers BEFORE running `gh pr create` / `gh pr edit`; the cost of a rewrite later is higher than the 10-second pre-flight check.
 - Resolved sweep base SHA + sweep HEAD SHA + base ref name **recorded in canonical session todos** (per *Phase-state tracking convention* below) for re-run logic.
-- State read-back output per `pre-pr-push.md` before claiming ready (zero-count carve-out).
-- No "ready to push" claim until per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) are done OR user explicitly skipped (with recorded warning).
+- State read-back output per `pre-pr-push.md` before claiming ready (zero-count carve-out) — includes the 10-field state predicate (incl. `pushCredentialsVerified`) plus `sandboxPriorExposureConfirmation` informational field.
+- No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) are done OR user explicitly skipped (with recorded warning).
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md`. That file is an INDEX — it runs intake first, then directs you to the matching sub-files (`per-commit-micro-hygiene.md`, `branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) per a deterministic decision tree. The least-privilege-audit playbook (`.github/playbooks/least-privilege-audit.md`) is a sibling invocation when the branch touches public API surface.
 
@@ -256,7 +258,7 @@ hard_gates_satisfied: yes'
 WHERE id = 'phase-state-pre-implementation-20240115093045';
 ```
 
-When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<yyyymmddHHMMSS>` heading with key:value lines under it in `<copilot-session-state>/<session-id>/files/phase-state.md`. **Reader contract** (LLM consuming the record in a resumed session): parse `key: value` lines from the description; treat unknown keys as informational; require `phase`, `time_entered`, `intake_status` (description) AND `status` (read from the SQL `status` column directly, or — in the markdown fallback — from a `status: <value>` line) to consider the record valid. Any phase-specific required fields (e.g. the 9-field pre-PR-push state predicate below) must additionally be present for the readiness check that consumes them.
+When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<yyyymmddHHMMSS>` heading with key:value lines under it in `<copilot-session-state>/<session-id>/files/phase-state.md`. **Reader contract** (LLM consuming the record in a resumed session): parse `key: value` lines from the description; treat unknown keys as informational; require `phase`, `time_entered`, `intake_status` (description) AND `status` (read from the SQL `status` column directly, or — in the markdown fallback — from a `status: <value>` line) to consider the record valid. Any phase-specific required fields (e.g. the 10-field pre-PR-push state predicate below) must additionally be present for the readiness check that consumes them.
 
 ### Per-phase additional fields
 
@@ -280,8 +282,14 @@ When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<
 - `cleanupBucketOutcomes` — for each cleanup commit: which bucket was chosen, why, and whether amend-safety required force-push approval.
 - `sandboxPriorExposureConfirmation` — informational field, written when the conditional sandbox exemption gate fires (only on `(isFirstReviewExposurePush=true && remoteExposureExists=true)` and only when an amend is actually attempted). One of: `confirmed-private` (sandbox confirmed personal/unwatched, silent amend taken), `denied-or-unsure` (user said no/unsure, fell through to explicit force-push approval), `not-needed` (no amend was attempted in this push cycle, so the gate never fired). Recorded so a resumed session does not re-ask or silently infer safety from memory.
 - `rerunConditionsChecked` — for each subsequent push: `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` (not yet checked / pending). Two documented sentinel values are also accepted for the "doesn't apply" case: the literal `n/a-first-push` (this is the first review push — no prior sweep to re-run-check; written by the first-review example) and the literal `n/a-sandbox-exit` (push exited at the sandbox pre-check; written by the sandbox-exit record). Both sentinels are predicate-complete — a strict reader MUST treat them as satisfying the field, not as missing.
+- **`pushCredentialsVerified`** — outcome of the §4.2 mechanism-aware push-credential verification (recorded by `pre-pr-push.md` *Pre-check 0*; see §4.2 for the full procedure). One of:
+  - `yes` — verification mechanism returned the user's principal (`gh api user --jq .login` matched the user; SSH greeting matched; etc.).
+  - `user-confirmed-unverifiable` — verification mechanism couldn't expose the cached principal (e.g., Windows Credential Manager / macOS Keychain / libsecret) and the user confirmed via `ask_user` that the cached credential is theirs (not a Copilot / bot / shared account).
+  - `blocked` — verification revealed (or strongly suggested) a non-user principal (e.g., `gh` logged in as a `[bot]` account; ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` set; `SSH_AUTH_SOCK` pointing at an agent-controlled socket; user could not confirm in the unverifiable case). **A `blocked` value FAILS the readiness gate — the push MUST NOT proceed.**
+  
+  This is a required predicate field — §4.2 applies to EVERY push including sandbox-exits (no `n/a-sandbox-exit` sentinel; sandbox pushes must verify credentials too). A "ready to push" claim requires `yes` OR `user-confirmed-unverifiable`. This field brings the pre-PR-push state predicate to **10 fields** (1-9 above + `pushCredentialsVerified`); the `sandboxPriorExposureConfirmation` field remains the always-present informational eleventh entry in the read-back block.
 
-**Sandbox-exit record** (used when the pre-PR-push pre-check exits because the current push is personal-sandbox / backup-only): write the standard minimum canonical shape PLUS `branchWideSweepStatus: not-applicable` and the booleans `isFirstReviewExposurePush: false` + `remoteExposureExists: <true|false per actual remote history>`. Other 9-field-predicate keys (`baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `rerunConditionsChecked`) may be written as the literal sentinel `n/a-sandbox-exit` (NOT omitted — predicate completeness still requires the keys to appear). The record is a normal `done` phase-state record, not a "skipped" record; it documents that the pre-PR-push playbook explicitly resolved as not-applicable for this push.
+**Sandbox-exit record** (used when the pre-PR-push pre-check exits because the current push is personal-sandbox / backup-only): write the standard minimum canonical shape PLUS `branchWideSweepStatus: not-applicable`, the booleans `isFirstReviewExposurePush: false` + `remoteExposureExists: <true|false per actual remote history>`, AND `pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>` per §4.2 (NOT a `n/a-sandbox-exit` sentinel — credentials must be verified for sandbox pushes too; record the real verification outcome). Other 10-field-predicate keys (`baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `rerunConditionsChecked`) may be written as the literal sentinel `n/a-sandbox-exit` (NOT omitted — predicate completeness still requires the keys to appear). The record is a normal `done` phase-state record, not a "skipped" record; it documents that the pre-PR-push playbook explicitly resolved as not-applicable for this push.
 
 **Concrete example record — pre-PR-push first review push, sweep ran clean:**
 
@@ -310,11 +318,12 @@ time_completed: 2024-01-15T14:11:48Z
 perCommitAuditCoverage: [{sha: 9z8y7x6w5v4, status: done}]
 branchWideSweepStatus: done-clean
 cleanupBucketOutcomes: none
-rerunConditionsChecked: n/a-first-push'
+rerunConditionsChecked: n/a-first-push
+pushCredentialsVerified: yes'
 WHERE id = 'phase-state-pre-pr-push-20240115140312';
 ```
 
-The INSERT captures intake-time state (booleans + sweep-input SHAs); the UPDATE captures completion-time state (sweep outcome, audit map, cleanup outcomes) and flips `status` to `'done'`. The `n/a-first-push` value on `rerunConditionsChecked` is the documented sentinel for "no prior sweep to re-run-check" (see field definition above).
+The INSERT captures intake-time state (booleans + sweep-input SHAs); the UPDATE captures completion-time state (sweep outcome, audit map, cleanup outcomes, push-credential verification) and flips `status` to `'done'`. The `n/a-first-push` value on `rerunConditionsChecked` is the documented sentinel for "no prior sweep to re-run-check" (see field definition above); `pushCredentialsVerified: yes` records the §4.2 outcome.
 
 Before declaring any variant of *"ready to commit / push / open PR"*, read the recorded state back and confirm every required phase has either run (per its hard gates) OR been explicitly skipped (per User-skip policy). Do not infer state from memory.
 
@@ -344,6 +353,8 @@ Examples:
 - ❌ `perf: defer TagsDisplayName join (A2)`
 - ❌ `A2 - lazy tags`
 - ❌ Any message followed by `Co-authored-by:` or any other trailer.
+
+> The corresponding rules for the actual commit **author / committer identity** (`user.name` / `user.email` resolution + verification) and for `git push` **authentication** are in §4 *Git Identity & Push Credentials*. This section governs the message body only; §4 governs who the commit is attributed to and who authenticates the push.
 
 ---
 
@@ -561,6 +572,57 @@ Inside an assembly: **vertical-slice** (folders by feature / domain, not horizon
 ### 3.13 Plan structure for growth, not for current file count
 
 Set up the folder structure you expect to grow into, even when one or two files would technically fit at the parent level today. The retrofit cost (`git mv` + namespace updates + `using` updates across every consumer + test-mirror moves) far exceeds the cost of pre-creating the sub-folder, so in practice the retrofit doesn't happen — whatever goes in unstructured tends to stay unstructured. Applies to STRUCTURAL decisions only: folder topology, namespace shape, project boundaries (production / unit-tests / integration-tests trio up front per §3.11), public-vs-internal accessibility, interface extraction, IVT grants. It does NOT override YAGNI for CODE decisions: don't add unused parameters, optional configuration knobs, abstract base classes "for future overrides", or strategy patterns that today have one strategy. Heuristic gate: create a sub-folder when you can name 2+ likely future additions to it — if you can't list them, the sub-folder is speculative. Structural debt compounds; code debt does not.
+
+---
+
+## 4. Git Identity & Push Credentials
+
+Both **commit attribution** (`user.name` / `user.email` → author + committer of every commit) AND `git push` **authentication** MUST belong to the human user — never a "disallowed automation identity," defined (**case-insensitive match**) as any of: `Copilot`, `copilot[bot]`, `github-actions[bot]`, the Copilot CLI co-author email `223556219+Copilot@users.noreply.github.com`, any other `[bot]`-suffixed GitHub account, or any non-user service principal. A Copilot CLI session that authenticates as the **human user's own GitHub account** is fine — the forbidden case is attribution / authentication AS the agent.
+
+Always-loaded. Procedure detail lives in `pre-commit.md` (§4.1 verification + prompt-when-missing + author-preservation on amend / replay) and `pre-pr-push.md` *Pre-check 0* (§4.2 mechanism-aware push verification + the `pushCredentialsVerified` state-predicate field defined in *Per-phase additional fields*).
+
+### 4.1 Commit author identity — hard gates
+
+- **No automation-identity injection.** The agent MUST NOT set `user.name` / `user.email` to a disallowed automation identity via ANY of: `git config` at any scope (`--local` / `--global` / `--system` / `--worktree`), `[include]` / `[includeIf]` file references, one-off `git -c user.name=… -c user.email=…` flags on a commit, `git commit --author="…"`, OR the environment variables `GIT_AUTHOR_NAME` / `GIT_AUTHOR_EMAIL` / `GIT_COMMITTER_NAME` / `GIT_COMMITTER_EMAIL` / `EMAIL`.
+
+- **Prompt-when-missing.** Before any commit-producing operation (any Git command that lands a new commit — `commit`, `commit --amend`, `merge --no-ff`, `merge --continue`, `cherry-pick`, `rebase --continue`, `revert`, `am`, `am --signoff`, `commit-tree`, or any other), the agent MUST verify BOTH:
+  1. **Effective config:** `git config --show-scope --show-origin --get user.name` AND `… --get user.email` resolve to non-empty values that are not a disallowed automation identity; `git var GIT_AUTHOR_IDENT` and `git var GIT_COMMITTER_IDENT` confirm what git would actually use **including env overrides** (env can override config silently — config inspection alone is not sufficient).
+  2. **Preserved author** (for operations that preserve author from a replayed commit — `--amend` without `--reset-author`, `cherry-pick`, `rebase`, `am`): `git log -1 --format='%an <%ae>%n%cn <%ce>'` on the commit being amended / replayed shows neither author nor committer is a disallowed automation identity.
+  
+  On either check failing, the agent MUST surface via `ask_user` and either (a) collect `user.name` + `user.email` and write to **local** repo scope via `git config --local`, OR (b) for the preserved-author case, ALSO ask whether to pass `--reset-author` after the human identity is set. **Global-scope writes require an explicit user opt-in** (boolean in the same `ask_user` form, default `false`). The agent MUST NEVER guess name / email from machine username, GitHub session principal, prior repos on the machine, or any other heuristic — values come from the user's `ask_user` answer.
+
+- **`--reset-author` is constrained.** Allowed ONLY to reset a disallowed-automation preserved author to the user's confirmed human identity (per the preserved-author branch above). It MUST NOT be used to overwrite a legitimate human author from another contributor, AND it MUST NOT be combined with `--author="…"`.
+
+- **Don't touch commit signing.** The agent MUST NOT change `commit.gpgsign`, `gpg.format`, `user.signingkey`, or `gpg.<format>.program`. If signing fails OR the configured signing key looks like an automation key, surface via `ask_user` — never bypass with `--no-gpg-sign` without explicit user approval.
+
+- **Commit-ownership prompts MUST display resolved identity AND use explicit actor labels.** Any `ask_user` that asks who runs the commit MUST include the resolved `<user.name> <<user.email>>` AND the resolving scope (`local` / `global` / `system` / `env-override`) in the message body, AND use the literal phrases `the agent` and `you (the user)` in BOTH the message body and the form-field option titles. **Bare `I` / `me` / `you` MUST NOT be used** in these prompts — they read ambiguously in agent-mediated chat (the user reads "you" as "me", the agent reads it as "the user", confusion follows). Commit-ownership is asked SEPARATELY from push-ownership — never bundle them in one prompt. The canonical form schema is in `pre-commit.md` Step 3b.
+
+- **Surface unintended global-scope use.** When the resolved identity comes from `--global` scope, the commit-ownership prompt MUST surface that fact (the displayed scope makes it visible) so the user can choose to move it to `--local` before committing. The agent does NOT auto-migrate without user direction.
+
+### 4.2 Push authentication — hard gates
+
+- **§4.2 applies to EVERY agent-run push,** including personal-sandbox / backup pushes that exit the `pre-pr-push.md` review-readiness playbook at the sandbox pre-check, AND ref-publishing commands that implicitly push (`gh pr create` against an un-pushed branch, `gh repo sync`, `git push --mirror`, `git push --all`, anything else that creates or updates a remote ref).
+
+- **No agent / automation principal.** The agent MUST NOT authenticate a push using: Copilot-owned credentials, a `gh` session logged in as a `[bot]` account or other automation account, ambient automation tokens (`GH_TOKEN`, `GITHUB_TOKEN`, `GIT_ASKPASS` injection, CI-provided tokens, `SSH_AUTH_SOCK` pointing at an agent-controlled socket) UNLESS the user explicitly confirms the token / agent socket is user-owned, OR any other non-user service principal.
+
+- **Mechanism-aware verification before every push.** Determine the push mechanism from `git remote -v` + `git config credential.helper` and apply the matching verification (full procedure in `pre-pr-push.md` *Pre-check 0*):
+  - **HTTPS + `gh` helper** → `gh api user --jq .login` returns the user's known GitHub username (NOT a `[bot]` account).
+  - **HTTPS + system credential helper** (Windows Credential Manager, macOS Keychain, libsecret, GCM) — when the helper does NOT expose the cached principal, STOP and ask the user via `ask_user` to confirm the cached credential for the remote URL is theirs; record as `user-confirmed-unverifiable` on yes, `blocked` on no / unsure.
+  - **SSH** → `ssh -T git@<host>` greeting matches the user's known account (when the host supports the greeting — e.g. github.com prints `Hi <username>!`).
+  - **Ambient automation env vars present** (`GH_TOKEN`, `GITHUB_TOKEN`, `GIT_ASKPASS`, `SSH_AUTH_SOCK` not pointing at the user's own ssh-agent) → treat as unverified automation auth; STOP and ask the user via `ask_user`. Default to `blocked` unless user confirms otherwise.
+
+- **No silent re-auth.** The agent MUST NOT run `gh auth login`, `gh auth refresh`, `gh auth switch`, `git credential approve`, `git credential fill`, `git credential erase`, or any other credential-modifying command on its own. If a push fails with an auth error, surface the error and let the user handle re-auth.
+
+- **Push-ownership prompts are SEPARATE from commit-ownership.** Push-ownership MUST be asked in its own `ask_user` (never bundled with commit-ownership). It MUST use the same explicit actor labels rule from §4.1 (`the agent` / `you (the user)` — never bare `I` / `me` / `you`) AND MUST display the verified push principal (e.g. `verified via gh login: <login>` / `SSH greeting: <username>@github.com` / `user-confirmed credential helper: <helper-name>`) in the message body. The canonical form schema is in `pre-pr-push.md` *Pre-check 0*.
+
+- **Recorded in pre-PR-push phase state.** `pushCredentialsVerified` is a **required predicate field** (10th field of the state predicate — see *Per-phase additional fields*). Values: `yes` / `user-confirmed-unverifiable` / `blocked`. A `blocked` value fails the readiness gate. Sandbox-exit records also record this field with a real value (no `n/a-sandbox-exit` sentinel — §4.2 applies to sandbox pushes too).
+
+### 4.3 Composition
+
+- §2 *Commit Messages* — forbids the `Co-authored-by: Copilot` trailer in the commit message body. Message-side mirror of §4.1's attribution rule.
+- `pre-commit.md` Step 3 — applies §4.1 (Step 3a identity verify + preserved-author check; Step 3b commit-ownership prompt with explicit actor labels and resolved-identity display).
+- `pre-pr-push.md` *Pre-check 0* — applies §4.2 (mechanism-aware verification + `pushCredentialsVerified` recording + push-ownership prompt). Runs BEFORE the sandbox pre-check so sandbox-exit records carry a real `pushCredentialsVerified` value.
+- **Always-loaded scope.** §4 applies outside the formal phase playbooks too — to ad-hoc commits / pushes a user asks the agent to run without explicitly entering pre-commit / pre-pr-push. The verification + prompt-when-missing flow is mandatory regardless of which entry point reached the commit / push.
 
 ---
 

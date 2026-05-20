@@ -8,13 +8,80 @@ Fires when the user is preparing to push for code review — opening a PR, reque
 
 ## Hard gates (also in `AGENTS.md`)
 
+- **Push credentials verified as the user's per `AGENTS.md` §4.2** — mechanism-aware verification (HTTPS+`gh` → `gh api user --jq .login`; HTTPS+system credential helper → user-confirm via `ask_user`; SSH → `ssh -T git@<host>` greeting; ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` / `SSH_AUTH_SOCK` → STOP unless user confirms). Applies to EVERY push, including sandbox pushes that exit at the sandbox pre-check AND ref-publishing commands that implicitly push (`gh pr create` against an un-pushed branch, `gh repo sync`, `git push --mirror`, `git push --all`). Verification procedure + form schemas live in *Pre-check 0* below. Recorded as `pushCredentialsVerified` (the 10th predicate field, values `yes` / `user-confirmed-unverifiable` / `blocked`); a `blocked` value FAILS the readiness gate. Push-ownership `ask_user` is SEPARATE from commit-ownership (never bundled) and uses explicit `the agent` / `you (the user)` actor labels — never bare `I` / `me` / `you`.
 - Per-commit comment audit run on every commit's diff (already gated by `AGENTS.md` §3.1 on each commit — verify it actually ran).
 - Branch-wide rename-first sweep run once before first push intended for review.
 - **Branch-wide least-privilege audit** run when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as `post-code-change.md`'s touched-file gate) across the branch. Procedure: `.github/playbooks/least-privilege-audit.md` with branch-wide scope restricted to the projects touched. Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. **Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended** (so the audit sees the final branch state, not a sweep-mutated working tree). Fresh-source-search at audit time; per-commit classifications from earlier in the branch are stale by the time the branch is push-ready.
 - **PR title + body free of internal plan markers.** Before invoking `gh pr create` / `gh pr edit`, re-read the title + body and strip any session-internal references: plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`, etc.), session file paths (`files/foo-audit.md`, `aa2fde9c/plan.md`), upstream commit SHAs that won't survive a rebase, or stage / phase markers from the agent's internal task tracker. The audience is the public repo, not the agent's planning workspace; the title + body must stand on their own. Concrete patterns that have leaked in past PRs and were caught only post-open: `"... (T1)"` suffix, `"Carries out the T1 audit from files/f3-test-quality-audit.md"`, `"... already shipped upstream by d3fcfa9"`. **Use the SUT names, the behavior change, and the test count delta** — never the internal phase IDs.
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
-- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim — structured chat block enumerating the 9-field state predicate + sandbox-confirmation informational field (10 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
-- No "ready to push" claim until per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
+- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim — structured chat block enumerating the 10-field state predicate + sandbox-confirmation informational field (11 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
+- No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
+
+## Pre-check 0: Verify push credentials (always — runs BEFORE the sandbox pre-check)
+
+`AGENTS.md` §4.2 applies to EVERY agent-run push — including sandbox / backup pushes that would otherwise exit at the next pre-check, AND ref-publishing commands that implicitly push (`gh pr create` against an un-pushed branch, etc.). This step runs FIRST so even sandbox-exit records carry a real `pushCredentialsVerified` value (no `n/a-sandbox-exit` sentinel for this field).
+
+### Procedure
+
+**1. Inspect the remote and credential helper.**
+
+```powershell
+git remote -v                       # HTTPS vs SSH for the remote being pushed to
+git config --get-all credential.helper
+```
+
+**2. Check for ambient automation tokens / sockets in the environment.**
+
+```powershell
+$env:GH_TOKEN, $env:GITHUB_TOKEN, $env:GIT_ASKPASS, $env:SSH_AUTH_SOCK
+```
+
+If any of `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_ASKPASS` is set, OR `SSH_AUTH_SOCK` points at an agent-controlled socket the user did not create, treat as automation auth. STOP and surface via `ask_user`. Default to `pushCredentialsVerified: blocked` unless the user explicitly confirms the token / socket is user-owned and intended.
+
+**3. Apply mechanism-specific verification.**
+
+| Mechanism | Verification command | Pass / fail criteria | Recorded value on pass |
+| --- | --- | --- | --- |
+| HTTPS + `gh` helper | `gh api user --jq .login` | Login matches the user's known GitHub account AND is NOT a `[bot]` account | `yes` |
+| HTTPS + system credential helper (Windows Credential Manager / macOS Keychain / libsecret / GCM) — helper does not generally expose the cached principal | n/a (helper opaque) | Ask the user via `ask_user`: *"Your remote `<URL>` uses `<helper-name>`, which doesn't expose the cached username. Is the cached credential for this remote yours — not a Copilot / `[bot]` / shared / service account?"* | `user-confirmed-unverifiable` on yes; `blocked` on no / unsure |
+| SSH | `ssh -T git@<host>` (when host supports a greeting, e.g. github.com prints `Hi <username>!`) | Greeting matches the user's known account | `yes` |
+| Ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` / `SSH_AUTH_SOCK` (from step 2) | n/a | STOP and ask via `ask_user`; default to `blocked` unless user explicitly confirms ownership + intent | `yes` only on explicit confirmation; otherwise `blocked` |
+
+**4. Record `pushCredentialsVerified` in the pre-PR-push phase-state record** (per `AGENTS.md` *Per-phase additional fields*). One of:
+
+- `yes` — mechanism returned the user's principal.
+- `user-confirmed-unverifiable` — mechanism couldn't expose the principal; user confirmed via `ask_user` that the cached credential is theirs.
+- `blocked` — verification revealed (or strongly suggested) a non-user principal OR user could not confirm. **Push MUST NOT proceed.** Surface the issue and let the user resolve it (re-auth, remote URL change, env-var unset, etc.) — see no-silent-re-auth rule below.
+
+**5. No silent re-auth.** If the principal is wrong (or the cached credential is for the wrong account), surface via `ask_user`. The agent MUST NOT run `gh auth login`, `gh auth refresh`, `gh auth switch`, `git credential approve`, `git credential fill`, `git credential erase`, or any other credential-modifying command on its own.
+
+### Push-ownership prompt (separate from commit-ownership)
+
+Push-ownership is asked ONLY after (a) Pre-check 0 cleared (`pushCredentialsVerified` is `yes` or `user-confirmed-unverifiable`) AND (b) the readiness gate has cleared. It is a SEPARATE `ask_user` from commit-ownership (which lives in `pre-commit.md` Step 3b). Form schema:
+
+```yaml
+message: |
+  Ready to push <local-branch> → <remote>/<remote-branch>.
+
+  Push credentials verified as: <e.g. "gh login: jschick (HTTPS + gh)" / "SSH greeting: jschick@github.com" / "user-confirmed credential helper: manager (Windows Credential Manager)">.
+
+  Who runs the push?
+
+requestedSchema:
+  properties:
+    pushOwner:
+      type: string
+      title: "Who runs the push?"
+      oneOf:
+        - const: "user"
+          title: "You (the user) — the agent will print the exact `git push` command; you (the user) run it yourself."
+        - const: "agent"
+          title: "The agent — the agent will run `git push <remote> <branch>` on your behalf."
+      default: "user"
+  required: [pushOwner]
+```
+
+Default to the user. The prompt MUST use the literal `the agent` / `you (the user)` actor labels in both message body and option titles — bare `I` / `me` / `you` are forbidden (they read ambiguously in agent-mediated chat).
 
 ## Pre-check: is this push intended for review at all?
 
@@ -120,12 +187,13 @@ Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical
 - `cleanupBucketOutcomes` — for each cleanup commit: bucket chosen + reason + whether amend-safety required force-push approval.
 - `sandboxPriorExposureConfirmation` — `confirmed-private` / `denied-or-unsure` / `not-needed`. Written only when the conditional sandbox-exemption gate fires (`(isFirstReviewExposurePush=true && remoteExposureExists=true)` and an amend was actually attempted). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*.
 - `rerunConditionsChecked`— `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases — `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
+- `pushCredentialsVerified` — outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field — credentials must be verified for sandbox pushes too). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
 
 Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
 
 ### Evidence-gate output before declaring "ready"
 
-Print the state-predicate read-back as a structured chat block before claiming ready — the 9 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (10 lines total in the block; the field set is referred to as the "9-field state predicate" in `AGENTS.md` and the sandbox-confirmation field is the always-present informational tenth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` — state read-back prints state verbatim; there is no audit-count concept here).
+Print the state-predicate read-back as a structured chat block before claiming ready — the 10 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (11 lines total in the block; the field set is referred to as the "10-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational eleventh). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` — state read-back prints state verbatim; there is no audit-count concept here).
 
 ```
 Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
@@ -137,8 +205,9 @@ Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
 - perCommitAuditCoverage: { <SHA>: <done | skipped-with-reason | not-run>, ... } — must be `done` or `skipped-with-reason` for every commit
 - branchWideSweepStatus: <one of 8 enum values per AGENTS.md Phase-state tracking convention>
 - cleanupBucketOutcomes: <list of (bucket, commit-sha, amend-safety-result) tuples; empty when no cleanup>
-- sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
 - rerunConditionsChecked: <true | false | n/a-first-push | n/a-sandbox-exit>
+- pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>
+- sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
 ```
 
 Any "ready" claim that lacks this structured output is a workflow violation per `AGENTS.md` cross-cutting findings audit rule. Re-confirm every field by reading session todos before emitting — values inferred from memory are NOT acceptable.

@@ -47,9 +47,10 @@ playbooks:
     path: .github/playbooks/pre-pr-push.md
     classification: phase
     description: >-
-      Run before pushing for review or opening PR: per-commit comment audit, branch-wide
-      rename-first sweep, branch-wide least-privilege audit (when applicable), 9-field
-      state predicate read-back. INDEX — dispatches to sub-files under `pre-pr-push/`.
+      Run before pushing for review or opening PR: §4.2 push-credential verification,
+      per-commit comment audit, branch-wide rename-first sweep, branch-wide
+      least-privilege audit (when applicable), 10-field state predicate read-back.
+      INDEX — dispatches to sub-files under `pre-pr-push/`.
     triggers: []
     status: active
 

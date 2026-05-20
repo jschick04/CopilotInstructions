@@ -88,7 +88,7 @@ If the decision quick-reference table above says NO re-run for this push (e.g. o
 
 - `branchWideSweepStatus = previously-done-no-rerun-needed`.
 - `rerunConditionsChecked = true`.
-- **Copy-forward all prior 9-field-predicate values from the most recent pre-PR-push phase-state record** — `baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`. The "most recent record wins" contract (per AGENTS.md *Phase-state tracking convention*) means the new record must be self-contained — omitting these keys would make the readiness predicate fail even though the sweep evidence exists in an older record.
+- **Copy-forward all prior 10-field-predicate values from the most recent pre-PR-push phase-state record** — `baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `pushCredentialsVerified` (re-verify via *Pre-check 0* for THIS push; do NOT blindly copy the prior value — credentials may have changed since the last push). The "most recent record wins" contract (per AGENTS.md *Phase-state tracking convention*) means the new record must be self-contained — omitting these keys would make the readiness predicate fail even though the sweep evidence exists in an older record.
   - **Update the `perCommitAuditCoverage` map for THIS push:** add entries for any new commit SHAs you per-commit-audited. **If an amend rewrote a commit that already had an entry, replace the pre-amend SHA's entry with the post-amend SHA's entry** — the readiness gate looks up commits at current HEAD, so stale pre-amend SHAs satisfy nothing for the current branch state (they remain in older phase-state records as audit history).
 - Update the booleans `isFirstReviewExposurePush` and `remoteExposureExists` to reflect THIS push.
 

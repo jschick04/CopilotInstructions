@@ -75,7 +75,8 @@ Record in canonical session todos (per AGENTS.md Phase-state tracking convention
 - Number of rename-first cases that triggered (and whether any escalated to cross-boundary scope per the cleanup-commit-buckets logic).
 - Cleanup commits created (SHAs).
 - `branchWideSweepStatus` — write `done-clean` if no cleanup was needed (per Step 6 above), or `done-cleanup-committed` if cleanup commits were created (per `cleanup-commit-buckets.md`). Use `skipped-with-reason` only if the user explicitly authorized skipping the sweep per the User-skip policy.
-- `rerunConditionsChecked` — write the documented sentinel `n/a-first-push` (the first review push has no prior sweep to re-run-check, so the field is predicate-complete via this sentinel per `AGENTS.md` *Per-phase additional fields*). The pre-PR-push readiness predicate consumes this field; omitting it makes the record fail the 9-field predicate even with the sweep done clean.
+- `rerunConditionsChecked` — write the documented sentinel `n/a-first-push` (the first review push has no prior sweep to re-run-check, so the field is predicate-complete via this sentinel per `AGENTS.md` *Per-phase additional fields*). The pre-PR-push readiness predicate consumes this field; omitting it makes the record fail the 10-field predicate even with the sweep done clean.
+- `pushCredentialsVerified` — record the outcome of `pre-pr-push.md` *Pre-check 0* (one of `yes` / `user-confirmed-unverifiable` / `blocked`). This is the 10th predicate field per `AGENTS.md` *Per-phase additional fields*; omitting it fails the readiness predicate.
 
 These are needed by `when-to-re-run-sweep.md` if more pushes happen on this branch.
 
