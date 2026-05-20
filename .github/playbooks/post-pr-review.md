@@ -44,7 +44,7 @@ Do NOT silently apply changes you cannot independently justify.
 
 ### 3. Run the multi-model reviewer panel in parallel — same parallel rule as `post-code-change.md`
 
-Same default panel (`claude-opus-4.7-xhigh` + `gpt-5.5` + `gpt-5.3-codex` + rubber-duck), same parallel-launch rule, same anti-anchoring rules.
+Same default panel (`claude-opus-4.7-xhigh` + `gpt-5.5` + `gpt-5.3-codex` + `gpt-5.4` + rubber-duck with `model: 'claude-opus-4.7'`), same parallel-launch rule, same anti-anchoring rules.
 
 For PR-review work specifically, instruct the panel to:
 

@@ -13,15 +13,16 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 2. **Review-target location** — a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).
 
-3. **Reviewer count** — number of reviewers. Default **4** (one rubber-duck-style critique + one GPT-family flagship + one Claude-family flagship + one cross-version variant). Minimum **3** per hard gate.
+3. **Reviewer count** — number of reviewers. Default **5** (one rubber-duck-style critique + two GPT-family models for cross-version diversity + one Claude-family flagship + one code-specialized variant). Minimum **3** per hard gate.
 
-4. **Model selection** — defaults assume the standard panel:
-   - Rubber-duck agent (default model).
-   - One GPT-family flagship (e.g., latest stable GPT).
-   - One Claude-family flagship (different family / version than the orchestrator's model).
-   - One cross-version variant (codex / specialized variant) for code-discipline angle.
+4. **Model selection** — defaults maximize cross-family diversity and reasoning depth:
+   - `claude-opus-4.7-xhigh` — Claude family, extra-high reasoning. `code-review` slot.
+   - `gpt-5.5` — OpenAI family, premium reasoning. `code-review` slot.
+   - `gpt-5.3-codex` — OpenAI family, code-specialized. `code-review` slot (different perspective from gpt-5.5 via codex tuning).
+   - `gpt-5.4` — OpenAI family, cross-version. `code-review` slot (different reasoning profile from gpt-5.5).
+   - **rubber-duck** agent with `model: 'claude-opus-4.7'` — independent design / blind-spot critique (Opus-level reasoning per AGENTS.md sub-agent model selection defaults).
 
-   The user can override individual slots, swap families, or add a 5th model when convergence is critical.
+   The user can override individual slots, swap families, or add a 6th+ model when convergence is critical.
 
 5. **Convergence model** — `unanimous` (default; all reviewers verdict READY) / `threshold` (≥75% READY + 0 unaddressed blocking) / `confidence-weighted` (≥80% avg confidence + 0 unaddressed blocking). See `convergence-models.md` for details and selection guidance.
 
