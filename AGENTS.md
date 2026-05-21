@@ -97,7 +97,7 @@ Hard gates:
 
 Hard gates:
 
-- Diff shown to user; explicit approval received.
+- Diff shown to user; explicit approval received. **Applies to ALL commit-producing operations** — fresh commits, `--amend`, fixups, cherry-picks, rebases. No `git add` or `git commit` until the user has seen the diff and approved.
 - **Commit author identity verified per §4.1** — `git config user.name` / `user.email` AND `git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT` resolve to a non-empty human identity (not a "disallowed automation identity" per §4); for `--amend` / `cherry-pick` / `rebase` / `am`, the preserved author + committer on the target commit are ALSO not disallowed automation identities. On missing OR disallowed identity, prompt the user via `ask_user`; write LOCAL repo scope by default (`git config --local`); promote to global ONLY on explicit user opt-in (boolean, default false). NEVER guess identity from machine username, GitHub session principal, or any other heuristic.
 - Commit ownership confirmed (user vs agent) — the `ask_user` prompt MUST display the resolved `<user.name> <<user.email>>` + scope, AND use the literal labels `the agent` / `you (the user)` in both message body and option titles (no bare `I` / `me` / `you`). Push-ownership is asked SEPARATELY in pre-PR-push — never bundled.
 - **Commit message approved by user before `git commit` runs.** When the agent commits, the proposed message MUST be shown via a SEPARATE `ask_user` prompt (not bundled with ownership) and explicitly approved before the agent executes `git commit`. The agent does NOT run `git commit` until the user has seen and approved the exact message text.

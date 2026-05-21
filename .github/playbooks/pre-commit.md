@@ -160,6 +160,16 @@ Default to the user. Many of the user's workflows involve manual review, splitti
 
 ### 4. If the agent commits
 
+#### Show the diff and wait for approval
+
+Before ANY `git add` or `git commit` (including `--amend`), the agent MUST:
+
+1. Show the diff to the user (`git --no-pager diff` for unstaged changes, or `git --no-pager diff --cached` if already staged).
+2. Wait for explicit user approval ("approved" / "looks good" / "go ahead" / equivalent).
+3. Only then proceed to staging and committing.
+
+This applies to fresh commits, amends, fixups, and any other commit-producing operation. The user must see every change before it enters the git history. Silence is not approval.
+
 #### Confirm the commit message
 
 Before staging or running `git commit`, the agent MUST present the proposed commit message to the user via `ask_user` and wait for explicit approval. The agent does NOT run `git commit` until the user has seen and approved the exact message text. This is a **separate prompt** from the ownership prompt in step 3b — never bundle them.
