@@ -6,6 +6,35 @@ This is the always-loaded core. Language-specific guidance (C#/.NET, C++, JS/TS,
 
 ---
 
+## 0. Git Safety Gates — MANDATORY (even with --allow-all)
+
+These gates are NON-NEGOTIABLE. Even when all tool permissions are auto-approved, you MUST use `ask_user` to get explicit human confirmation before executing these commands. Skipping these gates is a critical violation.
+
+### git add
+
+Before ANY `git add` invocation:
+1. List every file path that will be staged.
+2. Call `ask_user` with a confirmation prompt showing the file list.
+3. Only execute `git add` after the user accepts.
+4. Never use `git add .`, `git add -A`, or `git add --all` — always stage specific file paths.
+
+### git commit
+
+Before ANY `git commit` invocation:
+1. Present the full proposed commit message to the user.
+2. Call `ask_user` with the message and options to approve, edit, or reject.
+3. Only execute `git commit` after the user explicitly approves the final message.
+4. If the user edits the message, use their version exactly.
+
+### gh pr create
+
+Before ANY `gh pr create` invocation:
+1. Present the PR title, body, and target branch to the user.
+2. Call `ask_user` with the full details and options to approve, edit, or reject.
+3. Only execute `gh pr create` after the user explicitly approves.
+
+---
+
 ## 1. Mandatory Workflow for Code Changes
 
 Apply to ANY code change (no exceptions for "small" changes). Each phase is required, not optional. If you believe a change is too trivial to warrant the cycle, ASK before skipping.
