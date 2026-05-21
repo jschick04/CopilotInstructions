@@ -46,7 +46,7 @@ Hard gates (always apply, even if playbook unfetched):
 - Diagnosis verified via deepened procedure (reproduce → minimise → hypothesise → instrument → reproduction-locked per `pre-implementation.md` Step 1).
 - Reproduction (bug fix) or benchmark (perf work) exists. Artifact type (throwaway harness vs durable regression test) chosen at intake.
 - G3 (Step 1.5 in-scope approach-selection) + G5 (Step 2 entry safety-critical-skip) per `pre-implementation.md`.
-- Rubber-duck pass run unless user explicitly skipped (G5 escalates to safety-critical when triggers fire).
+- Multi-model reviewer panel via `multi-model-review.md` (target-type: `plan`) run with unanimous convergence; 0 unaddressed blocking; `subagent_ask_user_calls=0`. G5 escalates to safety-critical when skip triggers fire.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-implementation.md`.
 
@@ -221,7 +221,7 @@ The user may explicitly skip any playbook step or entire phase. When they do:
    - Skipping the multi-model reviewer panel for any non-trivial change (defined: more than a single-line typo / single-property rename / single config-key value tweak).
    - Skipping pre-PR-push branch-wide sweep for any push intended for review (PR-opening, request-for-review, push to a shared branch others may pull from).
    - Skipping verification-of-fix when the change is justified by a perf metric, bug repro, or security claim.
-   - Skipping the rubber-duck pass on changes touching concurrency / security / cryptography / native interop / payment or financial logic / authentication / authorization / shared global state.
+   - Skipping the pre-implementation multi-model panel on changes touching concurrency / security / cryptography / native interop / payment or financial logic / authentication / authorization / shared global state.
    When in doubt about whether a class of work is safety-critical, default to "yes — re-confirm".
 
 ### Phase-state tracking convention
