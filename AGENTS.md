@@ -577,7 +577,7 @@ Every codebase — production app, library, CLI, sample — uses its language ec
 
 | Ecosystem | Production | Tests | Root-level files |
 |---|---|---|---|
-| .NET (C#, F#, VB) | `src/<Project>/` | `tests/<Project>.Tests/`; with > 2 test projects split into `tests/Unit/` + `tests/Integration/` | `*.slnx` / `*.sln`, `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `global.json` |
+| .NET (C#, F#, VB) | `src/<Project>/` | `tests/<Project>.Tests/`; scaffold `tests/Unit/` + `tests/Integration/` split up front per §3.13 | `*.slnx` / `*.sln`, `Directory.Build.props`, `Directory.Packages.props`, `.editorconfig`, `global.json` |
 | Node.js / TypeScript | `src/` | `test/` or framework-default (`__tests__/` for Jest, `test/` for Vitest) | `package.json`, `tsconfig.json`, lockfile |
 | Python | `src/<package>/` (**src layout, mandatory**) | `tests/` | `pyproject.toml`, `README.md` |
 | Rust | `src/main.rs` (binary) or `src/lib.rs` (library), `benches/` for benchmarks | `tests/` for integration; unit `#[cfg(test)] mod tests` inline | `Cargo.toml`, `Cargo.lock` |

@@ -288,6 +288,26 @@ playbooks:
       - "brew install"
     status: active
 
+  - name: solution-architecture
+    path: .github/playbooks/solution-architecture.md
+    classification: domain
+    description: >-
+      Generic .NET solution architecture reference covering root layout, VSA topology,
+      DI registrar conventions, test infrastructure, dependency graph rules, and
+      deployment patterns. Aligned with Microsoft clean architecture guidance.
+    triggers:
+      - "solution architecture"
+      - "new .NET solution"
+      - "restructure solution"
+    status: active
+    discrimination: >-
+      Adjacent to `library-restructure` and `codebase-architecture-audit`.
+      solution-architecture covers the OVERALL SOLUTION SHAPE (root layout, layering,
+      DI conventions, test infrastructure). library-restructure covers SINGLE-LIBRARY
+      internal topology (folder moves, namespace migration, consumer audit).
+      codebase-architecture-audit is a READ-ONLY findings list; solution-architecture
+      is a PRESCRIPTIVE reference.
+
   - name: library-restructure
     path: .github/playbooks/library-restructure.md
     classification: domain
