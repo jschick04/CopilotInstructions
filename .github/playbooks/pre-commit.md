@@ -160,6 +160,33 @@ Default to the user. Many of the user's workflows involve manual review, splitti
 
 ### 4. If the agent commits
 
+#### Confirm the commit message
+
+Before staging or running `git commit`, the agent MUST present the proposed commit message to the user via `ask_user` and wait for explicit approval. The agent does NOT run `git commit` until the user has seen and approved the exact message text. This is a **separate prompt** from the ownership prompt in step 3b — never bundle them.
+
+```yaml
+message: |
+  Proposed commit message:
+
+      <proposed single-line message>
+
+  Approve this message, or provide an alternative.
+
+requestedSchema:
+  properties:
+    approved:
+      type: boolean
+      title: "Approve this commit message?"
+      default: true
+    alternativeMessage:
+      type: string
+      title: "Alternative message (only if not approved)"
+      description: "Leave blank to use the proposed message."
+  required: [approved]
+```
+
+If the user provides an alternative, use that instead. If the user declines without providing an alternative, ask again with a revised proposal.
+
 #### Stage only touched files
 
 ```powershell
