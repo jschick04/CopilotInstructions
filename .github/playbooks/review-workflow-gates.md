@@ -117,9 +117,9 @@ Only the user can decide what is deferred vs. what is done. The agent's role is 
 
 ### Convergence criteria
 
-- **Target: unanimous SOUND** from all panel members.
-- **Acceptable: ≥4/5 SOUND** when the remaining NEEDS items are trivial fixes (link corrections, wording tweaks) that can be applied without another full round.
-- **Not acceptable:** declaring convergence with any unresolved blocking or high-severity finding.
+- **Required: unanimous SOUND** from all panel members. There is no "acceptable partial consensus" — 4/5 SOUND is not convergence.
+- **Disagreements go to the user.** When panel members disagree and iteration cannot resolve it, the user is the tie-breaker. Present each contested point via `ask_user` with the arguments from both sides.
+- **Not acceptable:** declaring convergence with any reviewer still at NEEDS_ANOTHER_ROUND, regardless of how trivial the remaining issue appears to the agent.
 
 ### Max iterations
 
