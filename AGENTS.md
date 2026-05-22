@@ -76,6 +76,7 @@ Hard gates (always apply, even if playbook unfetched):
 - Reproduction (bug fix) or benchmark (perf work) exists. Artifact type (throwaway harness vs durable regression test) chosen at intake.
 - G3 (Step 1.5 in-scope approach-selection) + G5 (Step 2 entry safety-critical-skip) per `pre-implementation.md`.
 - Multi-model reviewer panel via `multi-model-review.md` (target-type: `plan`) run with unanimous convergence; 0 unaddressed blocking; `subagent_ask_user_calls=0`. G5 escalates to safety-critical when skip triggers fire.
+- **Rubber-duck-then-panel workflow.** For non-trivial changes, run a rubber-duck critique first to catch blind spots cheaply, then feed findings into the full multi-model panel. This two-stage approach catches more issues per round and reduces panel iteration count. Skipping either stage requires explicit user approval with a documented justification — "low risk" or "simple change" are not sufficient reasons without user sign-off.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-implementation.md`.
 
@@ -129,6 +130,7 @@ Hard gates:
 - Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
 - Per-finding audit output per `post-pr-review.md` step 6 (C2 status enum + `subagent_ask_user_calls=0`).
 - Instructions-file delta proposed for each fixed comment (project-agnostic).
+- **PR review comments are hard blockers.** Every PR review comment (bot or human) must be analyzed to identify the root cause and the fix must prevent the same issue from being flagged again in subsequent reviews. Do NOT apply a surface-level fix that passes the immediate check but leaves the underlying pattern in place. Before marking a PR review comment as resolved, verify: (1) the fix addresses the root cause, (2) similar patterns elsewhere in the diff are also fixed, (3) instructions are updated if the comment reveals a gap in the instruction set. Wasted PR review cycles (the same class of issue flagged across multiple review rounds) are a process failure — treat repeat findings as evidence that the pre-implementation panel missed something, and feed that learning back into the instruction set.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-pr-review.md`.
 
