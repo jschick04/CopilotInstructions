@@ -265,6 +265,34 @@ playbooks:
       playbook. Answer directly. This playbook fires only when the user wants to DRAFT
       new work-item content.
 
+  - name: github-to-ado-replication
+   path: .github/playbooks/github-to-ado-replication.md
+   classification: domain
+   description: >-
+     Use when user wants to batch-replicate GitHub issues into Azure DevOps work items
+     using the OS process template. Maps GitHub labels to ADO types
+     (enhancement → Deliverable, bug → Bug), applies OS-template field conventions
+     (OSG.*, Custom.* fields), creates via REST API parented to a user-specified Scenario.
+     Includes idempotency checks, parent-field inheritance, time estimation, and
+     dry-run-first workflow.
+   triggers:
+     - "replicate GitHub issues to ADO"
+     - "sync GitHub issues to ADO"
+     - "create ADO items from GitHub issues"
+     - "import GitHub issues into ADO"
+     - "replicate issues to deliverables"
+     - "mirror GitHub issues in ADO"
+     - "create deliverables from GitHub issues"
+     - "create bugs from GitHub issues"
+   status: active
+   discrimination: >-
+     Adjacent to `ado-task-planning`. ado-task-planning is for INTERACTIVE SINGLE-ITEM
+     drafting (any process template — Agile/Scrum/CMMI). github-to-ado-replication is
+     for BATCH CREATION from a GitHub issue source into the OS process template with
+     OS-template conventions. The discriminator is the SOURCE: if the user mentions
+     GitHub issues / repo as the source, route here. If the user is drafting a new ADO
+     item from scratch without a GitHub source, route to ado-task-planning.
+
   - name: worktree-setup
     path: .github/playbooks/worktree-setup.md
     classification: domain
