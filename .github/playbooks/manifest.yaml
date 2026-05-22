@@ -34,6 +34,17 @@ playbooks:
     triggers: []
     status: active
 
+  - name: review-workflow-gates
+    path: .github/playbooks/review-workflow-gates.md
+    classification: phase
+    description: >-
+      Mandatory review workflow gates: rubber-duck-then-panel two-stage process,
+      PR review root-cause analysis hard blocker, scope reduction user sign-off,
+      panel convergence iteration protocol. Referenced by pre-implementation,
+      post-code-change, and post-PR-review phases.
+    triggers: []
+    status: active
+
   - name: pre-commit
     path: .github/playbooks/pre-commit.md
     classification: phase
