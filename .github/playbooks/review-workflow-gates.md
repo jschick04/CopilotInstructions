@@ -160,36 +160,42 @@ Editing the session plan file (`plan.md` in the session-state folder) BEFORE the
 
 `powershell` calls to create a worktree, configure git identity, install tools, or set up the environment are PREPARATION, not implementation, and remain available without certification. The discriminator: does this tool call materially advance the work the panel reviewed? If yes, certification is required.
 
-### Pushing to project (non-instruction) repos requires explicit user diff approval (HARD GATE)
+### Pushing changes to project (non-instruction) repos requires explicit user diff approval BEFORE staging (HARD GATE)
 
-After a `PANEL CONVERGED` certification authorizes implementation, the agent may freely call `create` / `edit` / `git add` / `git commit` to land the panel-approved changes. **But `git push` to a project repository requires an additional gate: the user must see the actual diff (or a faithful summary of it) and explicitly approve the push.**
+After a `PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But before any `git add` to a project repository, the user MUST see the actual working-tree diff (or a faithful summary of it) and explicitly approve.**
 
-This gate is asymmetric with the instruction repo (e.g. `CopilotInstructions`): instruction-repo pushes are auto-approved by the panel certification alone (the instruction edits ARE the panel's reviewed artifact and the user has already approved the instruction strategy at the plan stage). Project-repo pushes carry separate risk — the panel reviewed the design but did NOT approve the user-visible code shape, comment style, naming, or commit-message wording.
+This gate is asymmetric with the instruction repo (e.g. `CopilotInstructions`): instruction-repo changes can proceed from `edit` → `git add` → `git commit` → `git push` without an additional user approval gate (the panel certification covers them). Project-repo changes require the user to gate the change at the **working-tree boundary BEFORE it enters the staging area**.
 
-**Procedure before any `git push` to a project repo:**
+**Why pre-`git add` and not pre-`git push`?**
 
-1. Run `git --no-pager diff <origin-ref>..HEAD` (or `git --no-pager show HEAD` for single-commit pushes) and surface the output to the user, plus a short summary of what each hunk does.
-2. Call `ask_user` with the diff summary, asking for one of: approve / amend / revert.
-3. Wait for the user response BEFORE running `git push`.
+Earlier is better. A pre-push gate means the change is already staged, committed, and message-authored; reversing it requires `git reset` + history rewrite or `git commit --amend` + force-push. A pre-staging gate means the change is just files on disk; reversing it is `git restore` (or simply editing again). The earlier gate trades a slightly noisier review experience (user sees raw working-tree diff, not a polished commit) for cheaper reversal cost AND for a much harder skip path — if `git add` is gated, then `git commit` and `git push` can't run on un-approved changes by construction, eliminating the "I'll just push and ask for forgiveness" failure mode.
+
+**Procedure before any `git add` (or equivalent staging command: `git stage`, `git add -A`, `git add -p`, `git add .`, etc.) in a project repo:**
+
+1. Run `git --no-pager diff` (working tree vs HEAD) and surface the output to the user, plus a short summary of what each hunk does.
+2. Call `ask_user` with the diff summary, asking for one of: approve / amend / discard.
+3. Wait for the user response BEFORE running `git add`.
+
+Once the user approves, the orchestrator may then chain `git add` → `git commit` → `git push` without further user approval for that specific change.
 
 **Skip conditions (none apply unless explicitly documented this session):**
 
-- The user has stated in THIS session: "auto-push to `<repo>` is fine" / "you can push project commits without asking" / equivalent unambiguous opt-out for that specific project repo.
-- The commit is a `git revert` of a commit pushed earlier in this session that the user has just asked to be reverted.
-- The commit is a trivially-mechanical fix (single-file ≤10 line delta, fixing a clearly identified review comment) AND the orchestrator already showed the user the planned change in the same turn or the immediately prior turn.
+- The user has stated in THIS session: "auto-stage for `<repo>` is fine" / "you can `git add` project changes without asking" / equivalent unambiguous opt-out for that specific project repo.
+- The change being staged is a `git restore` / revert of working-tree state the user just asked to be reverted.
+- The change is a trivially mechanical fix (single file, ≤10 line delta, fixing a clearly identified review comment) AND the orchestrator already showed the user the planned change in the same turn.
 
 **What about instruction-repo pushes?**
 
-Pushes to instruction repositories (e.g. `CopilotInstructions/main`) do NOT require this additional review gate. The panel certification on the instruction-repo edit is sufficient. The asymmetry exists because:
+Pushes to instruction repositories (e.g. `CopilotInstructions/main`) do NOT require this pre-`git add` gate. The panel certification on the instruction-repo edit is sufficient. The asymmetry exists because:
 
 - The user's plan-stage approval covers the instruction strategy.
 - Instruction edits are typically narrow and structural (delta proposals).
 - The panel's review of an instruction artifact IS a review of the user-visible shape (no rendered output, no UX impact).
 - Project-repo pushes affect a long-lived shared repo with multiple consumers; instruction-repo pushes only affect the agent's own behavior in future sessions and are reverted by another commit.
 
-If the user explicitly states a preference for auto-pushing project commits as well, this gate is relaxed for the duration of the session (record the override in the session state).
+If the user explicitly states a preference for auto-staging project commits as well, this gate is relaxed for the duration of the session (record the override in the session state).
 
-**Failure mode if skipped:** the agent presents a "shipped!" summary to the user before the user has seen the code; the user discovers an issue post-push; revert/amend cycle inflates round count and erodes trust in the gate process.
+**Failure mode if skipped:** the agent presents a "shipped!" summary to the user before the user has seen the code; the user discovers an issue post-push; revert/amend cycle inflates round count and erodes trust in the gate process. The pre-`git add` placement is specifically chosen so that the agent's normal "build → test → stage → commit → push" cadence cannot proceed past the staging step without the user in the loop.
 
 ---
 
