@@ -102,7 +102,8 @@ The following tools MUST NOT be called for implementation purposes until a curre
   - `Set-Content`, `Add-Content`, `Out-File`, `>`, `>>` — file write
   - `Move-Item`, `Rename-Item`, `cp`, `mv` — file moves
   - `dotnet new`, `cargo new`, `npm init`, `git init` — project scaffolding
-  - `git add` — stage changes
+  - `git add` — stage changes (additionally requires `POST-CODE-CHANGE LEDGER` per §2B and, for project repos, the diff-approval gate below)
+  - `git commit` — finalize commit (additionally requires `PRE-COMMIT GATE PASSED` block emitted in the current turn per `pre-commit.md`; the block records diff approval, ownership confirmation, message approval, format check, and staged-files list)
 - Sub-agent launches with implementation intent (the sub-agent itself would edit files)
 
 ### Exceptions

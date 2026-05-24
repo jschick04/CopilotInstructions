@@ -11,6 +11,54 @@ Show the diff to the user, get explicit approval, confirm who handles the commit
 - Commit ownership confirmed (user vs agent) via `ask_user` — prompt MUST display the resolved `<user.name> <<user.email>>` + scope AND use the literal `the agent` / `you (the user)` actor labels (no bare `I` / `me` / `you`). Step 3b below has the canonical form schema.
 - Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
 - Stage only touched files (`git add <path>` — never `git add .`).
+- **`PRE-COMMIT GATE PASSED` block emitted in the current turn** before any `git commit` tool call — §1B refuses `git commit` without this block (mirrors §1A's `PANEL CONVERGED` enforcement at the implementation boundary and §2B's `POST-CODE-CHANGE LEDGER` enforcement at the staging boundary).
+
+## `PRE-COMMIT GATE PASSED` block — required emission
+
+Before any `git commit` (including `git commit --amend`, `git cherry-pick`, `git rebase`-driven commit replay, or any other tool call that produces a new commit object), the agent MUST emit a literal block in the **current turn** that records the outcome of each pre-commit gate. The block must appear in the same turn as the commit tool call. Per §1B, the absence of the block forbids the tool call — no rationalization (e.g., "the diff was approved a few turns ago", "the message is obvious from context", "this is just a small amend") is acceptable.
+
+### Block format
+
+```
+PRE-COMMIT GATE PASSED
+  diff_shown: yes (turn <N>)
+  diff_approved: yes (turn <N+M> user response: "<verbatim approval phrase>")
+  author_identity: <name> <<email>> (scope: <local | global | env-override>)
+  commit_ownership: agent | user
+  proposed_subject: "<single-line subject — exact string the agent will pass to git commit -m>"
+  subject_approved: yes (turn <K> user response: "<verbatim approval phrase or 'edited to: ...'>")
+  format_check:
+    single_line: yes
+    co_authored_by_trailer: no
+    body: no
+    conventional_commit_prefix: no
+    subject_length_chars: <integer>
+  staged_files:
+    - <explicit relative path 1>
+    - <explicit relative path 2>
+    - <... — must enumerate ALL staged files; "git add ." / "-A" / "--all" are forbidden per §0>
+```
+
+### Field requirements
+
+- **`diff_shown` / `diff_approved`** — record the actual turn numbers (or message indices) in the current conversation. If the diff was shown but never explicitly approved by the user, `diff_approved: no` MUST appear and the commit MUST NOT proceed.
+- **`author_identity`** — verbatim output of `git var GIT_AUTHOR_IDENT` (name + email). For amend / cherry-pick / rebase operations, the preserved author on the replay target must ALSO be verified to be a non-automation identity per `AGENTS.md` §4.1; that verification result goes in a separate `replay_author_identity:` line.
+- **`commit_ownership`** — must be either `agent` or `user`. If `user`, the agent must STOP at this gate and let the user run `git commit` themselves — no chain-through to `git push`.
+- **`proposed_subject`** — the EXACT string that will be passed to `git commit -m`. Not a summary; the literal value.
+- **`subject_approved`** — record the user response that approved the proposed subject. If the user edited the subject during approval, `proposed_subject` must reflect the edited version, and `subject_approved` should quote the edit.
+- **`format_check`** — five boolean sub-fields. Any `no` on `single_line` / `subject_length_chars > 72` / etc. that contradicts the playbook's format rules MUST cause the agent to revise the message before re-emitting the block.
+- **`staged_files`** — enumerated list. `git add .`, `git add -A`, `git add --all` are forbidden per §0; the staged files list must come from an explicit `git add <path>` per file.
+
+### Falsification is a higher-severity failure than skipping
+
+If the block claims a gate was satisfied (e.g., `diff_approved: yes (turn 42)`) but the conversation record shows it was not, that is a more severe violation than omitting the block entirely. The agent MUST self-report falsified block entries proactively in the next turn and propose remediation (typically: revert the commit, restore working tree, re-run the gates).
+
+### Skip conditions (none apply unless explicitly documented this session)
+
+- The user has stated in THIS session: "skip the pre-commit block" or equivalent unambiguous waiver for a specific commit or range. The waiver MUST be recorded in the session state with the affected commit identifier.
+- `git commit --amend --no-edit` that is mechanically restoring a previously-emitted committer timestamp without changing tree or message (e.g., immediately after a successful `git rebase --continue`) — the original commit's `PRE-COMMIT GATE PASSED` block is preserved by reference.
+
+The trivial-mechanical-fix carve-out from the §1B project-repo gate does NOT apply to the `PRE-COMMIT GATE PASSED` block — the block exists precisely because "obvious mechanical fixes" are the rationalization path through which Co-authored-by trailers, multi-line bodies, and missed message approvals slipped historically.
 
 ## Intake questions
 
