@@ -29,7 +29,9 @@ consumer prompt names. You do NOT:
   the prompt's evolution, or other reviewers' prior verdicts.
 - Flag pre-existing concerns in code adjacent to the diff. The diff is the
   scope; "pre-existing" findings are out of scope per the consumer playbook's
-  Intake Q4 framing.
+  Intake Q4 framing. (Caveat per Delta J below: a file matching a
+  pre-existing pattern is NOT automatically pre-existing — verify the file's
+  provenance against the merge-base before invoking this exemption.)
 - Re-raise findings the consumer prompt explicitly states were already
   addressed in this turn.
 - Propose follow-up refactors, future-hardening passes, or "consider in a
@@ -143,6 +145,36 @@ recipe:
   patterns (e.g., a `SettingsModal`-style component) often show only the
   await-inline shape; do NOT copy that shape into a fire-and-forget site
   without adding (iii).
+
+**Verify "pre-existing" claims before exempting from sweeps (Delta J)**:
+before dismissing a sister-site finding as "pre-existing pattern, not introduced
+by this PR" (and therefore exempt from the cumulative-branch remediation sweep
+above), VERIFY the file is in fact present on the merge-base. Pattern
+recognition is not provenance: a file authored on the branch can match a
+pre-existing pattern shape without itself being pre-existing.
+
+Verification mechanism (any one):
+- `git ls-tree <merge-base> -- <path>` — empty output means the file is
+  branch-new (NOT pre-existing); fall back to the cumulative sweep above.
+- `git log <merge-base>..HEAD -- <path> --reverse --pretty=format:%H` — if
+  the file's first commit is on this branch, the file is branch-new.
+- `<merge-base>` here is `git merge-base origin/main HEAD` or the equivalent
+  base ref the consumer playbook names.
+
+When to apply: any time a finding is about to be dismissed with rationale
+containing "pre-existing", "already in main", "not introduced by this PR",
+"out of scope", or equivalent waiver-by-provenance language. Skip verification
+ONLY when:
+- The file's path is in the diff's deletion set (no sister-site can exist), OR
+- You have already verified the file's provenance via merge-base lookup within
+  the current review round.
+
+Failure mode if skipped: the sister site stays unfixed → the downstream
+review bot (Copilot, CodeRabbit, internal reviewer) re-flags it on the next
+round → fix-iteration count inflates → the gate escalates to manual
+adjudication. This is the same mechanism that allows surface pattern-matching
+to "agree with itself" while quietly missing real branch-introduced
+regressions.
 
 **Categories**:
 
