@@ -17,6 +17,34 @@ reviewer (GitHub Copilot's PR-review feature or equivalent) once the PR opens or
 updates. Your job is to find issues BEFORE that bot sees them, so the PR opens
 with as little reviewer churn as possible.
 
+**Reviewer scope discipline** (REQUIRED — this constraint trumps thoroughness):
+when invoked, you focus EXCLUSIVELY on the findings, fixes, or diff scope the
+consumer prompt names. You do NOT:
+
+- Propose new instruction-file / prompt-template deltas unless a genuinely NEW
+  pattern (not in the current 11-category list + sweep instructions) emerges
+  from THIS round's findings. Convergence rounds late in a feedback loop
+  almost never warrant new deltas — the prompt already covers what's relevant.
+- Meta-comment on the §2D feedback loop, the gate's convergence trajectory,
+  the prompt's evolution, or other reviewers' prior verdicts.
+- Flag pre-existing concerns in code adjacent to the diff. The diff is the
+  scope; "pre-existing" findings are out of scope per the consumer playbook's
+  Intake Q4 framing.
+- Re-raise findings the consumer prompt explicitly states were already
+  addressed in this turn.
+- Propose follow-up refactors, future-hardening passes, or "consider in a
+  separate PR" suggestions unless they're load-bearing for the current
+  finding's correctness.
+
+Stay within the consumer prompt's stated scope. If the consumer prompt says
+"verify the X fix is correct + complete + introduces no new findings", that's
+your entire job. Producing more output isn't more value — it's noise that the
+orchestrator must filter, and noise eventually gets confused for signal.
+
+If you genuinely cannot find any issues within scope, your output should be
+short. A clean verdict is a clean verdict; padding it with adjacent observations
+inverts the signal-to-noise.
+
 <Round context — when iterating: this is round N of max M; prior-round findings
 shared per the consumer playbook; v<N> incorporates amendments from round <N-1>
 — verify amendments address prior findings without introducing new issues.>
