@@ -14,7 +14,7 @@ Fires when the user is preparing to push for code review — opening a PR, reque
 - **Branch-wide least-privilege audit** run when `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** (same definition as `post-code-change.md`'s touched-file gate) across the branch. Procedure: `.github/playbooks/least-privilege-audit.md` with branch-wide scope restricted to the projects touched. Skipped only when the branch has no visibility / export / mutability surface delta — that fact recorded explicitly with the justifying file list. **Run AFTER any branch-wide rename-first sweep cleanup has been committed / amended** (so the audit sees the final branch state, not a sweep-mutated working tree). Fresh-source-search at audit time; per-commit classifications from earlier in the branch are stale by the time the branch is push-ready.
 - **PR title + body free of internal plan markers.** Before invoking `gh pr create` / `gh pr edit`, re-read the title + body and strip any session-internal references: plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`, etc.), session file paths (`files/foo-audit.md`, `aa2fde9c/plan.md`), upstream commit SHAs that won't survive a rebase, or stage / phase markers from the agent's internal task tracker. The audience is the public repo, not the agent's planning workspace; the title + body must stand on their own. Concrete patterns that have leaked in past PRs and were caught only post-open: `"... (T1)"` suffix, `"Carries out the T1 audit from files/f3-test-quality-audit.md"`, `"... already shipped upstream by d3fcfa9"`. **Use the SUT names, the behavior change, and the test count delta** — never the internal phase IDs.
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
-- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim — structured chat block enumerating the 10-field state predicate + sandbox-confirmation informational field (11 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
+- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim — structured chat block enumerating the 11-field state predicate + sandbox-confirmation informational field (12 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
 - No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit (when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
 ## Pre-check 0: Verify push credentials (always — runs BEFORE the sandbox pre-check)
@@ -176,6 +176,16 @@ If this is a subsequent push (review-response amend, post-merge push, rebase pus
 
 …and apply the re-run conditions. Some scenarios re-trigger the full branch-wide sweep; others only require per-commit hygiene on the new amend.
 
+### Step 5 — IF review-targeting push (any of the in-scope rows above): pre-PR-creation multi-model review (§2D)
+
+For every review-targeting push (any of the in-scope rows above — first-review push OR subsequent review-targeting push), fetch:
+
+> `.github/playbooks/pre-pr-creation-review.md`
+
+…and run the §2D mandatory pre-PR-creation multi-model panel on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. Until this field reads one of the `READY-*` values in the current turn, the PR-creation tools enumerated in §2D G6 are forbidden — see `pre-pr-creation-review.md` G3 for the same-turn enforcement.
+
+This step is the SINGLE SOURCE OF TRUTH for "should §2D fire now?" — §2D itself does not re-classify whether the push is review-targeting; it reads from the §2D phase-state record that this step writes.
+
 ## State to record before declaring "ready to push"
 
 Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical session todos table:
@@ -188,12 +198,13 @@ Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical
 - `sandboxPriorExposureConfirmation` — `confirmed-private` / `denied-or-unsure` / `not-needed`. Written only when the conditional sandbox-exemption gate fires (`(isFirstReviewExposurePush=true && remoteExposureExists=true)` and an amend was actually attempted). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*.
 - `rerunConditionsChecked`— `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases — `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
 - `pushCredentialsVerified` — outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field — credentials must be verified for sandbox pushes too). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
+- `preCreationReviewStatus` — outcome of Step 5 above (§2D pre-PR-creation review per `pre-pr-creation-review.md`). One of `READY-pending-user-approval` / `READY-re-emitted-after-user-approval` / `BLOCKED-<reason>` / `n/a-sandbox-exit` (when this push exited at the sandbox pre-check). A `BLOCKED-*` value fails the readiness gate AND blocks the PR-creation tools enumerated in §2D G6.
 
 Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
 
 ### Evidence-gate output before declaring "ready"
 
-Print the state-predicate read-back as a structured chat block before claiming ready — the 10 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (11 lines total in the block; the field set is referred to as the "10-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational eleventh). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` — state read-back prints state verbatim; there is no audit-count concept here).
+Print the state-predicate read-back as a structured chat block before claiming ready — the 11 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (12 lines total in the block; the field set is referred to as the "11-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational twelfth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` — state read-back prints state verbatim; there is no audit-count concept here).
 
 ```
 Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
@@ -207,6 +218,7 @@ Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
 - cleanupBucketOutcomes: <list of (bucket, commit-sha, amend-safety-result) tuples; empty when no cleanup>
 - rerunConditionsChecked: <true | false | n/a-first-push | n/a-sandbox-exit>
 - pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>
+- preCreationReviewStatus: <READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason> | n/a-sandbox-exit>
 - sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
 ```
 

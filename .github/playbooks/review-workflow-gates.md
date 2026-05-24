@@ -119,6 +119,39 @@ The following are NOT implementation tools and remain available without certific
 
 A general rule like "no implementation until panel ran" leaves room for the agent to rationalize: "I'm just creating a folder, that's not really implementation." The enumeration removes that escape hatch — any of these tools called for implementation purposes without certification is a hard violation.
 
+### `exit_plan_mode`, plan-summary approval, and "proceed with implementation" runtime messages are NOT certifications
+
+The most common silent-skip path: the agent emits an `exit_plan_mode` plan summary, the user approves it (or the runtime returns "Plan approved! Proceed with implementing the plan"), and the agent treats that as satisfying §1A. **This is wrong.**
+
+`exit_plan_mode` is a runtime convenience for user-facing plan presentation. It is NOT a panel run. The user's approval of the summary is approval of scope, not approval of design. Per §1A, only a multi-model panel that reviewed the exact artifact AND emitted the `PANEL CONVERGED` block in the current turn satisfies the gate.
+
+If the agent has:
+
+- exited plan mode, OR
+- received user approval via `ask_user` on a plan summary, OR
+- received a "proceed with implementation" directive from the runtime, OR
+- had its `exit_plan_mode` accepted with `autopilot` / `autopilot_fleet`
+
+…but has NOT run the panel and emitted `PANEL CONVERGED` in the current turn — implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
+
+The skip-escalation in §1 (the "user explicitly directed immediate implementation" justification) requires both (a) an explicit `ask_user` whose body contains the phrase "skip the panel" or equivalent unambiguous skip-the-review directive, AND (b) recording the skip in the session state per the §1 skip-escalation rule. A generic "approved" / "proceed" / "exit plan mode" response is NOT a panel-skip directive — it's scope approval.
+
+### Instruction-repo edits are §1B tool calls (no exemption for "meta-work")
+
+Editing files in the instruction repository — `.github/playbooks/**/*.md`, `.github/instructions/**/*.instructions.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/playbooks/manifest.yaml`, or any other governance / instruction artifact in this repo or downstream repos that consume it — is **explicitly a §1B tool call** subject to the same `PANEL CONVERGED` certification as code-repo edits. The §1B enumeration above already says "any file edit, including instruction files and configuration" — this subsection exists to defeat the rationalization that instruction edits are "meta-work" or "small tweaks" or "plan-level work" exempt from the gate.
+
+Meta-changes to the instruction set carry **higher** long-term risk than code changes: bad code is reverted in one commit; bad instructions corrupt future agent behavior across many sessions until someone notices and reverts. The required certification scrutiny is the same or higher for instruction edits, not lower.
+
+When the panel reviews an instruction-set change, its prompt MUST include explicit focus on:
+
+1. **Self-consistency** — does the new rule conflict with existing rules? Overlap in enforcement domains?
+2. **Escape-hatch analysis** — what could a future agent do to skip the rule? Vague language, optional conditional skips, ambiguous "N/A — reason" clauses are red flags.
+3. **Enforcement mechanism** — is the rule self-policing (a literal block emission that §1B can hard-stop on)? Or norm-based and easily forgotten?
+4. **Reviewer slate / model / path stability** — do specific model names, tool names, or external system references have a deprecation story?
+5. **Project-agnosticism** — does the rule leak project-specific names, paths, or domain concepts that would be wrong in other consuming repos?
+
+The plan-file edit carve-out below applies ONLY to session `plan.md` files in `~/.copilot/session-state/<id>/`. It does NOT apply to instruction-repo files. The "implementation-intent vs preparation-intent" distinction below does NOT apply to instruction-repo files either — there is no "preparation" carve-out for instruction edits.
+
 ### Plan-file edit carve-out
 
 Editing the session plan file (`plan.md` in the session-state folder) BEFORE the panel runs is allowed and expected — that's how the plan reaches a reviewable state. Editing the plan file AFTER the panel runs invalidates the certification and requires a new panel (per §1A).
@@ -366,6 +399,49 @@ If the same duplication pattern is detected in a subsequent commit (i.e., the us
 
 ---
 
+## 2D. Pre-PR-creation multi-model review (HARD GATE)
+
+### Rule
+
+Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), a multi-model heavy panel (≥4 reviewers per slate floor in `pre-pr-creation-review.md` waive matrix) MUST run on the FULL branch diff (`<base>..HEAD`) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). A `PRE-PR REVIEW COVERAGE` block MUST appear in the same turn as the PR-creation tool call (initial emission at end of synthesis + re-emission after the AGENTS user-approval `ask_user` returns).
+
+Strict mandatory — G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
+
+### LEDGER row format
+
+When §2D is in scope (review-targeting push per `pre-pr-push.md` Step 5), the §2D ledger row appears in `PRE-PR REVIEW COVERAGE` per the playbook's Step 7 / Step 9 emission format. The `pr-creation-status` field is the gate's READY signal — values:
+
+- `READY-pending-user-approval` (initial emission, end of synthesis turn).
+- `READY-re-emitted-after-user-approval` (PR-creation tool-call turn, after AGENTS user-approval ask_user returns + same-state re-check passes).
+- `BLOCKED — <N> must-fix unresolved` (must-fix findings still pending).
+- `BLOCKED — slate-floor violated` (slate composition fell below the waive matrix floor).
+- `BLOCKED — bootstrap-token-removed` (G7 token removed from PR body after initial emission).
+- `BLOCKED — same-state-check-failed` (HEAD / base / commit-count changed between initial and re-emission).
+
+The PR-creation tool call is forbidden unless `pr-creation-status` reads `READY-re-emitted-after-user-approval` in the same turn.
+
+### Bootstrap exemption (narrow scope)
+
+The PR that introduces §2D itself (this entire gate, the consumer playbook, the cross-cutting AGENTS.md bullet, the `review-workflow-gates.md` §2D section, the `pre-pr-push.md` Step 5 hook, the `multi-model-review/pr-creation-mirror-prompt.md` template, the `pre-pr-creation-review/implementation-roadmap.md` deferred-features document, and the `manifest.yaml` registration) is EXEMPT from §2D for THAT specific PR. The exemption requires ALL of:
+
+1. The PR introduces a NEW mandatory gate that did not exist on `origin/<base>` pre-PR.
+2. The PR body contains the literal token `BOOTSTRAP-EXEMPTION: §2D pre-PR-creation review gate`.
+3. The PR includes ALL companion edits required for the gate to be operative post-merge (listed above).
+
+PRs that modify, tighten, loosen, or refactor §2D-as-already-shipped are NOT bootstrap-exempt — they go through §2D normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
+
+This template applies to any future meta-change introducing a new mandatory gate at the §2-level: the introducing PR is exempt from the gate it introduces; subsequent modification PRs go through the gate normally.
+
+### Full procedure
+
+See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1 invocation mode, Step 2 ancestry-based re-run-trigger detection, Steps 3-6 panel + synthesis + fix loop, Steps 7-10 LEDGER emissions and user approval flow). Deferred features (capability-tier registry, context-budget circuit breaker, branch-level fix-iteration cap, citation-preserving compaction format, etc.) live in `pre-pr-creation-review/implementation-roadmap.md` for follow-up PRs.
+
+### Why §2D exists
+
+LLM-based PR reviewers (GitHub Copilot's PR-review feature, GitLab Duo Code Review, similar bot reviewers) consistently surface a known set of pattern categories on every PR. Patching the static-pattern catalog reactively after each PR is whack-a-mole. The LLM-judgment patterns (doc-impl divergence, comment-promises-behavior-code-doesn't-deliver, hardcoded ARIA, framework-binding stale-render, attach-without-detach, etc.) need an LLM in the loop to catch. Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens" — the work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
+
+---
+
 ## 3. Scope reduction sign-off
 
 ### Rule
@@ -440,9 +516,11 @@ Document these learnings for future panel configurations.
 - `post-code-change.md` — invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §4 (panel convergence) during the multi-model reviewer panel.
 - `pre-commit.md` — invokes §2B (post-code-change ledger) before any `git add` / `git commit` / `git commit --amend`.
 - `post-pr-review.md` — invokes §2 (root-cause analysis) when processing reviewer comments.
-- `pre-pr-push.md` — invokes §2A (prior-PR-review sweep, branch-wide scope) before push.
+- `pre-pr-push.md` — invokes §2A (prior-PR-review sweep, branch-wide scope) and §2D (pre-PR-creation multi-model review) before push.
 - `multi-model-review.md` — owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
-- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), and §3 (scope reduction sign-off) as hard gates.
+- `multi-model-review/pr-creation-mirror-prompt.md` — shared 11-category Copilot-mirror prompt template used by §2D's heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
+- `pre-pr-creation-review.md` — owns the §2D heavy pre-PR-creation review gate procedure (invocation modes, ancestry-based re-run triggers, panel + synthesis + fix loop, LEDGER emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
+- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (pre-PR-creation multi-model review), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 
