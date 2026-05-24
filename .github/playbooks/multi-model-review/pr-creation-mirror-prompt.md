@@ -65,6 +65,29 @@ correct in isolation) — this catches the failure mode where the fix-author
 re-instantiates the same pattern they were paid to eliminate, often in a new
 helper named after the same operation.
 
+**Cumulative branch remediation sweep**: build a list of every *remediation
+pattern* applied anywhere in the branch diff against the base ref — not only
+patterns introduced in the current commit. Examples: SQLite-pool-clear before
+file delete, bounds-clamped bulk-copy, null-coalesced display strings,
+dropped-input guards, dead-storage cleanup, async-all-the-way `*Async`
+conversion. For each remediation pattern P enumerated, scan every site in the
+branch's modified files (across ALL prior commits on the branch) where P's
+triggering precondition holds. Each enumerated site must either:
+(a) already apply P,
+(b) carry a documented one-line reason P does not apply (e.g., "read-only
+operation, no partial-file risk"; "modifies pre-existing user file, deletion
+would be data-destructive"), or
+(c) be flagged as a missing-sister-site finding.
+This complements the cross-file sweep (which is anchored on the CURRENT fix's
+category) and the self-similarity sweep (which is anchored on the FIX'S new
+code) — the cumulative-branch sweep fills the gap where remediation patterns
+from earlier commits on the branch were never re-engaged in later panel runs.
+Optimization: if the prior panel round flagged a missing-sister-site for any
+pattern, ALWAYS run the cumulative sweep in this round; if the prior round
+had no missing-sister-site findings, the cumulative sweep is a one-time
+re-check that may be skipped on subsequent same-branch panels where no new
+patterns were introduced.
+
 **Categories**:
 
 1. **Bugs and logic errors** — null-dereference / index-out-of-bounds risks,
