@@ -213,6 +213,99 @@ Fetching review comments for 10 PRs is ~20 API calls. Use `gh api --paginate` on
 
 ---
 
+## 2B. Post-code-change ledger (HARD GATE)
+
+### The problem
+
+The pre-implementation phase has a single named certification block (`PANEL CONVERGED` per §1A) whose presence is enforced by §1B — implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped — and the user has no easy way to detect it after the fact.
+
+This is the failure mode that landed on this branch: `PANEL CONVERGED` was emitted once for the plan; subsequent implementation commits proceeded with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running. The user had previously waived the diff-approval `ask_user` step on an earlier commit; that single-step waiver was implicitly carried forward and treated as a blanket post-code-change waiver on later commits.
+
+### Rule
+
+Before ANY `git add` (or `git commit --amend` that re-stages files, or `git stash pop` that resolves into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, `git add` is forbidden — extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary.
+
+### Ledger format
+
+```
+POST-CODE-CHANGE LEDGER
+  commit-subject: <one-line subject the agent will use for git commit>
+  files-touched: <count + brief shape, e.g. "21 (370+/0-)">
+  gates:
+    hygiene-cleanup: <ran | N/A — reason>
+    touched-file-LPA: <ran (N findings, K unjustified) | N/A — reason>
+    recurring-pattern-sweep: <ran, N findings>
+      - <pattern>: <N matches | no matches>
+      - ...
+    prior-PR-review-sweep: <ran, M patterns checked, N findings | N/A — no prior merged PRs / no production-code edits>
+      - <pattern from PR #X>: <matches | no matches>
+      - ...
+    post-code-change-panel: <ran, unanimous | N/A — reason | user-waived — "<quote>">
+    comment-audit-§3.1: <ran | N/A — no comments touched>
+    build: <passed | failed: …>
+    tests: <passed, N/total | failed: …>
+    diff-shown: <yes (ask_user turn …) | user-waived — "<quote>">
+    commit-message-approved: <PENDING | yes (ask_user turn …)>
+```
+
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A — <reason>` — not blank, not omitted, not "skipped".
+
+### Waiver semantics
+
+A `user-waived` value MUST quote the user's waiver from the **current turn**. Waivers from earlier turns do NOT carry forward to new commits. This is the specific rule that catches the silent-skip failure mode: "the user said staged-means-reviewed on commit N" cannot waive any gate on commit N+1.
+
+Example valid waiver:
+```
+diff-shown: user-waived — "go ahead and ammend these changes into that commit and pop the stash"
+```
+
+Example invalid waiver (previous-turn quote, current-turn approval missing):
+```
+diff-shown: user-waived — "staged means I reviewed it" [turn 47]
+```
+
+### Required outputs per gate
+
+The ledger does NOT replace each gate's own required output (e.g. §2.5 sweep still emits `Step 2.5 sweep: ran, N findings`, §2A still emits its sweep line). The ledger AGGREGATES those into a single signed-off block. Per-gate output must still appear in the same turn — the ledger just confirms each gate ran AND attests to its result.
+
+### When this gate fires
+
+Every `git add` of files staged for a commit. Specifically:
+
+1. Fresh commits (`git add` → `git commit`).
+2. Amend commits (`git add` → `git commit --amend`) when files are re-staged after edits.
+3. Conflict resolution after `git stash pop` / `git merge` / `git rebase` IF the resolution results in a `git add` to mark conflicts resolved AND a commit is intended in the same turn.
+4. Cherry-pick / rebase operations that resolve conflicts and stage the resolved state.
+
+**Carve-outs (no ledger required):**
+
+- `git add` to mark conflicts as resolved when **no commit will follow in the current turn** — i.e. the user has explicitly directed leaving the resolved state in the working tree for their own review before any commit.
+- `git add` followed by `git stash push` (preparing to stash, not commit).
+- `git restore --staged <path>` (unstaging — no commit pathway).
+
+### Skip conditions
+
+A gate row may be `N/A — <reason>` when:
+
+- **hygiene-cleanup**: the diff contains no consumer files with stale usings or qualifiers that the change could have affected (e.g. the diff only adds new files in new directories).
+- **touched-file-LPA**: the diff contains no visibility / export / sealing / mutability surface deltas (per `AGENTS.md` Post-code-change phase). Body-only edits to already-public types do NOT trigger LPA.
+- **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
+- **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
+- **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A — pure re-commit of already-reviewed content, 0 behavioral delta`.
+- **comment-audit-§3.1**: no comments added, removed, or modified in the diff.
+
+### Why this exists
+
+The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git add` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
+
+The ledger is also the audit trail: when a future review (post-merge, retrospective, or PR review on the open PR) discovers that a gate slipped, the ledger explicitly records *which* gate was skipped and *why*. No more reconstructing intent from chat history.
+
+### Repeat failure escalation
+
+If a `POST-CODE-CHANGE LEDGER` block is later found to have falsified a gate status (claimed `ran` for a gate that did not actually run, or quoted a waiver the user never gave), the agent MUST proactively report this to the user as a process violation in the next turn, propose a remediation, and ask the user to re-review. False-positive ledger entries are a higher-severity failure than silent skips because they erode the trust the rule depends on.
+
+---
+
 ## 3. Scope reduction sign-off
 
 ### Rule
@@ -284,11 +377,12 @@ Document these learnings for future panel configurations.
 ## Appendix: relationship to other playbooks
 
 - `pre-implementation.md` — invokes §1 (two-stage review), §1A (artifact-binding), §1B (hard-stop tool list), and §4 (panel convergence) during the plan review gate.
-- `post-code-change.md` — invokes §2A (prior-PR-review sweep), §4 (panel convergence) during the multi-model reviewer panel.
+- `post-code-change.md` — invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §4 (panel convergence) during the multi-model reviewer panel.
+- `pre-commit.md` — invokes §2B (post-code-change ledger) before any `git add` / `git commit` / `git commit --amend`.
 - `post-pr-review.md` — invokes §2 (root-cause analysis) when processing reviewer comments.
 - `pre-pr-push.md` — invokes §2A (prior-PR-review sweep, branch-wide scope) before push.
 - `multi-model-review.md` — owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
-- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), and §3 (scope reduction sign-off) as hard gates.
+- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 
