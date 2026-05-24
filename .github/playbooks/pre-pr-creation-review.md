@@ -250,6 +250,22 @@ Per AGENTS.md `gh pr create` section: present PR title + body + base via `ask_us
 
 For non-GitHub forges, mirror the same user-approval flow before invoking the equivalent G6 tool.
 
+#### Step 8a. PR-description coherence check (mandatory before user-approval `ask_user`)
+
+Before presenting the PR title + body for user approval, re-read the proposed description against the diff. Verify that every named type, interface, file path, public method, configuration knob, or behavioural claim in the description actually appears in the diff with the role the description attributes to it.
+
+Common failure modes (Bot reviewers consistently catch these on PR-open):
+
+- **Renamed but not updated**: description references the old symbol name after a rename.
+- **Capability misattributed**: description claims interface `IFoo` does X, but `IFoo` actually exposes Y and the X capability lives on `IBar` (existing or new).
+- **Moved but stale path**: description references a file path that was moved during the diff.
+- **Behavioural overclaim**: description describes a feature the diff scaffolds but doesn't actually implement (e.g., "supports cancellation" when no `CancellationToken` is threaded).
+- **SHAs that won't survive rebase**: description cites specific commit SHAs of upstream merges that will not exist after the base branch advances.
+
+When any incoherence is found, FIX the description (or, if the description is correct and the code is wrong, route back through the panel as a finding). Treat this as a blocking pre-PR-creation gate — coherence defects always become reviewer comments, and the fix is cheap if caught here vs. after PR-open.
+
+Record `prDescriptionCoherenceCheck` in the §2D phase-state record: `ran-clean` / `ran-fixed-description-before-create` / `ran-routed-back-to-panel-as-finding`.
+
 ### Step 9. Re-emit the block after approval
 
 In the PR-creation tool-call turn (after Step 8 `ask_user` returns):
@@ -265,7 +281,7 @@ Only after Step 9's re-emitted block in the same turn.
 
 Per `AGENTS.md` *Phase-state tracking convention*:
 
-`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `bootstrapTokenStatus`, `prCreationStatus`.
+`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`.
 
 Read these back from canonical session todos when emitting `PRE-PR REVIEW COVERAGE`; never infer from memory.
 

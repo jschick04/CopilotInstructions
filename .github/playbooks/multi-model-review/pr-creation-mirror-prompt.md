@@ -39,11 +39,22 @@ Mirror the categories an LLM-based PR reviewer would surface. For each category,
 identify findings in the diff and emit them as bullets. Empty categories are
 acceptable — do not invent findings to fill them.
 
+**Cross-file pattern sweep**: when you identify a finding in one file of the
+diff, search the remainder of the diff for the same pattern shape (same risky
+API, same anti-pattern idiom, same missing guard, same framework footgun) and
+raise each additional instance as its own finding. Bot reviewers consistently
+surface every instance of a recurring pattern; finding only the first instance
+leaves duplicates for the post-creation review to catch.
+
 **Categories**:
 
 1. **Bugs and logic errors** — null-dereference / index-out-of-bounds risks,
    off-by-one, race conditions, snapshot-then-re-read inconsistencies, missing
-   await, missing return, logic inverted from intent.
+   await, missing return, logic inverted from intent, user-facing format
+   strings that interpolate a nullable value without a fallback (most language
+   string-interpolation features silently coerce null to empty rather than
+   throwing — e.g., `$"[Failed: {summary}]"` renders `[Failed: ]` when
+   `summary` is null, leaving the user with an information-free error chip).
 
 2. **Security vulnerabilities** — injection (SQL / command / template), insecure
    deserialization, path traversal, secrets in code, weak crypto, missing auth
@@ -84,6 +95,15 @@ acceptable — do not invent findings to fill them.
      modifiers bound to a flag mutated INSIDE the handler — the directive is
      evaluated from the last render, so the handler's flag toggle won't affect
      the event that triggered it.
+   - **Blazor (illustrative)**: CSS `:empty` selector (or `:empty + sibling`,
+     `:has(:empty)`, flex sizing that assumes an empty container) on a wrapper
+     whose children are a Razor `@variable`, child-content `RenderFragment`,
+     `@if`/`@foreach` block, or interpolated `@(...)` — the Razor compiler
+     emits whitespace text nodes between elements, so the wrapper is NEVER
+     `:empty` in the DOM even when the conditional content is null/empty.
+     Guard by `@if`-conditionally rendering the wrapper element itself
+     (eliding it from the DOM when content is absent), not by relying on CSS
+     to hide it when "empty".
    - **React (illustrative)**: state mutation instead of replacement
      (`arr.push(x); setArr(arr)`); missing `key` on list-rendered items;
      missing dependencies in a `useEffect` dep array, capturing stale state
@@ -96,11 +116,15 @@ acceptable — do not invent findings to fill them.
      variable (`obj.x = y` does not trigger reactivity unless followed by
      `obj = obj`).
 
-8. **Performance** — synchronous I/O in async contexts, allocations in tight
-   loops, missing virtualization on large lists / tables, repeated dictionary
-   lookups, string concatenation in loops, O(n²) when O(n) is available,
-   blocking on async (`.Result` / `.Wait()` in C#, `.unwrap()` on future in
-   Rust, `.then` chains without `await` in JS).
+8. **Performance** — synchronous I/O in async contexts (e.g., calling EF Core
+   `SaveChanges()` / `Find()` / `ToList()` / `First()` inside an `async`
+   method that has the `*Async` overload available — the sync overload blocks
+   a runtime worker thread, defeats cooperative cancellation, and silently
+   breaks the per-method async contract), allocations in tight loops, missing
+   virtualization on large lists / tables, repeated dictionary lookups,
+   string concatenation in loops, O(n²) when O(n) is available, blocking on
+   async (`.Result` / `.Wait()` in C#, `.unwrap()` on future in Rust, `.then`
+   chains without `await` in JS).
 
 9. **Deprecated / discouraged patterns** — language- / framework-specific
    obsolete APIs (e.g., `BinaryFormatter`, `WebClient`, `Thread.Sleep` in
