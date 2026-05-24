@@ -39,12 +39,31 @@ Mirror the categories an LLM-based PR reviewer would surface. For each category,
 identify findings in the diff and emit them as bullets. Empty categories are
 acceptable — do not invent findings to fill them.
 
-**Cross-file pattern sweep**: when you identify a finding in one file of the
-diff, search the remainder of the diff for the same pattern shape (same risky
-API, same anti-pattern idiom, same missing guard, same framework footgun) and
-raise each additional instance as its own finding. Bot reviewers consistently
-surface every instance of a recurring pattern; finding only the first instance
-leaves duplicates for the post-creation review to catch.
+**Recurring-pattern sweep**: when you identify a finding, search the remainder
+of the diff — **including other methods, branches, or overloads within the
+same file** — for the same pattern shape (same risky API, same anti-pattern
+idiom, same missing guard, same framework footgun) and raise each additional
+instance as its own finding. In addition, **proactively** scan every changed
+method signature: for each declared parameter, confirm the body actually reads
+or forwards it (silently-dropped parameters are a recurring bot finding that
+no category-based scan catches reactively). Bot reviewers consistently surface
+every instance of a recurring pattern; finding only the first instance leaves
+duplicates for the post-creation review to catch.
+
+**Self-similarity sweep (fix-of-fix protection)**: when a fix-iteration adds
+new helper functions, refactored methods, or any other newly-authored code in
+response to a prior finding, re-apply the SAME category's check to the new
+code, not just to the original code the fix modified. If you fixed an
+unbounded bulk-copy, scan your new helpers for unbounded bulk-copy. If you
+fixed a dropped parameter, scan your new method signatures for dropped
+parameters. If you fixed a leaked resource, scan your new `using` / `Dispose`
+paths for leaked resources. The fix is part of the diff; apply the same lens
+to it. Mnemonic: **"sweep your fixes with the lens that caught the bug."**
+Mechanically distinct from cross-file sweep (which scans unfixed code for the
+same pattern) and from per-finding verification (which checks each fix is
+correct in isolation) — this catches the failure mode where the fix-author
+re-instantiates the same pattern they were paid to eliminate, often in a new
+helper named after the same operation.
 
 **Categories**:
 
@@ -54,7 +73,11 @@ leaves duplicates for the post-creation review to catch.
    strings that interpolate a nullable value without a fallback (most language
    string-interpolation features silently coerce null to empty rather than
    throwing — e.g., `$"[Failed: {summary}]"` renders `[Failed: ]` when
-   `summary` is null, leaving the user with an information-free error chip).
+   `summary` is null, leaving the user with an information-free error chip),
+   method parameters declared in a signature but never referenced in the body
+   (the *dropped-input bug* — silently ignores caller intent, escapes
+   type-checking, especially common in interface implementations / wrapper /
+   adapter methods that forward to a lower layer and forget one argument).
 
 2. **Security vulnerabilities** — injection (SQL / command / template), insecure
    deserialization, path traversal, secrets in code, weak crypto, missing auth
@@ -63,7 +86,14 @@ leaves duplicates for the post-creation review to catch.
 
 3. **Argument / input validation** — missing null checks on public-API
    parameters, missing bounds checks before indexed access (`list[0]` without
-   `list.Count > 0`), missing empty-collection guards, missing
+   `list.Count > 0`) or before bulk-copy / span / memcpy operations
+   (`source.CopyTo(dest)` throws `ArgumentException` when
+   `source.Length > dest.Length`; unsafe variants like `Unsafe.CopyBlock` /
+   `Buffer.MemoryCopy` / `MemoryMarshal.Cast` can silently overrun; stack-
+   allocated buffers sized from input length without a clamp — `stackalloc
+   char[input.Length]` — can both blow the stack and propagate unsanitized
+   length; always pre-check `source.Length ≤ dest.Length` or use `Math.Min` to
+   clamp against a constant maximum), missing empty-collection guards, missing
    string-not-whitespace checks on inputs used as identifiers.
 
 4. **Resource lifecycle** — `IDisposable` / `AutoCloseable` / `Drop` / `using`-
@@ -145,7 +175,12 @@ leaves duplicates for the post-creation review to catch.
     helper-extracted (defer to the DRY-remediation gate's threshold for action,
     but flag the pattern); a new file that is a parameterized copy of an
     existing file; comment / log strings still referencing the old name after
-    a code rename.
+    a code rename; **dead storage hooks** — newly-added fields, parameters,
+    properties, or state slots that the diff *sets* (or initializes / nulls
+    out) but where no code in the diff or surrounding codebase *reads* them.
+    "Added for future use" is not justification at PR-creation time — the slot
+    is unverifiable code that drifts from any planned consumer. Either land
+    the consumer in the same PR or remove the field.
 
 **Format**: bullet list under each category. For each finding:
 `[severity: blocking | major | minor] <one-line summary> — <file:line if applicable>

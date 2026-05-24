@@ -193,12 +193,17 @@ Every reviewer-flagged `blocking` finding resolved via G2's three paths.
 
 For `fixed` findings: apply change in this turn, re-stage, re-run build + tests, emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates.md` §2B, then re-run the panel from Step 2.
 
-**Before re-launching the panel from Step 2 after a `fixed` finding, increment `fixIterationCount` in the §2D phase-state record.** If `fixIterationCount > fixIterationCountCap` (default `3`), STOP and escalate via `ask_user` for one of:
+**Before re-launching the panel from Step 2 after a `fixed` finding, increment `fixIterationCount` in the §2D phase-state record.** If `fixIterationCount > fixIterationCountCap` (default `3`), STOP and escalate via `ask_user`. The escalation prompt MUST classify the iteration history into one of two shapes so the user can make an informed call:
 
-1. Authorize an override of `fixIterationCountCap` to a higher value (record the new cap under `fix-iteration-count-cap` in the next LEDGER emission).
-2. Route remaining must-fix findings via G4 `routed-deferred-with-tracker-and-ask_user` (one tracker + same-turn `ask_user` per finding).
-3. Split the branch / reduce scope.
-4. Abort the gate.
+- **cap-with-regressions** — at least one prior round's fix introduced a NEW finding that itself required a fix (the same code being re-iterated, possibly with the same pattern class). This indicates real instability of the fix process; the §2D cap is doing its job. Default recommendation: pause, split branch, or route remaining via G4.
+- **cap-with-new-clean-categories** — every fix-round verified correct in the next round, and each subsequent round caught a genuinely NEW pattern category (different anti-pattern shape, different file area, different framework concern). This indicates the gate is productively prompt-mining — Copilot or the panel keeps surfacing new pattern families because the diff is large or unfamiliar, NOT because the fixes are unstable. Default recommendation: authorize one more iteration with explicit new cap; queue the newly-discovered pattern categories as instruction-file deltas for the next CopilotInstructions PR.
+
+Then offer the user the four standard options:
+
+1. Authorize an override of `fixIterationCountCap` to a higher value (record the new cap under `fix-iteration-count-cap` in the next LEDGER emission). Recommended for cap-with-new-clean-categories.
+2. Route remaining must-fix findings via G4 `routed-deferred-with-tracker-and-ask_user` (one tracker + same-turn `ask_user` per finding). Recommended for cap-with-regressions.
+3. Split the branch / reduce scope. Recommended for cap-with-regressions on a large diff.
+4. Abort the gate. Always available as escape hatch.
 
 Do NOT re-enter Step 2 until the user has authorized one of these paths. Reset `fixIterationCount` to `0` only on `re-run-triggers: ["first-run"]` (fresh branch) or on successful gate completion (`READY-re-emitted-after-user-approval` final emission).
 
