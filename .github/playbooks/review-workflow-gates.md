@@ -315,6 +315,22 @@ POST-CODE-CHANGE LEDGER
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
     post-code-change-panel: <ran, unanimous | N/A — reason | user-waived — "<quote>">
+    delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A — reason>
+      # Format and semantics defined in `multi-model-review/pr-creation-mirror-prompt.md` Delta K
+      # (status enum, evidence/rationale rules, branch_new_files_verified format, falsifiability).
+      # Unlike other §2B rows (single-line sub-bullets), `delta-g-sweeps:` uses a richer nested
+      # sub-block per pattern. Future grammar-tightening passes must preserve this nesting —
+      # falsifiability depends on it.
+      - pattern: <slug; lowercase-hyphenated; e.g. "js-import-jsexception-wrap">
+        discovery_query: <exact command the agent ran; reviewer can re-run and diff>
+        sites:
+          - path: <relative path>
+            status: applied | already-applies | not-applicable
+            evidence: <file:line-range>     # REQUIRED for applied + already-applies; cites
+                                             #   the exact line range where P is present at HEAD
+            rationale: <one line>            # REQUIRED for not-applicable; (a) code property
+                                             #   verifiable from the cited file OR (b) repo invariant
+        branch_new_files_verified: yes — merge-base <SHA8>
     comment-audit-§3.1: <ran | N/A — no comments touched>
     build: <passed | failed: …>
     tests: <passed, N/total | failed: …>
@@ -367,6 +383,16 @@ A gate row may be `N/A — <reason>` when:
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
 - **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A — pure re-commit of already-reviewed content, 0 behavioral delta`.
 - **comment-audit-§3.1**: no comments added, removed, or modified in the diff.
+- **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
+  `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
+  in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root
+  files whose dirname is `.` expand to the repo's source roots — typically `src/`, `tests/`
+  — and exclude generated/vendored trees such as `node_modules/`, `vendor/`, `obj/`, `bin/`
+  per the repo's `.gitignore`). Wider scope is permitted and encouraged for cross-cutting
+  patterns; narrower scope is forbidden. If a sister site outside the recorded scope is
+  later discovered, the LEDGER is falsified per §2B and the falsified-ledger remediation
+  below applies. "No plausible sister sites" is NOT acceptable; the query must be recorded
+  so a reviewer can re-run it.
 
 ### Why this exists
 

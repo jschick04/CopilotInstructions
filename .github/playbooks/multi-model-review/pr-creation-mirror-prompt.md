@@ -176,6 +176,102 @@ adjudication. This is the same mechanism that allows surface pattern-matching
 to "agree with itself" while quietly missing real branch-introduced
 regressions.
 
+**Enforce Delta G's sweep via §2B's POST-CODE-CHANGE LEDGER (Delta K)**:
+when a commit applies a remediation pattern P that has at least one branch-existing
+or branch-new sister site (per Delta G + Delta J), the commit's POST-CODE-CHANGE
+LEDGER's `delta-g-sweeps:` row (defined in `review-workflow-gates.md` §2B's LEDGER
+format) MUST be `ran, N patterns swept, M sites enumerated` with a structurally-valid
+entry per pattern. Absence or structural invalidity of the row blocks `git add` per
+§2B's existing `git add` block — no new tool-gate is introduced.
+
+`sites:` membership: the site(s) where the current commit APPLIES P MUST be listed
+under `sites:` with `status: applied`, alongside any branch-existing or branch-new
+sister sites discovered by `discovery_query`. The originating-site entry is the
+minimum evidence the falsifiability check #2 (evidence-range re-open) can verify on
+every commit. A row with `sites: []` is only valid when the discovery_query at HEAD
+returned zero sister sites AND no originating site exists — which together imply
+the Delta K trigger did not fire (the row should be `N/A — discovery <command>
+returned zero matches`, not `ran`).
+
+`discovery_query` MUST scope to AT MINIMUM the unique directory parents of every
+file in the commit's diff. Concretely: take `git diff --name-only <merge-base>..HEAD`,
+extract the unique directory parents (a file at repo root with dirname `.` expands
+to the repo's source roots — typically `src/`, `tests/` — and excludes generated/
+vendored trees such as `node_modules/`, `vendor/`, `obj/`, `bin/` per the repo's
+`.gitignore`), and pass them as the query's path arguments. Wider scope is
+permitted and encouraged for cross-cutting patterns; narrower scope is forbidden.
+If a sister site outside the recorded scope is later discovered, the LEDGER is
+falsified per §2B.
+
+The `delta-g-sweeps:` row uses N/A ONLY when the `discovery_query` executed at HEAD
+returned zero sister sites (record the executed query in the reason). "No plausible
+sister sites" or "single-file branch-new" without a recorded zero-result query is
+NOT a valid N/A — the row must show `N/A — discovery <command> returned zero matches`.
+
+**Status enum values** (consistent across LEDGER row, N/A reasons, and falsifiability
+rules):
+- `applied` — P has been applied to this site in the current change. Requires
+  `evidence: <file:line-range>`.
+- `already-applies` — P was already present at this site (no change). Requires
+  `evidence: <file:line-range>`.
+- `not-applicable` — site is exempt. Requires `rationale:` citing (a) a code property
+  verifiable from the cited file OR (b) a contract/invariant defined elsewhere in
+  the repo. Pure assertions about runtime behavior without code evidence are NOT
+  valid rationale.
+
+**branch_new_files_verified** — must cite the merge-base SHA used for the Delta J
+check. Form: `yes — merge-base <SHA8>`. Reviewer can verify by running
+`git ls-tree <SHA8> -- <paths>` for each branch-new site. A bare `yes` is not
+sufficient.
+
+**Falsifiability** (two independent checks; reviewer or future panel runs them at
+the LEDGER's commit SHA, NOT current HEAD):
+1. Re-execute every `discovery_query` at the LEDGER's commit SHA. If the output
+   includes paths NOT listed in that pattern's `sites:`, the sweep is falsified
+   per §2B's falsified-ledger remediation.
+2. Open each site's `evidence: <file:line-range>` at the LEDGER's commit SHA. If
+   the range does not contain P, the sweep is falsified per §2B.
+3. Run `git merge-base origin/main <commit-SHA>` and verify it matches
+   `branch_new_files_verified: yes — merge-base <SHA8>`. Mismatches trigger
+   §2B falsified-ledger remediation.
+
+Falsified sweeps are §2B falsification-level process violations: the agent MUST
+proactively self-report in the next turn, re-run the sweep, amend the LEDGER, and
+re-emit the commit.
+
+**Reviewer-side verification hook** (in-scope per the Delta J precedent at lines
+149-177 above — Delta I scope-discipline does NOT preclude this kind of mechanical
+verification of agent-emitted artifacts): when reviewing PR-creation panels on
+subsequent §2D rounds, panel reviewers MUST verify prior-commit LEDGER
+`delta-g-sweeps:` entries by running the three falsifiability checks above on each
+commit's LEDGER. Mismatches surfaced by the reviewer are blocking findings (not
+meta-commentary), routed through the §2D standard finding-resolution flow.
+
+**Rationale review (judgment surface)**: the `rationale:` field for `status:
+not-applicable` is the ONE field in `delta-g-sweeps:` that cannot be mechanically
+falsified — it is judgment text. The §2D heavy-slate panel substantively reviews
+these rationales as part of its normal coverage; thin or boilerplate rationales
+(e.g., "no risk", "doesn't apply", "not relevant") are panel-rejectable as blocking
+findings per §2B falsification semantics. Per-commit panels in §3 see Delta K's
+prompt only when their consumer prompt includes the mirror template; their default
+posture is to flag suspicious rationales as findings but NOT to block (the §2D
+gate is the substantive review).
+
+**Examples of remediation patterns P** (illustrative; the rule applies regardless
+of language or framework):
+- Resource-cleanup symmetry (adding `Dispose`/`Drop`/`AutoCloseable` to mirror a
+  sister type's cleanup behavior).
+- Bounds-clamp before bulk copy (span/memcpy/slice writes from external input —
+  applies in C#, C++, Rust, Go).
+- Null/None coalesce in user-facing display strings (`??` in C#, `or` in Python,
+  default-arg in Rust).
+- Exception-catch around side-effecting interop calls in component lifecycle
+  (e.g., `JSException` on JS module import in Blazor firstRender; equivalent in
+  React error boundaries, Vue mounted-hooks).
+- Pool-flush before file-handle-touching operations (e.g.,
+  `SqliteConnection.ClearAllPools()` before `File.Delete` on Windows; equivalent
+  in any DB driver with connection pooling).
+
 **Categories**:
 
 1. **Bugs and logic errors** — null-dereference / index-out-of-bounds risks,
