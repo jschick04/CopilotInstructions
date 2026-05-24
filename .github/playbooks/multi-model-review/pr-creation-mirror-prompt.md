@@ -88,6 +88,34 @@ had no missing-sister-site findings, the cumulative sweep is a one-time
 re-check that may be skipped on subsequent same-branch panels where no new
 patterns were introduced.
 
+**Dispatch-shape discrimination when applying disposal-guard patterns**: when
+the remediation pattern is a `_disposed`-flag guard for callbacks that
+dispatch UI work via a renderer's dispatcher (Blazor `InvokeAsync`, WPF
+`Dispatcher.Invoke`, WinForms `Control.Invoke`, equivalent on other UI
+frameworks), distinguish two dispatch shapes — each needs a different guard
+recipe:
+
+- **Await-inline dispatch** (`await InvokeAsync(StateHasChanged)` called from
+  an `async` context): the outer `if (_disposed) { return; }` check before
+  the await + a try/catch around the await is sufficient. The dispatcher
+  runs the lambda synchronously-from-the-await's-perspective; there's no
+  detached lambda that can outlive disposal.
+
+- **Fire-and-forget dispatch** (`_ = InvokeAsync(() => StateHasChanged())`
+  from a sync callback context — typical for `[JSInvokable]` methods,
+  `IProgress<T>` sinks, or any threadpool callback): the outer check +
+  try/catch around the queueing call is NOT sufficient. The lambda is
+  queued, and `Dispose()` can run on the dispatcher BETWEEN the successful
+  return from `InvokeAsync` and the lambda body actually executing. The
+  fire-and-forget shape needs ALL of: (i) outer `if (_disposed) { return; }`
+  check, (ii) try/catch around the queueing call, AND (iii) inner
+  `if (_disposed) { return; }` check at the top of the lambda body. Without
+  (iii), `StateHasChanged()` on a disposed renderer throws an unobserved
+  exception into the fire-and-forget task. The canonical Blazor reference
+  patterns (e.g., a `SettingsModal`-style component) often show only the
+  await-inline shape; do NOT copy that shape into a fire-and-forget site
+  without adding (iii).
+
 **Categories**:
 
 1. **Bugs and logic errors** — null-dereference / index-out-of-bounds risks,
