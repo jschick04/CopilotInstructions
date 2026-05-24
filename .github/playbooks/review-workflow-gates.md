@@ -240,6 +240,9 @@ POST-CODE-CHANGE LEDGER
     prior-PR-review-sweep: <ran, M patterns checked, N findings | N/A — no prior merged PRs / no production-code edits>
       - <pattern from PR #X>: <matches | no matches>
       - ...
+    dry-audit: <ran, N duplications, K refactored, J waived | N/A — reason>
+      - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
+      - ...
     post-code-change-panel: <ran, unanimous | N/A — reason | user-waived — "<quote>">
     comment-audit-§3.1: <ran | N/A — no comments touched>
     build: <passed | failed: …>
@@ -303,6 +306,63 @@ The ledger is also the audit trail: when a future review (post-merge, retrospect
 ### Repeat failure escalation
 
 If a `POST-CODE-CHANGE LEDGER` block is later found to have falsified a gate status (claimed `ran` for a gate that did not actually run, or quoted a waiver the user never gave), the agent MUST proactively report this to the user as a process violation in the next turn, propose a remediation, and ask the user to re-review. False-positive ledger entries are a higher-severity failure than silent skips because they erode the trust the rule depends on.
+
+---
+
+## 2C. DRY remediation gate (HARD GATE)
+
+### The problem
+
+The agent has repeatedly noticed code duplication during implementation but proceeded to commit without refactoring — leaving the user to call it out later. Examples from recent sessions: 5 tab classes sharing 100+ lines of run/cancel/state/log plumbing (caught by user, base class extracted after commit); 3 picker services sharing the WinUI window-init dance (caught by user, shared helper extracted after commit). The pattern is "I saw it, I didn't act." This wastes a re-review round and erodes trust.
+
+### Rule
+
+During the post-code-change phase, the agent MUST run a DRY audit on the staged diff before showing it for approval. If any of the following are detected, the agent MUST either refactor in-place OR present the duplication to the user via `ask_user` with a refactor-or-waive choice:
+
+1. **Cross-file duplication.** Two or more files contain ≥5 lines of substantively-identical logic (member ordering, parameter renames, and trivial whitespace differences do not count as different).
+2. **Three-or-more pattern.** A pattern (method shape, field cluster, dispatch wrapper, etc.) appears 3+ times anywhere in the staged diff or in code the staged diff touches.
+3. **Copy-paste growth.** A new file is structurally identical to an existing file with only parameterized differences (different request type, different service method).
+
+### Refactor recommendations
+
+The default action is refactor, using the smallest abstraction that captures the duplication:
+
+- 2+ classes sharing fields + methods → base class (abstract for behavior, concrete for shared state).
+- 2+ files calling the same 3–10 lines of platform/util code → static helper.
+- 2+ methods with same shape but different generic parameter → generic method.
+- 2+ types with parallel members → extension method, interface, or partial class.
+- 2+ Razor components sharing template + binding → component inheritance or shared `RenderFragment`.
+
+### Waiver semantics
+
+If refactoring is not appropriate, the agent presents the duplication to the user with:
+
+1. The pattern (concrete code or shape).
+2. The file paths + line ranges where it appears.
+3. The proposed refactor + why the agent is recommending against it (e.g., "premature abstraction — only 2 sites today, abstraction would obscure rather than help").
+4. A `refactor | waive` choice via `ask_user`.
+
+A `user-waived` entry in the LEDGER's `dry-audit` row MUST quote the user's waiver from the **current turn**.
+
+### Exceptions (no audit needed)
+
+- Test fixtures that intentionally duplicate setup for isolation.
+- Trivial 1–2 line guards (`ArgumentNullException.ThrowIfNull(x)`).
+- Tool-generated code (EF migrations, Razor compilation output, scaffolding).
+- Boilerplate the language requires (e.g., `partial` declarations, attribute decorators).
+
+### Required output
+
+In the post-code-change LEDGER (§2B), add the gate row:
+
+```
+dry-audit: ran, N duplications, K refactored, J waived
+  - <pattern shape>: <file:line, file:line, ...> → refactored to <abstraction> | waived ("<user quote>")
+```
+
+### Repeat-failure escalation
+
+If the same duplication pattern is detected in a subsequent commit (i.e., the user had to call it out after the agent shipped without refactoring), that counts as a §2B "falsified ledger" — agent reports the slip proactively and proposes remediation. Two such slips in the same session triggers an explicit pause + plan-correction cycle.
 
 ---
 
@@ -377,12 +437,12 @@ Document these learnings for future panel configurations.
 ## Appendix: relationship to other playbooks
 
 - `pre-implementation.md` — invokes §1 (two-stage review), §1A (artifact-binding), §1B (hard-stop tool list), and §4 (panel convergence) during the plan review gate.
-- `post-code-change.md` — invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §4 (panel convergence) during the multi-model reviewer panel.
+- `post-code-change.md` — invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §4 (panel convergence) during the multi-model reviewer panel.
 - `pre-commit.md` — invokes §2B (post-code-change ledger) before any `git add` / `git commit` / `git commit --amend`.
 - `post-pr-review.md` — invokes §2 (root-cause analysis) when processing reviewer comments.
 - `pre-pr-push.md` — invokes §2A (prior-PR-review sweep, branch-wide scope) before push.
 - `multi-model-review.md` — owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
-- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), and §3 (scope reduction sign-off) as hard gates.
+- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 
