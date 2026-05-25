@@ -1,0 +1,2 @@
+# Lock files for findings.csv concurrent-access protection
+findings.csv.lock
