@@ -42,7 +42,10 @@ Per finding: `fixed | dismissed-source-grounded | routed-deferred-with-tracker-a
 
 ### G6. Forbidden-tool enumeration (mirrors §1B)
 
-Until the G3 block from Step 9 (the **re-emitted** block in the PR-creation tool-call turn) is present in the current turn with `pr-creation-status: READY-re-emitted-after-user-approval`, the agent MUST NOT call any of the tools below. The initial-emission status (`READY-pending-user-approval` from Step 7) is NOT sufficient — it indicates the panel converged but the user-approval step + same-state re-check have not yet happened. The `DRY-RUN-INFO-ONLY` status from the direct-invocation path is NEVER sufficient.
+Until BOTH of these are present in the current turn, the agent MUST NOT call any of the tools below:
+
+1. The G3 block from Step 9 (the **re-emitted** `PRE-PR REVIEW COVERAGE` block in the PR-creation tool-call turn) with `pr-creation-status: READY-re-emitted-after-user-approval`. The initial-emission status (`READY-pending-user-approval` from Step 7) is NOT sufficient — it indicates the panel converged but the user-approval step + same-state re-check have not yet happened. The `DRY-RUN-INFO-ONLY` status from the direct-invocation path is NEVER sufficient.
+2. The `PATTERN PREFLIGHT` block (re-emitted in Step 9 alongside the COVERAGE block; computed in Step 2.5 originally) against the current `panelHeadSha` + current `catalogRevision`/`fpRegistryRevision`. The block MAY use one of the documented skip-condition statuses (`catalog: not-yet-built`, `catalog: empty-battery`, `catalog: skipped-bootstrap`, `catalog: skipped-no-production-diff`); the block must be present regardless. Absence of the block (not just a value) is the violation. Additionally, the re-emitted `PRE-PR REVIEW COVERAGE` block's `catalog-revision` / `fp-registry-revision` / `pattern-preflight-skip-status` fields (per the §G3 block format below) MUST be populated; absence or `<unset>` in those fields fails the gate.
 
 - `gh pr create` (any flags incl. `--draft`)
 - `gh pr ready`, `gh pr ready --undo`
@@ -162,9 +165,81 @@ if ($priorHeadSha -eq "none") {
 
 Record `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `reRunTriggers` in the phase-state record.
 
+### Step 2.5. Pattern preflight against catalog
+
+Runs BEFORE the panel launch (Step 3) so the `PATTERN PREFLIGHT` block is in the reviewers' initial context. The preflight is a deterministic sweep against the empirical pattern catalog at `multi-model-review/pr-review-pattern-catalog.md` + FP registry at `multi-model-review/known-false-positives.md`. Goal: surface sister sites of known recurring patterns BEFORE the panel sees the diff, so the panel verifies the orchestrator's preflight (lower cost) rather than re-discovers each pattern from scratch (higher cost).
+
+**Procedure**:
+
+1. **Resolve catalog revisions**. Run (from any clone of `CopilotInstructions`):
+   ```
+   git -C <copilotinstructions-clone> log -1 --format=%H -- .github/playbooks/multi-model-review/pr-review-pattern-catalog.md
+   git -C <copilotinstructions-clone> log -1 --format=%H -- .github/playbooks/multi-model-review/known-false-positives.md
+   ```
+   - Record the two SHAs as `catalog_revision` and `fp_registry_revision`.
+   - **Interpretation of empty stdout**: if `git log -1` returns empty stdout for a file path, it means the file does not exist in any commit reachable from HEAD. This is the **`catalog: not-yet-built`** signal — record `catalog_revision: not-yet-built` and proceed to the skip-condition path (do NOT STOP). The clone-path failure handling at the bottom of this section is for `fatal:` exits (clone doesn't exist, ref unknown), NOT for empty output.
+   - **Authoritative existence check**: in tandem with the `git log -1`, run `git -C <copilotinstructions-clone> ls-tree HEAD -- .github/playbooks/multi-model-review/pr-review-pattern-catalog.md` (exit code 0 + empty stdout = file absent in HEAD; non-empty line = file present). Both outputs are quoted in the skip block per the not-yet-built skip path.
+
+2. **Per high-frequency pattern in the catalog** (the patterns in the "Patterns (high-frequency battery)" section that have an executable `discovery_query` field): run the entry's `discovery_query`. The catalog entry specifies the scope-mode (`diff-scoped` over `<merge-base>..HEAD` files, `tree-scoped` over the consuming project's source tree, or `hybrid` requiring BOTH a tree-scoped baseline AND a diff-scoped enforcement run).
+   - **Diff-scoped (Linux/macOS, NUL-safe)**: `git diff --name-only -z <merge-base>..HEAD -- '<glob>' | xargs -0 -r rg --line-number --no-heading --color never <pattern>`. The `-z` + `-0` pair handles paths containing spaces, tabs, or newlines without splitting. PowerShell: `git diff --name-only <merge-base>..HEAD -- '<glob>' | ForEach-Object { rg --line-number --no-heading --color never <pattern> -- $_ }` (PowerShell's `ForEach-Object` iterates by line and passes each path as a single argument; `--` terminates rg's option parsing so paths starting with `-` are handled correctly). Both produce the same hit set.
+   - **Tree-scoped**: `rg --line-number --no-heading --color never <pattern> <source-tree>`. Identical on both shells.
+   - **Hybrid**: emit ONE `preflight_findings` entry with `scope_mode: hybrid` that contains both `tree_query` and `diff_query` keys and a combined `sites:` list. Each site MUST tag which query surfaced it: `surfaced_via: tree | diff`. The tree run answers "what's in the project's baseline?"; the diff run answers "what's new in this PR?".
+   - **Review-only patterns** (entries with `discovery_query: <review-pass-only>` — currently `doc-impl-mismatch`): no automated discovery. The catalog entry's `§2D preflight prompt` becomes a required reviewer instruction surfaced via Step 3's panel prompt. The preflight block records these patterns with `hits: review-required`, `sites: []`. The panel is the verification layer (this aligns with the catalog's own description of these as "discipline patterns, not regex patterns").
+   - All `rg` invocations include `--line-number --no-heading --color never` to ensure stable, deterministic output across machines.
+
+3. **Per match**, classify with the Delta K enum (consistent with §2B `delta-g-sweeps:` row):
+   - `applied` — the pattern's canonical fix is in place in the current change. Requires `evidence: <file:line-range>`.
+   - `already-applies` — the site was already correct at merge-base. Requires `evidence: <file:line-range>`.
+   - `not-applicable` — the site is exempt. Requires `rationale: <one line>` citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant. **Pure runtime-behavior assertions without code evidence are NOT valid rationale** (matches Delta K v4 rubric in `review-workflow-gates.md` §2B `delta-g-sweeps:` row).
+
+4. **FP cross-check**: for each Copilot finding (if any) that the agent is processing alongside this preflight, check against `known-false-positives.md`. If the finding matches an FP entry by **technical claim** (per `known-false-positives.md` Matching policy — semantic match, not phrasing match): dismiss with the canonical template, record in `pr_review_findings.classification = 'recurring-false-positive'`, and DO NOT include in the panel's reviewable findings. **If the consuming project's `<project-root>/.github/data/pr-review-findings.csv` (or `.sqlite`) does not exist, follow the bootstrap procedure in `pr-review-findings-schema.md` §Initial seeding to create it before recording the row.**
+
+5. **Emit a `PATTERN PREFLIGHT` block** in the same response that launches the Step 3 panel (the block precedes the panel-launch tool calls in that response). Format (strict; required keys must appear in the order shown; multi-line strings use YAML literal block scalar `|` with 4-space indent):
+
+```
+PATTERN PREFLIGHT
+  catalog_revision: <SHA from Step 2.5.1>
+  fp_registry_revision: <SHA from Step 2.5.1>
+  patterns_checked: <count>
+  preflight_findings:
+    - pattern: <slug from catalog>
+      scope_mode: diff-scoped | tree-scoped | hybrid | review-pass-only
+      discovery_query: <exact command run, including paths> | "<review-pass-only — see §2D preflight prompt>"
+      hits: <count> | review-required
+      sites:
+        - path: <project-relative>
+          status: applied | already-applies | not-applicable
+          surfaced_via: tree | diff       # only for scope_mode: hybrid
+          evidence: <file:line-range>     # for applied + already-applies
+          rationale: <one line>            # for not-applicable
+  fps_recognized:
+    - fp: FP-N (slug)
+      sites: [<paths>]
+```
+
+**Failure handling for the commands above**:
+- Step 2.5.1 (`git -C <copilotinstructions-clone> log -1`): empty stdout = catalog file not present in HEAD = use the `catalog: not-yet-built` skip path below (NOT a failure). A `fatal:` exit (e.g., clone path doesn't exist, repo not initialized) ⇒ retry once with `git fetch origin main` in the clone; if still failing, `ask_user` for the clone path and STOP.
+- Step 2.5.2 (`git diff`, `rg`): non-zero exit from `git diff` (e.g., bad ref / unknown merge-base) ⇒ `ask_user`. `rg` returns exit code 1 on no-match — this is NOT an error; treat as `hits: 0`. Any other non-zero `rg` exit ⇒ `ask_user`.
+- Output normalization: capture `rg` output verbatim; sort sites by `path` then `line_number` ascending for deterministic ordering across runs.
+
+**Enforcement** (via G6, NOT via §1B's all-tool gate):
+
+- The block becomes a prerequisite for the **G6 forbidden tools** (the PR-creation subset: `gh pr create`, `gh api .../pulls`). G6 already gates these on `PRE-PR REVIEW COVERAGE` emission per G3. This step adds: G6 ALSO requires `PATTERN PREFLIGHT` emission in the same turn as the `PRE-PR REVIEW COVERAGE` block. Both blocks together gate PR creation.
+- This step does NOT extend §1B (which gates ALL `create` / `edit` tools on artifact-binding certification per §1A — that gate is independent and continues to apply at implementation time, not at PR creation).
+
+**Skip conditions**:
+- **`catalog: not-yet-built`** — the catalog file does not exist in CopilotInstructions HEAD. Trigger condition: empty stdout from BOTH `git -C <copilotinstructions-clone> log -1 --format=%H -- .github/playbooks/multi-model-review/pr-review-pattern-catalog.md` AND `git -C <copilotinstructions-clone> ls-tree HEAD -- .github/playbooks/multi-model-review/pr-review-pattern-catalog.md`. To use this skip: emit `PATTERN PREFLIGHT` with status `catalog: not-yet-built` AND include a quoted block containing (a) the exact `git log -1` command run including the resolved clone path, its empty stdout, and its exit code (0); (b) the exact `git ls-tree HEAD` command run, its empty stdout, and its exit code (0). Both commands MUST run against the CopilotInstructions clone (per Step 2.5.1), NOT the consuming project's repo. Honest-agent verification: panel reviewers see both quotes and can independently rerun the commands. Cryptographic proof of non-fabrication is NOT provided by this mechanism; the defense is auditability, not unforgeability.
+- **`catalog: empty-battery`** — the catalog file exists but its "Patterns (high-frequency battery)" section contains no patterns. Trigger condition: `git -C <copilotinstructions-clone> log -1` returns a non-empty SHA AND the catalog file at that SHA contains zero `^### \d+\.` numbered entries between the literal headings `## Patterns (high-frequency battery)` and the next `^## ` heading. To use this skip: emit `PATTERN PREFLIGHT` with status `catalog: empty-battery` AND quote: (a) the catalog_revision SHA; (b) the output of `git -C <copilotinstructions-clone> show <SHA>:.github/playbooks/multi-model-review/pr-review-pattern-catalog.md | awk '/^## Patterns \\(high-frequency battery\\)/,/^## [^P]/' | grep -c '^### '` proving the count is `0`.
+- **`catalog: skipped-bootstrap`** — the PR is **G7 bootstrap-exempt** (all 3 G7 conditions met, including `BOOTSTRAP-EXEMPTION:` body token). Emit `PATTERN PREFLIGHT` with status `catalog: skipped-bootstrap` and quote the G7 token from the PR body / panel phase-state `bootstrapTokenStatus: present-in-body`.
+- **`catalog: skipped-no-production-diff`** — the diff contains no production code (touches only `.github/**`, `docs/**`, `*.md`, `*.txt`, fixture data, or test snapshots — no `.cs`/`.ts`/`.razor`/equivalent production-language files). Emit `PATTERN PREFLIGHT` with status `catalog: skipped-no-production-diff` and quote the `git diff --name-only <merge-base>..HEAD` output as evidence.
+
+**Catalog drift detection**: if `catalog_revision` differs from the prior PR's recorded value (read from `catalogRevision` in the panel phase-state), the orchestrator MUST run the FULL preflight even when `re-run-triggers` would otherwise skip Step 2's re-fetch. Step 9's re-fetch (same procedure as Step 2.5.1) catches catalog updates between initial panel and PR-creation turn and restarts at Step 2.5 when SHAs drift.
+
+**Stickiness recommendation (advisory; not gate-enforced)**: catalog maintainers SHOULD avoid committing more than one catalog revision per 24-hour window to limit preflight churn. This is advisory because no persistent counter / timestamp store is defined; the procedure does not block on it. Adding tracked state for the throttle is a future enhancement (see `pr-review-pattern-catalog.md` maintenance section).
+
 ### Step 3. Launch the panel in parallel
 
-Per `multi-model-review/procedure.md` parallel-launch protocol. All reviewers launched in the same response (background mode), with the shared `pr-creation-mirror-prompt.md` template populated.
+Per `multi-model-review/procedure.md` parallel-launch protocol. All reviewers launched in the same response (background mode), with the shared `pr-creation-mirror-prompt.md` template populated. The reviewer prompts include a reference to the `PATTERN PREFLIGHT` block emitted in Step 2.5 — reviewers' job becomes: (a) verify each `applied` / `already-applies` site is genuinely correct at HEAD, (b) verify each `not-applicable` rationale is mechanically grounded, (c) probe for patterns NOT in the catalog (long-tail discovery; these are candidates for new catalog entries).
 
 **Slate-floor checkpoint #1**: verify floor holds BEFORE launch. If a substitution broke floor, escalate via `ask_user`.
 
@@ -245,9 +320,14 @@ PRE-PR REVIEW COVERAGE
     - <finding> → <tracker URL> (ask_user: <call ref>)
     - ... (default: [])
   bootstrap-token-status: <not-applicable | present-in-body | removed-revokes-exemption>
+  catalog-revision: <40-char SHA | not-yet-built>
+  fp-registry-revision: <40-char SHA | not-yet-built>
+  pattern-preflight-skip-status: <ran | catalog: not-yet-built | catalog: empty-battery | catalog: skipped-bootstrap | catalog: skipped-no-production-diff>
   pr-creation-status: <READY-pending-user-approval | READY-re-emitted-after-user-approval | DRY-RUN-INFO-ONLY | BLOCKED — <reason>>
   subagent_ask_user_calls=0 (per AGENTS.md)
 ```
+
+The `catalog-revision`, `fp-registry-revision`, and `pattern-preflight-skip-status` fields ARE the state-echo for G6's PATTERN PREFLIGHT check — they MUST be populated from the §2D phase-state on every emission. Use `not-yet-built` for the SHA fields only when `pattern-preflight-skip-status: catalog: not-yet-built`; for any other skip status (or `ran`), the SHA fields hold the real catalog/registry SHAs from Step 2.5.1.
 
 ### Step 8. AGENTS user-approval
 
@@ -271,22 +351,24 @@ When any incoherence is found, FIX the description (or, if the description is co
 
 Record `prDescriptionCoherenceCheck` in the §2D phase-state record: `ran-clean` / `ran-fixed-description-before-create` / `ran-routed-back-to-panel-as-finding`.
 
-### Step 9. Re-emit the block after approval
+### Step 9. Re-emit blocks after approval
 
 In the PR-creation tool-call turn (after Step 8 `ask_user` returns):
 
-- Re-run Step 2's same-state checks. If any fails (new commits, force-push, base shift since initial emission), restart at Step 2.
-- Re-emit block with `emission-phase: ready-re-emitted-after-user-approval`, `pr-creation-status: READY-re-emitted-after-user-approval`.
+- Re-run Step 2's same-state checks. If any fails (new commits, force-push, base shift since initial emission), restart at Step 2 (re-running Steps 2 → 3 → ... → 8 in order; the panel must re-run because the diff has changed).
+- Re-fetch `catalog_revision` + `fp_registry_revision` per Step 2.5.1. If either differs from the recorded value, restart at Step 2.5 (re-running Steps 2.5 → 3 → ... → 8 in order; the panel must re-run because reviewers were operating on the stale catalog).
+- Re-emit `PRE-PR REVIEW COVERAGE` block with `emission-phase: ready-re-emitted-after-user-approval`, `pr-creation-status: READY-re-emitted-after-user-approval`, and the catalog/registry fields populated from current phase-state.
+- Re-emit `PATTERN PREFLIGHT` block in the same turn. If catalog/registry SHAs are unchanged AND `panelHeadSha` is unchanged from Step 2.5's run, the carry-forward MUST be a literal copy of the Step 2.5 block (no recomputation needed). If anything changed, the Step 2.5 re-run produces the new block (and the panel has already re-run per the restart bullets above). Both blocks (`PRE-PR REVIEW COVERAGE` + `PATTERN PREFLIGHT`) precede the Step 10 tool call in the same response.
 
 ### Step 10. Invoke the G6 tool
 
-Only after Step 9's re-emitted block in the same turn.
+Only after Step 9's re-emitted `PRE-PR REVIEW COVERAGE` block AND `PATTERN PREFLIGHT` block are both present in the same response, immediately preceding the tool call.
 
 ## State to record in canonical session todos
 
 Per `AGENTS.md` *Phase-state tracking convention*:
 
-`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`.
+`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`, `catalogRevision`, `fpRegistryRevision`, `patternPreflightSkipStatus`.
 
 Read these back from canonical session todos when emitting `PRE-PR REVIEW COVERAGE`; never infer from memory.
 
