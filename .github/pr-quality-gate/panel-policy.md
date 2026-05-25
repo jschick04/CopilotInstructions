@@ -2,6 +2,17 @@
 
 Multi-reviewer panel governance for the `full` and `triage` modes. Read by the orchestrator before invoking `invoke-panel.ps1`. The script is a thin launcher; policy lives here so it's reviewable + amendable independently of the launcher code.
 
+## When the panel runs (timing requirement — MANDATORY)
+
+There are TWO panel invocation points per task, both required for non-trivial work:
+
+1. **Pre-implementation panel** — AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while course-correction is still cheap.
+2. **Pre-PR-creation panel** — AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. This is the panel slot enforced by `gate-runner.ps1` / `gate-runner.sh` (G6 forbidden-tool gate). Reviewers see the actual diff + the QUALITY GATE block. Required verdict: `unanimous READY`.
+
+"Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything the user describes with words like "feature", "refactor", "add", "implement". A small isolated single-file bugfix (e.g., a 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
+
+Skipping pre-implementation panel for non-trivial work is a process violation. The agent MUST surface the skip via `ask_user` so the user can authorize before code is written.
+
 ## Mode definitions
 
 | mode | reviewers | output cap | rg battery | `§1A` slate carve-out | Activation |
@@ -45,6 +56,27 @@ Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote i
 | ≥ 3 | hard escalate — abort panel; emit `ask_user` with all drops listed; require user to authorize remediation (e.g., switch to `triage` mode, retry later, etc.) |
 
 Each drop is recorded in `dropped_reviewers` field with timestamp + reason (timeout, error, drop-explicit).
+
+## Iteration discipline (panel re-convergence) — MANDATORY
+
+When a panel returns any verdict other than `unanimous READY`, the agent MUST iterate:
+
+1. **Revise the plan / code** addressing every finding (or explicitly document why a finding is set aside with rationale).
+2. **Re-launch the SAME panel slate** (same composition; substitutions allowed per the floor rules) on the revised work.
+3. **Repeat until `unanimous READY`** (or until the `fix_iteration_count` cap is reached — see below).
+
+The agent MUST NOT:
+
+- **Substitute user approval for panel re-convergence.** If a panel returns `NEEDS_REWORK`, presenting a synthesized revised plan to the user as a "please approve so I can implement" step is a process violation. User approval is necessary but NOT sufficient — the panel is the independent-validation mechanism, and only the panel can clear its own findings. This is the most common regression vector observed in practice.
+- **Treat "I addressed the findings" as equivalent to "the panel cleared the findings".** The panel must see the revised work and re-verify.
+- **Silently skip iteration** by collapsing multiple rounds into "we'll fix it in implementation". Findings are the panel's word; only the panel can retract them.
+
+The agent MAY:
+
+- **Surface the iteration status to the user** between rounds (e.g., "Round 1 returned 4/4 NEEDS_REWORK with convergent findings X, Y, Z — applying fixes and re-launching panel"). This is informational, not approval-seeking.
+- **Request user override of the iteration requirement** via same-turn `ask_user` quote with literal token `iteration-waive-acknowledged` — rare cases where the user explicitly decides to bypass (e.g., panel-found findings are deferred to follow-up work tracked elsewhere). The waive MUST be recorded in the `PANEL CONVERGED` block's `iteration_waive` field. Default is iterate.
+
+**How to detect a process violation in practice**: if the agent has emitted a synthesis of panel findings + a "approve this revised plan?" `ask_user` without a fresh panel slate launch between the two, the iteration discipline was bypassed. The user can call this out at any point and the agent MUST re-launch the panel before any further implementation work.
 
 ## Fix-iteration cap
 
