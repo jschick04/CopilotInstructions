@@ -57,6 +57,41 @@ Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote i
 
 Each drop is recorded in `dropped_reviewers` field with timestamp + reason (timeout, error, drop-explicit).
 
+## Post-PR-review feedback loop (MANDATORY)
+
+External reviewer findings (e.g., GitHub Copilot pull request reviewer, human reviewers in the PR conversation, security review post-merge) are the OBSERVED ground truth for what the pre-PR panel did NOT catch. Treating these as one-off fixes without classification means the next PR likely has the same blind spot. The feedback loop is mandatory.
+
+For EACH external-reviewer finding on a PR with a converged pre-PR panel:
+
+1. **Classify** the finding as one of:
+   - `panel-miss`: the pre-PR panel could/should have caught this with the existing rule slate (the slate's blind spot, or a gap in the catalog). → Append to `data/panel-misses.csv`. Propose a new `pattern-catalog.md` entry OR refinement to an existing one that would catch this class of issue in future PRs.
+   - `valid-deferred`: the pre-PR panel reasonably skipped this (out-of-scope by design, e.g., post-merge follow-up work, separate-PR scope, infrastructure change). → Document briefly in the PR conversation; no catalog change.
+   - `rejected`: agent disagrees with the finding; provides source-grounded rationale on the PR. → No catalog change; user may escalate.
+
+2. **Apply the fix** (amend or follow-up commit) AND update tracking in the SAME session:
+   - For each `panel-miss`: append a row to `data/panel-misses.csv`.
+   - For each new/refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies — no rule lands without convergence).
+   - The agent MUST NOT close the PR loop without updating tracking. If tracking is deferred (e.g., user authorizes "fix-now-track-later"), the agent MUST surface this via same-turn `ask_user` with literal token `panel-miss-deferred`.
+
+3. **`data/panel-misses.csv` schema**:
+
+   ```
+   timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_slug,status
+   ```
+   - `timestamp`: ISO-8601 UTC
+   - `catalog_revision`: 40-char CopilotInstructions SHA at the time the pre-PR panel ran (which catalog slate had the blind spot)
+   - `pr_ref`: opaque project-specific reference (consuming project chooses format; rows in this seed file use opaque labels with no project leakage)
+   - `finding_brief`: 1-line generic phrasing (e.g., "Volatile write ordering inside lock"; NOT "ModalService.Show write order" — no project leakage)
+   - `classification`: one of `panel-miss`, `valid-deferred`, `rejected`
+   - `proposed_catalog_slug`: the slug of the new/refined rule (empty if `valid-deferred`/`rejected` or no proposal yet)
+   - `status`: one of `pending`, `catalog-updated`, `catalog-rejected`, `superseded`
+
+   See `data/README.md` §"panel-misses.csv" for the authoritative schema and append discipline.
+
+**Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot — observed in practice (the comment-rule regression, the publication-barrier discipline gap, the test-subscription-ordering gap all started as panel-misses).
+
+**How to detect a process violation**: if a PR has external-reviewer findings AND the agent has amended/follow-up-committed AND there is NO corresponding entry in `data/panel-misses.csv`, the loop was bypassed. The user can call this out at any point and the agent MUST classify + record before further work.
+
 ## Iteration discipline (panel re-convergence) — MANDATORY
 
 When a panel returns any verdict other than `unanimous READY`, the agent MUST iterate:

@@ -1,0 +1,8 @@
+timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_slug,status
+2026-05-25T21:30:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Volatile write ordering inside lock,panel-miss,publication-barrier-order,catalog-updated
+2026-05-25T21:30:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Test event-subscription before subject-action,panel-miss,event-ordering-test-subscription,catalog-updated
+2026-05-25T21:30:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Test event-subscription before subject-action,panel-miss,event-ordering-test-subscription,catalog-updated
+2026-05-25T21:35:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Event invocation before completion drops awaiter on subscriber throw,panel-miss,event-completion-fault-isolation,catalog-updated
+2026-05-25T21:35:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Event invocation before completion drops awaiter on subscriber throw,panel-miss,event-completion-fault-isolation,catalog-updated
+2026-05-25T21:35:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,Event invocation before completion drops awaiter on subscriber throw,panel-miss,event-completion-fault-isolation,catalog-updated
+2026-05-25T21:40:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,New test class lacks Arrange/Act/Assert structure,panel-miss,test-aaa-pattern,catalog-updated
