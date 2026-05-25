@@ -59,6 +59,29 @@ $policyPath = Join-Path $clone '.github/pr-quality-gate/panel-policy.md'
 if (-not (Test-Path -LiteralPath $policyPath)) { Exit-Launcher 2 "panel-policy.md not found: $policyPath" }
 $catalogPath = Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md'
 
+# ===== Extract system-prompt-rule enforcement preamble from panel-policy.md =====
+function Get-PolicyBlockquote {
+    param([string] $Path, [string] $SectionHeading)
+    $headingPattern = '^\s{0,3}##\s+' + [regex]::Escape($SectionHeading) + '\s*(\(|$)'
+    $h2Pattern = '^\s{0,3}##\s+'
+    $lines = Get-Content -LiteralPath $Path
+    $inSection = $false
+    $collected = @()
+    foreach ($line in $lines) {
+        if ($line -match $h2Pattern) {
+            if ($line -match $headingPattern) { $inSection = $true; continue }
+            elseif ($inSection) { break }
+            else { continue }
+        }
+        if ($inSection -and $line -match '^>\s?(.*)$') { $collected += $matches[1] }
+    }
+    return ,$collected
+}
+$systemPromptPreambleLines = Get-PolicyBlockquote -Path $policyPath -SectionHeading 'System-prompt-rule enforcement'
+if (-not $systemPromptPreambleLines -or $systemPromptPreambleLines.Count -eq 0) {
+    Exit-Launcher 2 "panel-policy.md is missing the '## System-prompt-rule enforcement' section's `> ...` blockquote — cannot emit reviewer preamble. Verify policy file integrity."
+}
+
 # ===== Build review-pass-only prompts to forward to reviewers =====
 $reviewPassPrompts = @()
 if (Test-Path -LiteralPath $catalogPath) {
@@ -99,14 +122,19 @@ PANEL LAUNCH CONTRACT (triage)
       Before producing your verdict, re-fetch git rev-parse HEAD in the consuming-project worktree.
       The expected SHA is $HeadSha recorded at launch time. If your HEAD does NOT match, ABORT with
       a NEEDS_REWORK verdict citing "stale launch SHA: launched against $HeadSha, current HEAD is <currentSha>".
+    system_prompt_rule_preamble: |
+"@
+    foreach ($l in $systemPromptPreambleLines) { "      $l" }
+    @"
   base_sha: $BaseSha
   head_sha: $HeadSha
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch 1 code-review-role reviewer agent via the task tool (cheap model OK; output cap NOT enforced)
     2. Forward all review_pass_only_prompts above to the reviewer
     3. Forward the same_state_recheck_preamble above
-    4. Collect the verdict
-    5. Emit PANEL CONVERGED block with convergence_model: single-reviewer, convergence_result: <reviewer's verdict>
+    4. Forward the system_prompt_rule_preamble above
+    5. Collect the verdict
+    6. Emit PANEL CONVERGED block with convergence_model: single-reviewer, convergence_result: <reviewer's verdict>
 "@
     exit 0
 }
@@ -135,14 +163,19 @@ foreach ($p in $reviewPassPrompts) { "    $p" }
       Before producing your verdict, re-fetch git rev-parse HEAD in the consuming-project worktree.
       The expected SHA is $HeadSha recorded at launch time. If your HEAD does NOT match, ABORT with
       a NEEDS_REWORK verdict citing "stale launch SHA: launched against $HeadSha, current HEAD is <currentSha>".
+    system_prompt_rule_preamble: |
+"@
+foreach ($l in $systemPromptPreambleLines) { "      $l" }
+@"
   base_sha: $BaseSha
   head_sha: $HeadSha
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch reviewer agents via the task tool satisfying the slate_floor (typically 4-5 agents in parallel)
     2. Forward all review_pass_only_prompts to each reviewer
     3. Forward the same_state_recheck_preamble to each reviewer
-    4. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)
-    5. Iterate fix-then-re-panel up to fix_iteration_count_cap (default 3)
-    6. On convergence: emit PANEL CONVERGED block with slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved
+    4. Forward the system_prompt_rule_preamble to each reviewer
+    5. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)
+    6. Iterate fix-then-re-panel up to fix_iteration_count_cap (default 3)
+    7. On convergence: emit PANEL CONVERGED block with slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved
 "@
 exit 0

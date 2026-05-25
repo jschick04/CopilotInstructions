@@ -88,6 +88,16 @@ When cap is hit:
 
 Cap override is recorded in `fix_iteration_count_cap` field of `PANEL CONVERGED` block.
 
+## System-prompt-rule enforcement (defensive — MANDATORY)
+
+The agent's system prompt contains style rules that may not be fully wired into `gate-runner.{ps1,sh}` or `pattern-catalog.md` yet. Reviewers MUST flag violations of these rules even when no corresponding `coding-preferences.md` or `pattern-catalog.md` entry exists for the specific instance.
+
+Each reviewer's prompt MUST include this preamble (alongside the same-state re-check preamble):
+
+> The agent's system prompt enforces style rules beyond the catalog. In particular: "Only comment code that needs a bit of clarification. Do not comment otherwise." Treat this as a gate rule even if not enumerated in `coding-preferences.md`. **Apply only to code newly added or modified in this PR (the `+` lines of the diff); do NOT flag pre-existing comments on baseline lines of modified files.** Flag: multi-line `<remarks>` XML doc blocks; inline comments narrating what (not why) the code does; comments referencing PR history, panel slots, round numbers, or planning artifacts. Brief one-line `<summary>` on public APIs and one-line *why*-comments for subtle behavior are fine.
+
+This is the catch-net for the gap between "rule exists in system prompt" and "rule is auto-detected by gate-runner". Without it, panel reviewers truthfully report "0 violations" against the catalog while system-prompt rules silently regress (the exact failure mode observed in the IModalCoordinator PR 1+2 review).
+
 ## Reviewer same-state re-checks
 
 Each reviewer's prompt MUST include this preamble:
