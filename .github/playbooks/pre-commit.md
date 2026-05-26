@@ -11,8 +11,10 @@ Show the diff to the user, get explicit approval, confirm who handles the commit
 - Commit ownership confirmed (user vs agent) via `ask_user` — prompt MUST display the resolved `<user.name> <<user.email>>` + scope AND use the literal `the agent` / `you (the user)` actor labels (no bare `I` / `me` / `you`). Step 3b below has the canonical form schema.
 - Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
 - Stage only touched files (`git add <path>` — never `git add .`).
+- **Comment audit on staged diff** — before emitting the `PRE-COMMIT GATE PASSED` block, scan the staged additions (`git diff --cached --diff-filter=AM`) for newly-added multi-line `<summary>` / `<remarks>` XML doc blocks (3+ lines of `///`), multi-line razor comments (`@* ... *@` spanning 2+ lines), and multi-line `/* ... */` comments (3+ lines) in `.cs` / `.razor` / `.css` / `.js` / `.ts` files. Each such block must be either justified inline as a one-line why-comment OR removed before commit. The block's `comment_audit:` field (Step 3 schema) records the count of multi-line blocks remaining after the audit + the rationale for any kept ones. The audit is enforcement of the system-prompt rule "Only comment code that needs a bit of clarification" at commit-time rather than panel-time (where the rule is technically catalogued but never fires on agent output because panels review specs, not implementations).
 - **`PRE-COMMIT GATE PASSED` block emitted in the current turn** before any `git commit` tool call — §1B refuses `git commit` without this block (mirrors §1A's `PANEL CONVERGED` enforcement at the implementation boundary and §2B's `POST-CODE-CHANGE LEDGER` enforcement at the staging boundary).
 - **A panel `READY` verdict (pre-implementation, pre-PR-creation, or any other panel slot) does NOT satisfy this gate on project (non-instruction) repos.** Panel review is technical; this gate is user review. Both are independent and both must pass. Chaining panel `READY` into a commit-producing tool call (`git commit`, `--amend`, `cherry-pick`, `rebase` replay, `am`, etc.), `git push`, or `gh pr create` without an intervening `ask_user`-based diff-approval step is a process violation. This rule does not modify the existing `review-workflow-gates.md` §1B project-vs-instruction-repo asymmetry. Full rule in `pr-quality-gate/panel-policy.md` §"User diff-approval after panel READY".
+- **Pre-PR-create draft-state ask** — before any `gh pr create` (or equivalent PR-creation tool call), the agent MUST `ask_user` whether the PR should be created as `draft` or `ready for review`. The default option in the form should match the user's prior session-wide preference if one was set; otherwise default to `ready`. Recorded in the `pr_creation:` field of the `PRE-COMMIT GATE PASSED` block (see Step 3 schema) — `pr_creation: deferred` if this commit is not a PR-creation point; `pr_creation: draft` / `pr_creation: ready` if it is.
 
 ## `PRE-COMMIT GATE PASSED` block — required emission
 
@@ -34,6 +36,11 @@ PRE-COMMIT GATE PASSED
     body: no
     conventional_commit_prefix: no
     subject_length_chars: <integer>
+  comment_audit:
+    multi_line_blocks_added: <integer count of newly-added 3+ line summaries/remarks/razor `@*...*@`/CSS `/* */` blocks>
+    multi_line_blocks_kept_with_rationale: <integer; each kept block requires a one-line why-justification documented in the commit's review thread or this block>
+    rule_source: "system-prompt 'Only comment code that needs a bit of clarification' + panel-policy.md §System-prompt-rule enforcement"
+  pr_creation: deferred | draft | ready
   staged_files:
     - <explicit relative path 1>
     - <explicit relative path 2>
@@ -48,6 +55,12 @@ PRE-COMMIT GATE PASSED
 - **`proposed_subject`** — the EXACT string that will be passed to `git commit -m`. Not a summary; the literal value.
 - **`subject_approved`** — record the user response that approved the proposed subject. If the user edited the subject during approval, `proposed_subject` must reflect the edited version, and `subject_approved` should quote the edit.
 - **`format_check`** — five boolean sub-fields. Any `no` on `single_line` / `subject_length_chars > 72` / etc. that contradicts the playbook's format rules MUST cause the agent to revise the message before re-emitting the block.
+- **`comment_audit`** — runs after staging, before block emission. Run `git diff --cached --diff-filter=AM -- '*.cs' '*.razor' '*.css' '*.js' '*.ts'` and scan the added lines (those starting with `+` excluding the file-header `+++`) for: (a) consecutive 3+ lines beginning with `///` (multi-line XML doc summary/remarks); (b) razor `@*` openers paired with a `*@` closer on a different line (multi-line razor comment); (c) `/*` openers paired with a `*/` closer ≥ 2 lines away (multi-line block comment). For each match, either remove it OR document a one-line why-rationale (justified examples: catch-block reason for swallow, license headers, non-obvious algorithmic choice with cited spec section). `multi_line_blocks_added` = total matches found; `multi_line_blocks_kept_with_rationale` = subset retained with rationale. If `multi_line_blocks_added > multi_line_blocks_kept_with_rationale` and the un-justified blocks haven't been removed, the agent MUST revise the staged diff before emitting the block. This gate is the commit-time enforcement layer for the system-prompt comment rule that the panel review layer cannot reach (panels review specs before implementation; this audit catches what gets typed during implementation).
+- **`pr_creation`** — three valid values:
+    - `deferred` — this commit is not the PR-creation commit (no `gh pr create` happening in the same turn). The draft-state question is asked at the moment `gh pr create` is invoked, not at every prior commit.
+    - `draft` — `gh pr create --draft` was approved by the user via `ask_user` in this session for this PR.
+    - `ready` — `gh pr create` (no `--draft` flag) was approved by the user via `ask_user` in this session for this PR.
+  The `ask_user` prompt MUST present both options (`draft` / `ready`) and record the user's response verbatim in the `PR-CREATION GATE PASSED` block (see `pr-creation.md` for the full schema if one exists, else this `pr_creation` field captures the decision inline). For amends/force-pushes to an EXISTING PR, `pr_creation: deferred` is correct because no new PR is being created.
 - **`staged_files`** — enumerated list. `git add .`, `git add -A`, `git add --all` are forbidden per §0; the staged files list must come from an explicit `git add <path>` per file.
 
 ### Falsification is a higher-severity failure than skipping
