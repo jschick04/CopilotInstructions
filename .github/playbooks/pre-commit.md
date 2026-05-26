@@ -12,6 +12,7 @@ Show the diff to the user, get explicit approval, confirm who handles the commit
 - Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
 - Stage only touched files (`git add <path>` — never `git add .`).
 - **`PRE-COMMIT GATE PASSED` block emitted in the current turn** before any `git commit` tool call — §1B refuses `git commit` without this block (mirrors §1A's `PANEL CONVERGED` enforcement at the implementation boundary and §2B's `POST-CODE-CHANGE LEDGER` enforcement at the staging boundary).
+- **A panel `READY` verdict (pre-implementation, pre-PR-creation, or any other panel slot) does NOT satisfy this gate on project (non-instruction) repos.** Panel review is technical; this gate is user review. Both are independent and both must pass. Chaining panel `READY` into a commit-producing tool call (`git commit`, `--amend`, `cherry-pick`, `rebase` replay, `am`, etc.), `git push`, or `gh pr create` without an intervening `ask_user`-based diff-approval step is a process violation. This rule does not modify the existing `review-workflow-gates.md` §1B project-vs-instruction-repo asymmetry. Full rule in `pr-quality-gate/panel-policy.md` §"User diff-approval after panel READY".
 
 ## `PRE-COMMIT GATE PASSED` block — required emission
 
