@@ -97,6 +97,34 @@ Build evidence: if `await using var x = ...` compiles, the type implements `IAsy
 
 **Mitigation candidates**: none worth pursuing. Fix is on Copilot's side. Optional: explicit type annotation at the use site (`await using ServiceProvider sp = ...`) makes the interface implementation more obvious to Copilot's matcher — may reduce FP recurrence.
 
+## FP-3: readonly-field-cannot-be-out-parameter-in-ctor
+
+**Technical claim**: passing a `readonly` instance field as an `out` parameter is illegal C# / will not compile.
+
+**Why FP**: C# language rule (ECMA-334 §15.5.3 / Roslyn `CheckIsValidReceiverForVariableOrError`): `readonly` fields are writable inside the declaring class's instance constructor (and the declaring struct's instance constructor) — they are in a *definite-assignment* context identical to direct assignment, so they can be passed as `out`/`ref` arguments from constructor body. The restriction (`CS0192` / `CS0199`) applies OUTSIDE the constructor. Pattern in question:
+
+```csharp
+public sealed class Foo
+{
+    private readonly IService _service;
+
+    public Foo()
+    {
+        // LEGAL — assignment via out happens inside the declaring class's ctor.
+        SomeHelper.Provide(out _service);
+    }
+}
+```
+
+Build evidence: if `private readonly X _field; public Foo() { Bar(out _field); }` compiles, the language rule was satisfied. Period.
+
+**Recurrence pattern**: Copilot's reviewer matches on "readonly" + "out" without distinguishing ctor scope from method scope. The same FP triggers any time a test fixture uses a helper like `AddBannerSubstitutes(out var ...)` to initialize multiple readonly fields in one call.
+
+**Canonical dismissal template**:
+> False positive — C# permits passing readonly fields as `out` parameters inside the declaring class's instance constructor (definite-assignment context per ECMA-334 §15.5.3). The restriction (`CS0192`/`CS0199`) applies only outside the constructor. Build green + tests pass at the cited commit confirm the code compiles. Recurring FP per `pattern-catalog.md` FP-3.
+
+**Mitigation candidates**: none necessary; the pattern is idiomatic for test fixtures that use a helper method to construct + assign multiple substitutes in one call. Optional: a `(Foo, Bar, Baz) tuple` return shape on the helper would sidestep the FP at the cost of two extra lines per fixture and worse named-out-param discoverability — typically not worth it.
+
 ---
 
 ## Catalog maintenance
