@@ -8,3 +8,5 @@ timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_
 2026-05-25T21:40:00Z,92f0622b5986ddfbb75419e767d628134762e478,seed-pr-1,New test class lacks Arrange/Act/Assert structure,panel-miss,test-aaa-pattern,catalog-updated
 2026-05-26T00:39:17Z,06749e54aa73832c019812aba01b971579ce5466,consuming-pr-3,Registration method accepts strongly-typed-id sentinel/None value as a match,panel-miss,strongly-typed-id-none-rejection,pending
 2026-05-26T00:39:17Z,06749e54aa73832c019812aba01b971579ce5466,consuming-pr-3,Record with non-nullable reference-type parameter lacks construction-time null check,panel-miss,record-non-nullable-ctor-validation,pending
+2026-05-26T01:05:24Z,d5ec0bff1825c5fbe2b1cd0ee3b358075cca9caa,consuming-pr-3,State-reader returns stale registration between event-publishing source and event-subscribing observer's reactive clear,panel-miss,state-read-stale-after-event-publication,pending
+2026-05-26T01:05:24Z,d5ec0bff1825c5fbe2b1cd0ee3b358075cca9caa,consuming-pr-3,Record/class invariant set in constructor is bypassable by init-settable properties via with-expression,panel-miss,init-property-invariant-bypass,pending
