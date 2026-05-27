@@ -10,6 +10,10 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 
 ## JavaScript / TypeScript Code Style
 
+### Comments
+
+- **Default: no comments.** Code is the primary documentation; names carry intent. Per `AGENTS.md` §3.1 (always-loaded core), every NEW comment must pass the rename-first protocol: if a better variable / function / type name would carry the fact, rename and drop the comment. No restating-the-obvious, no panel-artifact references (`// the bot caught this`, `// Slot N`, `// Round N`), no future-tense forecasting. Catalog enforcement: `comment-necessity`.
+
 ### Naming Conventions
 
 - **Classes:** PascalCase (`UserRepository`, `DataProvider`).
