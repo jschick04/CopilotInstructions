@@ -96,7 +96,7 @@ Tracks external-reviewer findings the pre-PR panel did NOT catch. Project-deiden
 ### Schema
 
 ```
-timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_slug,status
+timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_slug,status,prior_acks_present,rule_in_base_instructions,divergence_override_history
 ```
 
 | column | type | description |
@@ -104,10 +104,17 @@ timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_
 | `timestamp` | ISO-8601 UTC | When the panel-miss was classified |
 | `catalog_revision` | 40-char SHA | Catalog SHA at the time the pre-PR panel ran (which catalog slate had the blind spot) |
 | `pr_ref` | opaque identifier | Consuming-project choice (e.g., `seed-pr-1`). MUST NOT include repository URL, project name, PR number, branch name, or other deanonymizing strings |
-| `finding_brief` | text | Generic 1-line description per the same project-agnosticism rule as `findings.csv` |
-| `classification` | enum `panel-miss \| valid-deferred \| rejected` | Per `panel-policy.md` §"Post-PR-review feedback loop" |
+| `finding_brief` | text (RFC 4180 quoted) | Generic 1-line description per the same project-agnosticism rule as `findings.csv`. Embedded commas / quotes / newlines MUST be properly quoted via RFC 4180 |
+| `classification` | enum `panel-miss \| valid-deferred \| rejected \| process-violation \| false-positive` | Per `panel-policy.md` §"Post-PR-review feedback loop" |
 | `proposed_catalog_slug` | text | Slug of the new/refined rule that would catch this class; empty if no proposal |
-| `status` | enum `pending \| catalog-updated \| catalog-rejected \| superseded` | Current state of the proposed rule |
+| `status` | enum `pending \| catalog-updated \| catalog-rejected \| superseded \| catalog-strengthened` | Current state of the proposed rule |
+| `prior_acks_present` | text (slug list, comma-separated within field — MUST be RFC 4180 quoted) | Slugs the agent acknowledged in `core_rules_acknowledged` at the time of the miss; empty if no ack; `none` if ack was absent. Detects ack-gate effectiveness — was the slug acked but missed, or was the slug never acked? |
+| `rule_in_base_instructions` | enum `true \| false` | Whether the proposed rule was already present in `AGENTS.md` / `.github/instructions/*.instructions.md` at the time of the miss. Distinguishes load-failure (rule absent) from application-failure (rule loaded but ignored) |
+| `divergence_override_history` | text (RFC 4180 quoted) | If the gate's count-divergence WARN was overridden by the reviewer with `divergence_acknowledged: <reason>`, the reason text is logged here for audit |
+
+### RFC 4180 quoting (REQUIRED)
+
+All free-text fields (`finding_brief`, `prior_acks_present`, `divergence_override_history`) MUST be quoted per RFC 4180 when they contain commas, double-quotes, or embedded newlines. Embedded double-quotes are doubled (`""`). This file was migrated from a legacy 7-field unquoted format to the current 10-field RFC 4180 format via `scripts/migrate-panel-misses-csv.ps1`.
 
 ### Project agnosticism
 
@@ -115,6 +122,6 @@ Same load-bearing invariant as `findings.csv`: no repository URLs, project names
 
 ### Append discipline
 
-Rows are appended by the agent during the post-PR-review feedback loop (see `panel-policy.md` §"Post-PR-review feedback loop (MANDATORY)"), NOT by `gate-runner.{ps1,sh}`. The agent uses single-write file operations (`create` / `edit` tools), so concurrent-write scenarios don't occur in agent workflows — no file-locking is required. Operators editing this file manually should still treat it as append-only to preserve audit history.
+Rows are appended by the agent during the post-PR-review feedback loop (see `panel-policy.md` §"Post-PR-review feedback loop (MANDATORY)"), NOT by `gate-runner.{ps1,sh}`. Use `scripts/Add-PanelMissesRow.ps1` for compliant RFC 4180 writes (it wraps `Export-Csv -UseQuotes AsNeeded -Append`). Manual edits via `create`/`edit` tools must preserve RFC 4180 quoting for any field containing commas, double-quotes, or newlines.
 
 If a multi-agent or CI scenario emerges that concurrently appends to this file, adopt the `findings.csv` locking discipline (lock file at `panel-misses.csv.lock`, 30s timeout, stale-detection at 5min, jittered backoff). Until then, the simpler append-only convention is sufficient.
