@@ -169,6 +169,91 @@ Without this, the highest-frequency pattern in the seed corpus (`doc-impl-mismat
 
 `lint-only` mode skips panel invocation entirely → review-pass-only patterns ARE NOT checked in lint-only mode. This is part of the user-acknowledged trade-off for the `lint-only-acknowledged` token (audit trail makes the gap explicit).
 
+## Per-rule acknowledgement (rule-coverage gate)
+
+Every panel verdict AND every pre-commit gate MUST emit a `core_rules_acknowledged` block enumerating every HIGH-tier review-pass-only catalog slug with an explicit disposition. This is the rule-coverage forcing function: without per-site evidence, an `applied` status is not falsifiable.
+
+### Schema (canonical)
+
+```yaml
+core_rules_acknowledged:
+  - slug: <string>                  # exact catalog slug
+    status: <applied | not-applicable>
+    evidence:                       # REQUIRED when status=applied for review-pass-only slugs
+      per_site_citations:           # REQUIRED — aggregate counts alone are INVALID
+        - file: <relative path>
+          line: <int or int-range>
+          disposition: <rename | extract | remove | restore | keep-because>
+          rename_diff: <string>     # required when disposition=rename
+          extract_diff: <string>    # required when disposition=extract
+          restore_diff: <string>    # required when disposition=restore
+          keep_reason: <string>     # required when disposition=keep-because; ≤12 words; MUST add information beyond comment text
+      diff_metric_check: <string>   # cross-check: rg-violation count or git-diff-extracted count matched against per_site_citations.Count
+      divergence_acknowledged: <string>  # required when rg-battery count > per_site_citations.Count; ≤50-word specific reason; logged to panel-misses.csv.divergence_override_history
+    rationale: <string>             # REQUIRED when status=not-applicable; ≤30-word justification
+```
+
+### Verification (BLOCK with manual override)
+
+The runner cross-references rg-battery violation counts (for hybrid/diff/tree-scoped rules) against `core_rules_acknowledged.evidence.per_site_citations` count:
+
+- **Counts match**: gate-status OK
+- **rg-battery count > acknowledged count**: BLOCK by default. Reviewer overrides by adding `divergence_acknowledged: <specific reason>` field (≤50 words). Tautology meta-rule: reason MUST cite a specific external factor (generator output, conditional-compilation, FP listed in catalog `fp_slug`) and MUST contain at least one content token not present in the original rule text.
+- **Override is logged**: `panel-misses.csv.divergence_override_history` accumulates the reason string for audit.
+
+### What counts as evidence
+
+For each `status: applied` entry on a review-pass-only slug:
+- **MANDATORY**: `per_site_citations` list with file:line:disposition triples for every site the slug applies to in the diff
+- **MANDATORY**: `diff_metric_check` cross-reference (e.g., `git diff --cached -U0 | grep -cE '^\+\s*(//|///|/\*)'` returned N; `per_site_citations` covers N sites)
+- **ROTE-CHECKBOX FAILURE MODE**: `evidence` with only an aggregate count and no per-site list → gate BLOCKED
+
+For each `status: not-applicable` entry:
+- **MANDATORY**: `rationale` (≤30 words) citing why slug doesn't apply (e.g., "no new sync calls in async methods; verified by diff inspection")
+
+### Trivial-PR carve-out
+
+The per-rule acknowledgement requirement is REDUCED (not eliminated) when ALL of:
+- `panel_mode: lint-only` AND
+- `diff_scope` shows ≤2 files changed AND
+- The existing `least-privilege-audit.md` touched-file gate result returns "no public-surface delta" (NOT a regex-only check — reuses the existing audit's per-file classification)
+
+In the reduced path, the agent emits `core_rules_acknowledged: [trivial-pr-carveout: applied]` with a single entry citing the audit result. Other HIGH-tier slugs are skipped with their auto-derived `not-applicable-because-trivial-pr-carveout` status.
+
+## Anti-recidivism enforcement (PR-specific recurrence sweep)
+
+For PRs with prior entries in `.github/pr-quality-gate/data/panel-misses.csv` (matched by `pr_ref` column), the panel + gate emit an ANTI-RECIDIVISM PREAMBLE listing every prior slug hit on this PR. Reviewers MUST emit `verified-no-recurrence: <slug>` per prior slug, OR surface a recurrence as a blocking finding.
+
+### Activation
+
+- `invoke-panel.ps1 -PrRef <ref>` (PRIMARY): emits anti-recidivism preamble in `PANEL LAUNCH CONTRACT` under `reviewer_prompt_must_include.anti_recidivism_preamble`; reviewers see it before producing verdict
+- `gate-runner.ps1 -PrRef <ref>` (SECONDARY): emits same preamble in `QUALITY GATE` output for the agent's pre-commit visibility
+
+`-PrRef` is a manually-supplied opaque token matching existing `panel-misses.csv.pr_ref` values (e.g., `consuming-pr-8`). NOT auto-derived. Default empty → no anti-recidivism (preserves backward compat).
+
+### Verified-no-recurrence schema
+
+```yaml
+verified_no_recurrence:
+  - slug: <prior-slug>
+    fix_evidence:                   # REQUIRED — pointer to where prior occurrence was resolved
+      commit_sha: <40-char>         # commit that addressed the prior occurrence
+      diff_hunk: |                  # OR pasted diff hunk showing the fix
+        <git-diff snippet>
+```
+
+Without `fix_evidence`, the verdict is treated as NEEDS_REWORK (textual ack alone is checkbox-theater).
+
+## Machinery-side preamble emission (compaction-safe)
+
+`gate-runner.ps1` + `gate-runner.sh` + `invoke-panel.ps1` ALL print these blocks at the top of their stdout on every invocation:
+
+1. **HIGH-tier slug list**: `required_rule_ack: [<slug>, ...]` from current `pattern-catalog.md` HIGH-tier rows (via `HIGH-TIER-SLUGS.md` derived index)
+2. **rg-battery flagged sites** (gate-runner only): `rg_flagged_sites: { <slug>: [{file, line}, ...] }` per slug from this run
+3. **Anti-recidivism preamble** (when `-PrRef` supplied): listed slugs the agent / panel must clear
+
+These print on EVERY invocation regardless of session-compaction state — the agent always sees them at the moment of need. This is the load-bearing mitigation: rules in `AGENTS.md` survive load-time compaction; machinery emission survives runtime-application-time compaction.
+
 ## Panel output → QUALITY GATE block mapping
 
 `invoke-panel.ps1` emits a `PANEL CONVERGED` block when convergence is reached. Fields surfaced into the QUALITY GATE block's `panel:` subsection (per `README.md` block format):
@@ -184,9 +269,12 @@ panel:
   panel_rounds: <int>
   fix_iteration_count: <int>
   must_fix_unresolved: <int>
+  core_rules_acknowledged: <see §Per-rule acknowledgement>
+  rule_coverage_passed: <bool>              # true if all HIGH-tier review-pass-only slugs have an applied/not-applicable disposition
+  anti_recidivism_acknowledged: <list>      # verified-no-recurrence entries; empty if no PrRef
 ```
 
-§1B enforcement requires `convergence_result: passed` AND `dropped_reviewers: []` (or replacements present) AND `must_fix_unresolved: 0` before any G6 forbidden-tool call.
+§1B enforcement requires `convergence_result: passed` AND `dropped_reviewers: []` (or replacements present) AND `must_fix_unresolved: 0` AND `rule_coverage_passed: true` before any G6 forbidden-tool call.
 
 ## Slate-floor checkpoint timing
 

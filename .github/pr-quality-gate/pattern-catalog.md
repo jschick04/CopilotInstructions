@@ -5,8 +5,26 @@ Empirical catalog of patterns the GitHub Copilot PR reviewer flags across consum
 This catalog is **project-deidentified**: signatures and patterns are abstract; consuming projects do not need to customize it. FP entries are inline (no separate file).
 
 <!-- Schema reminder (per README.md §Catalog grammar):
-     | slug | scope_mode | params | review_pass_only_prompt | fp_slug |
-     Pipe characters inside JSON values escaped as \|. Parser unescapes before JSON.parse. -->
+     | slug | scope_mode | params | review_pass_only_prompt | fp_slug | tier |
+     Pipe characters inside JSON values escaped as \|. Parser unescapes before JSON.parse.
+     Tier (6th column) added on lightweight-gate-v5. Values: HIGH | MEDIUM | LOW.
+     Legacy 5-cell rows default to tier=MEDIUM with a stderr diagnostic; sunset by next catalog edit. -->
+
+## Tier semantics (added with 6-cell schema bump)
+
+Tier controls cost optimization in lighter panel modes AND `HIGH-TIER-SLUGS.md` generation:
+
+| tier | applies to | lint-only mode | triage mode | full mode |
+|---|---|---|---|---|
+| HIGH | rg-rules + review-pass-only | rg-rules always run; review-pass-only emit `unreviewed_review_pass_only_slugs` warning | always checked | always checked |
+| MEDIUM | rg-rules + review-pass-only | rg-rules SKIP; review-pass-only SKIP | always checked | always checked |
+| LOW | rg-rules + review-pass-only | SKIP | SKIP | always checked |
+
+Tier auto-derivation by `scripts/sync-critical-rules.ps1`:
+- rg-detectable rules (`scope_mode: diff-scoped|tree-scoped|hybrid`): tier from rg-corpus hit count
+- review-pass-only rules: tier from `panel-misses.csv` hit count (unique `pr_ref` count, not raw row count)
+- Thresholds: ≥5 hits = HIGH, 3-4 = MEDIUM, 0-2 = LOW
+- Manual override: row's `tier` column set to explicit value overrides auto-derivation
 
 ## Patterns (high-frequency battery, ≥5 hits in seed corpus)
 
