@@ -98,6 +98,24 @@ For every NEW method in the diff whose declaration returns `Task` / `Task<T>` / 
 
 Canonical rule definition: see `pattern-catalog.md` row `task-completedtask-from-async-named-method`.
 
+### `partial-cleanup-on-async-failure-path`
+
+For every NEW method in the diff that (a) registers N resources / completion tokens / cancellation registrations / shared-state entries BEFORE entering an `await` loop, AND (b) the await loop can t....
+
+Canonical rule definition: see `pattern-catalog.md` row `partial-cleanup-on-async-failure-path`.
+
+### `silent-cancellation-via-early-return-vs-throw`
+
+For every NEW `if (cancellationToken.IsCancellationRequested) { return; }` pattern in the diff inside a method returning `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>`: verify the caller can dis....
+
+Canonical rule definition: see `pattern-catalog.md` row `silent-cancellation-via-early-return-vs-throw`.
+
+### `await-throwable-async-call-without-handler-in-teardown-flow`
+
+For every NEW `await <async-method-that-can-throw>` in the diff inside a tear-down / dispose / save-and-close / modal-close / `OnDeactivating` / `OnBeforeUnload` / `IAsyncDisposable.DisposeAsync` /....
+
+Canonical rule definition: see `pattern-catalog.md` row `await-throwable-async-call-without-handler-in-teardown-flow`.
+
 ## Acknowledgement template (per-slug)
 
 ```yaml
