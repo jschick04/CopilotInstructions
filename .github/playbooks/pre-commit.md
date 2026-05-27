@@ -41,6 +41,21 @@ PRE-COMMIT GATE PASSED
     multi_line_blocks_added: <integer count of newly-added 3+ line summaries/remarks/razor `@*...*@`/CSS `/* */` blocks>
     multi_line_blocks_kept_with_rationale: <integer; each kept block requires a one-line why-justification documented in the commit's review thread or this block>
     rule_source: "system-prompt 'Only comment code that needs a bit of clarification' + panel-policy.md §System-prompt-rule enforcement"
+  core_rules_acknowledged:
+    # Per panel-policy.md §Per-rule acknowledgement — REQUIRED enumeration of every HIGH-tier review-pass-only slug.
+    # Aggregate counts alone are INVALID for status=applied; per-site file:line citations are MANDATORY.
+    - slug: <string>
+      status: <applied | not-applicable>
+      evidence:
+        per_site_citations:        # REQUIRED when status=applied for review-pass-only slugs
+          - file: <relative path>
+            line: <int or int-range>
+            disposition: <rename | extract | remove | restore | keep-because>
+            keep_reason: <≤12 words; MUST add information beyond comment text (tautology meta-rule)>
+        diff_metric_check: <cross-reference: rg/grep count vs per_site_citations.Count>
+        divergence_acknowledged: <≤50-word specific reason; required when rg count > per_site_citations count>
+      rationale: <≤30-word; REQUIRED when status=not-applicable>
+  rule_coverage_passed: <bool; true iff every HIGH-tier review-pass-only slug has applied/not-applicable disposition>
   pr_creation: deferred | draft | ready
   staged_files:
     - <explicit relative path 1>
@@ -57,6 +72,13 @@ PRE-COMMIT GATE PASSED
 - **`subject_approved`** — record the user response that approved the proposed subject. If the user edited the subject during approval, `proposed_subject` must reflect the edited version, and `subject_approved` should quote the edit.
 - **`format_check`** — five boolean sub-fields. Any `no` on `single_line` / `subject_length_chars > 72` / etc. that contradicts the playbook's format rules MUST cause the agent to revise the message before re-emitting the block.
 - **`comment_audit`** — runs after staging, before block emission. Run `git diff --cached --diff-filter=AM -- '*.cs' '*.razor' '*.css' '*.js' '*.ts'` and scan the added lines (those starting with `+` excluding the file-header `+++`) for: (a) consecutive 3+ lines beginning with `///` (multi-line XML doc summary/remarks); (b) razor `@*` openers paired with a `*@` closer on a different line (multi-line razor comment); (c) `/*` openers paired with a `*/` closer ≥ 2 lines away (multi-line block comment). For each match, either remove it OR document a one-line why-rationale (justified examples: catch-block reason for swallow, license headers, non-obvious algorithmic choice with cited spec section). `multi_line_blocks_added` = total matches found; `multi_line_blocks_kept_with_rationale` = subset retained with rationale. If `multi_line_blocks_added > multi_line_blocks_kept_with_rationale` and the un-justified blocks haven't been removed, the agent MUST revise the staged diff before emitting the block. This gate is the commit-time enforcement layer for the system-prompt comment rule that the panel review layer cannot reach (panels review specs before implementation; this audit catches what gets typed during implementation).
+- **`core_rules_acknowledged`** — REQUIRED enumeration of every HIGH-tier review-pass-only catalog slug. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement. Per-site `file:line:disposition` citations are MANDATORY for `status: applied`; aggregate counts alone are INVALID. **Forcing-function recipe** for the most common HIGH-tier slugs:
+    - `comment-necessity`: paste output of `git diff --cached -U0 | grep -nE '^\+\s*(//|///|/\*)' | grep -v '^\+\+\+'` then cite disposition per line (rename / extract / remove / keep-because:<≤12 word reason>). Tautology meta-rule: keep-because reason MUST add information not present in the comment text itself (e.g., a comment saying `// Lock-release invariant` cannot be kept with reason `lock-release invariant`; reason must cite a SPEC, BCL quirk, or external constraint by name).
+    - `prefer-async-suffix`: paste output of `git diff --cached -U0 | grep -nE '^\+.*\.(Open|SaveChanges|Read|Write|Flush|Send|Dispose|CreateDbContext)\(' | grep -v '^\+\+\+'` then cite per site (used-async-overload / no-async-overload-on-receiver / sync-justified:<reason>). If choosing sync where Async exists, MUST justify.
+    - `panel-artifact-leakage`: run `git diff --cached -U0 | grep -nEi '(round[ -]?\d|bot.*(caught|finding|flagged)|Slot \d|PR ?\d+\+\d)' | grep -v '^\+\+\+'`. Zero matches = `status: applied; per_site_citations: []; diff_metric_check: "0 matches"`. Any match BLOCKS the commit until removed.
+    - Other HIGH-tier slugs: see catalog `review_pass_only_prompt` text for the slug's check. Cite per-site disposition for any matches in the diff.
+  Verification: if rg-battery violation count (from gate-runner output) > acknowledged per_site_citations count → gate BLOCKED unless `divergence_acknowledged: <specific reason>` is set with ≤50-word justification. Divergence override is logged to `panel-misses.csv.divergence_override_history` for audit.
+- **`rule_coverage_passed`** — boolean derived from `core_rules_acknowledged`: true iff every HIGH-tier review-pass-only slug from `pattern-catalog.md` (or `HIGH-TIER-SLUGS.md` once Phase E lands) has an `applied` or `not-applicable` disposition with valid evidence/rationale. A missing slug = `rule_coverage_passed: false` = gate BLOCKED.
 - **`pr_creation`** — three valid values:
     - `deferred` — this commit is not the PR-creation commit (no `gh pr create` happening in the same turn). The draft-state question is asked at the moment `gh pr create` is invoked, not at every prior commit.
     - `draft` — `gh pr create --draft` was approved by the user via `ask_user` in this session for this PR.

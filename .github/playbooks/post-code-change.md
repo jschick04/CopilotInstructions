@@ -123,6 +123,29 @@ Comment audit: scope=<files in diff>, <N> new comment lines in diff, <J> justifi
 
 **Throwaway-marker exception** (per `design-exploration.md` / `performance-comparison.md`): when a comment in the diff is the canonical `THROWAWAY: <prototype-name>` header on a comment-capable file under `prototypes/<name>/`, it is justified under the narrow §3.1 exception clause hosted by those two playbooks. Cite the playbook in the justification (e.g., `// THROWAWAY: lock-vs-lockfree-queue → justified per design-exploration.md narrow §3.1 exception (folder + file header marker; load-bearing, not narrative)`).
 
+### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
+
+Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement; this gate just references it.
+
+```
+POST-CODE-CHANGE LEDGER
+  files_changed: [<list of relative paths with brief change description>]
+  shown_diff_matches_intent: yes | no
+  self_similarity_sweep: clean | <list of sibling sites + dispositions>
+  tests_run: <result summary or n/a>
+  core_rules_acknowledged:
+    # Per panel-policy.md §Per-rule acknowledgement — required enumeration with per-site citations.
+    - slug: <string>
+      status: <applied | not-applicable>
+      evidence:
+        per_site_citations: [...]
+        diff_metric_check: <cross-reference>
+      rationale: <≤30 words; required when status=not-applicable>
+  rule_coverage_passed: <bool>
+```
+
+The pre-commit gate (step 4 in `pre-commit.md`) consumes this block's `core_rules_acknowledged` field and re-validates against the staged diff before commit. The two emissions can differ if the agent edits between post-code-change and pre-commit; the pre-commit version is authoritative for the commit object.
+
 ### 3. Multi-model reviewer panel (via `multi-model-review.md`)
 
 Run the panel via `multi-model-review.md` with the following post-code-change invocation parameters:
