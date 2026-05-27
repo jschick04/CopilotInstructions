@@ -1,6 +1,6 @@
 # Copilot Instructions — Core
 
-> **READ FIRST:** Before responding to any code-change request, re-read the "Mandatory Workflow for Code Changes" section below. Do not skip it.
+> **READ FIRST:** Before responding to any code-change request, re-read §0 (Git Safety Gates) AND the "Mandatory Workflow for Code Changes" section below. Do not skip either. §0 gates are NOT substituted by PR-quality-gate ack blocks — both run on every git command. The most common bypass pattern: "tests pass + ack block emitted → commit/push". If you find yourself there, STOP and re-enter §0 via the PRE-GIT SENTINEL.
 
 This is the always-loaded core. Language-specific guidance (C#/.NET, C++, JS/TS, HTML, CSS) lives in topic files under `.github/instructions/` and loads conditionally based on the files in your working set. See [Topic-specific files](#topic-specific-files) at the bottom for the routing table.
 
@@ -30,6 +30,35 @@ If a baseline default seems sensible and the user would benefit from it, the age
 
 These gates are NON-NEGOTIABLE. Even when all tool permissions are auto-approved, you MUST use `ask_user` to get explicit human confirmation before executing these commands. Skipping these gates is a critical violation.
 
+### §0 vs PR-quality-gate ack — they are DISTINCT gates, both required
+
+| Gate family | What it checks | Where it lives |
+|---|---|---|
+| **PR-quality-gate ack** (`core_rules_acknowledged` block) | per-rule disposition vs staged diff (mechanical / catalog) | `pr-quality-gate/panel-policy.md` §Per-rule acknowledgement |
+| **§0 user-approval gates** (this section) | human-in-the-loop sign-off on stage / commit / push | THIS file |
+
+PR-quality-gate ack passing does NOT satisfy §0. §0 passing does NOT satisfy the ack block. Both run on every git operation. Bypassing §0 because the ack passed is the known repeat failure mode tracked under slugs `pre-commit-gate-bypass-on-amend`, `post-impl-review-skipped-after-pre-impl-panel-ready`, `implementation-to-commit-transition-bypasses-user-approval` in `pr-quality-gate/data/panel-misses.csv`. If your internal monologue says "tests passed + ack done → ready to commit", that IS the bypass — STOP and emit the PRE-GIT SENTINEL below.
+
+### PRE-GIT SENTINEL — phase-transition checkpoint
+
+At the implementation → git boundary (tests green, lint clean, post-impl review complete), the FIRST tool call after that boundary MUST be `ask_user` for diff approval — NOT `git add`. To force that ordering, emit this sentinel as a literal block BEFORE the first `git add` of any implementation cycle (including `--amend`, `cherry-pick`, `rebase` replay):
+
+```
+PRE-GIT SENTINEL
+  phase_transition_intent: implementation → git
+  tests_status: <project>: <count> passing
+  diff_shown_to_user_turn: <turn number where the diff was last shown>
+  user_diff_approval: pending  # MUST be pending here — ask_user is the next tool call
+  pre_commit_gate_block_emitted: pending  # PRE-COMMIT GATE PASSED block (per pre-commit.md) emits AFTER ask_user clears
+  next_action: ask_user for diff approval
+```
+
+Required behaviors:
+- This sentinel is a LEADING checkpoint — it fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block, not instead of it. After `ask_user` returns explicit approval, emit `PRE-COMMIT GATE PASSED` per `pre-commit.md` (which records the verbatim approval phrase) THEN run `git add` → `git commit`.
+- If a session is RESUMED post-compact and you find yourself at the implementation → git boundary, this sentinel MUST fire even if the prior cycle had cleared it — the post-compact agent does not inherit prior approval.
+- A `READY` verdict from any panel (pre-impl design, post-impl reviewer panel, or pre-PR-creation review) does NOT clear this sentinel. Panel `READY` is technical consensus; this sentinel is the human-approval entry point.
+- Emitting the sentinel does NOT satisfy `ask_user` — the sentinel just declares intent. The actual `ask_user` call is the next tool invocation.
+
 ### git add
 
 Before ANY `git add` invocation:
@@ -52,6 +81,14 @@ For ANY force-push operation:
 1. Use `git push --force-with-lease` — NEVER bare `git push --force` / `git push -f`. The `--force-with-lease` flag aborts if someone else pushed to the branch since your last fetch, preventing accidental history loss.
 2. Before invoking, call `ask_user` confirming the force-push intent + showing the commit range being replaced (`git log <upstream>..HEAD`).
 3. Only execute after explicit approval. See §1 "Pre-PR-push phase" for the full amend-safety gate.
+
+### git push (non-force, including first push of a new branch)
+
+Before ANY `git push` (even non-force, even for a brand-new branch that has never been pushed):
+1. Call `ask_user` confirming the push intent + showing the target remote/branch + the commit range being pushed.
+2. Only execute after explicit approval.
+
+This includes `git push origin <new-branch>` — a "new branch" is not a free pass; the user has not consented to the contents of those commits being published just because the branch is new.
 
 ### gh pr create
 
