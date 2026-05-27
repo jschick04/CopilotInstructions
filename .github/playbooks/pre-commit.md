@@ -56,6 +56,15 @@ PRE-COMMIT GATE PASSED
         divergence_acknowledged: <≤50-word specific reason; required when rg count > per_site_citations count>
       rationale: <≤30-word; REQUIRED when status=not-applicable>
   rule_coverage_passed: <bool; true iff every HIGH-tier review-pass-only slug has applied/not-applicable disposition>
+  full_scan_results:
+    # REQUIRED whenever this turn ALSO commits a catalog edit (new slug OR enhanced audit-method).
+    # Absent / empty = process violation per AGENTS.md §1A.3.
+    - new_or_enhanced_slug: <slug>
+      change_type: <new | enhanced-audit-method>
+      sites_scanned: <int — number of code sites the audit-method examined across the full PR diff>
+      gaps_found: [<file:line>, ...]
+      gaps_fixed_in_this_amend: [<file:line>, ...]
+      gaps_deferred_with_reason: [<file:line — ≤30-word justification>, ...]
   pr_creation: deferred | draft | ready
   staged_files:
     - <explicit relative path 1>
@@ -79,6 +88,7 @@ PRE-COMMIT GATE PASSED
     - Other HIGH-tier slugs: see catalog `review_pass_only_prompt` text for the slug's check. Cite per-site disposition for any matches in the diff.
   Verification: if rg-battery violation count (from gate-runner output) > acknowledged per_site_citations count → gate BLOCKED unless `divergence_acknowledged: <specific reason>` is set with ≤50-word justification. Divergence override is logged to `panel-misses.csv.divergence_override_history` for audit.
 - **`rule_coverage_passed`** — boolean derived from `core_rules_acknowledged`: true iff every HIGH-tier review-pass-only slug from `pattern-catalog.md` (or `HIGH-TIER-SLUGS.md` once Phase E lands) has an `applied` or `not-applicable` disposition with valid evidence/rationale. A missing slug = `rule_coverage_passed: false` = gate BLOCKED.
+- **`full_scan_results`** — REQUIRED when this turn's commits include a catalog edit (new slug OR enhanced audit-method on an existing slug) per `AGENTS.md` §1A.3. For each catalog change, the agent runs the new/enhanced rule's `Audit method` clause against the FULL PR diff (not just the bot-flagged site) and reports: `sites_scanned` (how many candidate sites the audit examined), `gaps_found` (file:line of every site that violates the new rule), `gaps_fixed_in_this_amend` (subset of gaps_found that the agent fixed in this same commit), `gaps_deferred_with_reason` (subset deferred with explicit ≤30-word justification). **Why this matters**: bot findings reveal MISSING GAPS in the catalog; adding a rule is half the fix — verifying the rule finds ALL instances in the active diff is the other half. Without this scan, the same PR carries multiple instances of the new pattern that surface one-by-one in future bot rounds (consuming-pr-8 had cancellation-handling findings across 5 separate rounds before round 16's `async-loop-no-intermediate-cancellation-check` rule was added — earlier full-scans would have collapsed the iteration). Catalog slug `full-scan-against-new-rule-not-triggered-after-bot-finding` enforces this at review time.
 - **`pr_creation`** — three valid values:
     - `deferred` — this commit is not the PR-creation commit (no `gh pr create` happening in the same turn). The draft-state question is asked at the moment `gh pr create` is invoked, not at every prior commit.
     - `draft` — `gh pr create --draft` was approved by the user via `ask_user` in this session for this PR.
