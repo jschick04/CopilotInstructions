@@ -7,7 +7,8 @@ param(
     [Parameter(Mandatory)] [string] $HeadSha,
     [ValidateSet('full', 'triage', 'lint-only')] [string] $Mode = 'full',
     [string] $AskUserReceipt = '',                                   # quoted user response containing mode token; from orchestrator
-    [string] $AskUserCallRef = ''
+    [string] $AskUserCallRef = '',
+    [string] $PrRef = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,16 +83,45 @@ if (-not $systemPromptPreambleLines -or $systemPromptPreambleLines.Count -eq 0) 
     Exit-Launcher 2 "panel-policy.md is missing the '## System-prompt-rule enforcement' section's `> ...` blockquote — cannot emit reviewer preamble. Verify policy file integrity."
 }
 
-# ===== Build review-pass-only prompts to forward to reviewers =====
+# ===== Build review-pass-only prompts to forward to reviewers (tier-filtered by mode) =====
+$tierForMode = switch ($Mode) {
+    'full'      { @('HIGH','MEDIUM','LOW') }
+    'triage'    { @('HIGH','MEDIUM') }
+    'lint-only' { @('HIGH') }
+}
 $reviewPassPrompts = @()
+$requiredRuleAckSlugs = @()
 if (Test-Path -LiteralPath $catalogPath) {
     $lines = Get-Content -LiteralPath $catalogPath
     foreach ($line in $lines) {
         if ($line -notmatch '^\|') { continue }
         if ($line -match '^\|\s*slug\s*\|' -or $line -match '^\|\s*-+') { continue }
-        $cells = ($line -split '(?<!\\)\|') | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }
-        if ($cells.Count -ge 4 -and $cells[1] -eq 'review-pass-only') {
-            $reviewPassPrompts += "- **$($cells[0])**: $($cells[3])"
+        $cellsRaw = ($line -split '(?<!\\)\|')
+        if ($cellsRaw.Count -lt 2) { continue }
+        $cells = $cellsRaw[1..($cellsRaw.Count - 2)] | ForEach-Object { $_.Trim() }
+        if ($cells.Count -lt 4 -or $cells[1] -ne 'review-pass-only') { continue }
+        $slug = $cells[0]
+        $prompt = $cells[3]
+        # 6th cell is tier (optional; legacy 5-cell defaults to MEDIUM).
+        $tier = if ($cells.Count -ge 6 -and $cells[5]) { $cells[5] } else { 'MEDIUM' }
+        if ($tier -notin $tierForMode) { continue }
+        $reviewPassPrompts += "- **${slug}** [tier=${tier}]: $prompt"
+        $requiredRuleAckSlugs += $slug
+    }
+}
+
+# ===== Build anti-recidivism preamble (when -PrRef supplied) =====
+$antiRecidivismLines = @()
+if ($PrRef) {
+    $panelMissesCsvPath = Join-Path $clone '.github/pr-quality-gate/data/panel-misses.csv'
+    if (Test-Path -LiteralPath $panelMissesCsvPath) {
+        $priorRows = Import-Csv -LiteralPath $panelMissesCsvPath -Encoding UTF8 | Where-Object { $_.pr_ref -eq $PrRef }
+        $priorSlugs = @($priorRows | ForEach-Object { $_.proposed_catalog_slug } | Sort-Object -Unique | Where-Object { $_ })
+        if ($priorSlugs.Count -gt 0) {
+            $antiRecidivismLines += "pr_ref: $PrRef"
+            $antiRecidivismLines += "prior_slugs:"
+            foreach ($s in $priorSlugs) { $antiRecidivismLines += "  - $s" }
+            $antiRecidivismLines += "reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
         }
     }
 }
@@ -106,6 +136,8 @@ if ($Mode -eq 'triage') {
     @"
 PANEL LAUNCH CONTRACT (triage)
   panel_mode: triage
+  pr_ref: $PrRef
+  required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
     reviewer_count: 1
     role: code-review
@@ -117,6 +149,10 @@ PANEL LAUNCH CONTRACT (triage)
     review_pass_only_prompts:
 "@
     foreach ($p in $reviewPassPrompts) { "    $p" }
+    if ($antiRecidivismLines.Count -gt 0) {
+        "    anti_recidivism_preamble:"
+        foreach ($l in $antiRecidivismLines) { "      $l" }
+    }
     @"
     same_state_recheck_preamble: |
       Before producing your verdict, re-fetch git rev-parse HEAD in the consuming-project worktree.
@@ -131,10 +167,11 @@ PANEL LAUNCH CONTRACT (triage)
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch 1 code-review-role reviewer agent via the task tool (cheap model OK; output cap NOT enforced)
     2. Forward all review_pass_only_prompts above to the reviewer
-    3. Forward the same_state_recheck_preamble above
-    4. Forward the system_prompt_rule_preamble above
-    5. Collect the verdict
-    6. Emit PANEL CONVERGED block with convergence_model: single-reviewer, convergence_result: <reviewer's verdict>
+    3. Forward the anti_recidivism_preamble above (if present) — reviewer MUST emit verified-no-recurrence per slug
+    4. Forward the same_state_recheck_preamble above
+    5. Forward the system_prompt_rule_preamble above
+    6. Collect the verdict (must include core_rules_acknowledged per panel-policy.md §Per-rule acknowledgement)
+    7. Emit PANEL CONVERGED block with convergence_model: single-reviewer, convergence_result: <reviewer's verdict>, core_rules_acknowledged, rule_coverage_passed, anti_recidivism_acknowledged
 "@
     exit 0
 }
@@ -143,6 +180,8 @@ PANEL LAUNCH CONTRACT (triage)
 @"
 PANEL LAUNCH CONTRACT (full)
   panel_mode: full
+  pr_ref: $PrRef
+  required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
     reviewer_count: 4-5
     family_floor:
@@ -158,6 +197,10 @@ PANEL LAUNCH CONTRACT (full)
     review_pass_only_prompts:
 "@
 foreach ($p in $reviewPassPrompts) { "    $p" }
+if ($antiRecidivismLines.Count -gt 0) {
+    "    anti_recidivism_preamble:"
+    foreach ($l in $antiRecidivismLines) { "      $l" }
+}
 @"
     same_state_recheck_preamble: |
       Before producing your verdict, re-fetch git rev-parse HEAD in the consuming-project worktree.
@@ -172,10 +215,12 @@ foreach ($l in $systemPromptPreambleLines) { "      $l" }
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch reviewer agents via the task tool satisfying the slate_floor (typically 4-5 agents in parallel)
     2. Forward all review_pass_only_prompts to each reviewer
-    3. Forward the same_state_recheck_preamble to each reviewer
-    4. Forward the system_prompt_rule_preamble to each reviewer
-    5. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)
-    6. Iterate fix-then-re-panel up to fix_iteration_count_cap (default 3)
-    7. On convergence: emit PANEL CONVERGED block with slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved
+    3. Forward the anti_recidivism_preamble to each reviewer (if present) — each reviewer MUST emit verified-no-recurrence per slug
+    4. Forward the same_state_recheck_preamble to each reviewer
+    5. Forward the system_prompt_rule_preamble to each reviewer
+    6. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)
+    7. Iterate fix-then-re-panel up to fix_iteration_count_cap (default 3)
+    8. Each reviewer verdict MUST include core_rules_acknowledged per panel-policy.md §Per-rule acknowledgement
+    9. On convergence: emit PANEL CONVERGED block with slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved, core_rules_acknowledged (union per slug), rule_coverage_passed, anti_recidivism_acknowledged
 "@
 exit 0
