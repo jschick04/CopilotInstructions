@@ -10,7 +10,8 @@ param(
     [string] $AllowedCloneUrlPattern = '^https?://.+/CopilotInstructions(\.git)?$',
     [switch] $AutoFetchCatalog,
     [int] $LockTimeoutSeconds = 30,
-    [string] $ProjectRoot = (Get-Location).Path
+    [string] $ProjectRoot = (Get-Location).Path,
+    [string] $PrRef = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -65,12 +66,19 @@ function Read-CatalogTable { param([string] $Path)
         # Drop leading + trailing empty from outer | delimiters; trim each cell. DO NOT filter empties (trailing columns may be intentionally empty).
         if ($cells.Count -lt 2) { Exit-Runner 2 "Malformed catalog row at line ${lineNum}: $line" }
         $cells = $cells[1..($cells.Count - 2)] | ForEach-Object { $_.Trim() }
-        if ($cells.Count -lt 5) { Exit-Runner 2 "Malformed catalog row at line ${lineNum}: expected 5 cells (slug|scope_mode|params|review_pass_only_prompt|fp_slug), got $($cells.Count)" }
+        if ($cells.Count -lt 5) { Exit-Runner 2 "Malformed catalog row at line ${lineNum}: expected at least 5 cells (slug|scope_mode|params|review_pass_only_prompt|fp_slug[|tier]), got $($cells.Count)" }
         $slug = $cells[0]
         $scope = $cells[1]
         $paramsRaw = $cells[2] -replace '\\\|', '|'
         $reviewPrompt = $cells[3]
         $fpSlug = $cells[4]
+        if ($cells.Count -ge 6 -and $cells[5]) {
+            $tier = $cells[5]
+            if ($tier -notin 'HIGH','MEDIUM','LOW') { Exit-Runner 2 "Invalid tier '$tier' at line ${lineNum}: expected HIGH | MEDIUM | LOW" }
+        } else {
+            [Console]::Error.WriteLine("[gate-runner WARNING] Catalog row '$slug' at line ${lineNum} uses legacy 5-cell schema (no tier column); defaulting to tier=MEDIUM. Add explicit tier in next catalog edit (sunset by next lightweight-gate-v5 catalog edit).")
+            $tier = 'MEDIUM'
+        }
         if ($slugs.ContainsKey($slug)) { Exit-Runner 2 "Duplicate slug '$slug' at line $lineNum" }
         $slugs[$slug] = $true
         if ($scope -notin 'diff-scoped','tree-scoped','hybrid','review-pass-only') { Exit-Runner 2 "Invalid scope_mode '$scope' at line $lineNum" }
@@ -87,7 +95,7 @@ function Read-CatalogTable { param([string] $Path)
                 if ($reviewPrompt) { Exit-Runner 2 "scope_mode=hybrid MUST have empty review_pass_only_prompt at line $lineNum" }
             }
         }
-        $entries += [pscustomobject]@{ Slug = $slug; ScopeMode = $scope; Params = $params; ReviewPrompt = $reviewPrompt; FpSlug = $fpSlug; Line = $lineNum }
+        $entries += [pscustomobject]@{ Slug = $slug; ScopeMode = $scope; Params = $params; ReviewPrompt = $reviewPrompt; FpSlug = $fpSlug; Tier = $tier; Line = $lineNum }
     }
     return $entries
 }
@@ -180,9 +188,11 @@ $fileCount = $diffFiles.Count
 
 $findings = @()
 foreach ($e in $entries) {
+    # Tier filter applies to ALL rule types: full runs everything; triage skips LOW; lint-only keeps HIGH only.
+    if ($Mode -eq 'lint-only' -and $e.Tier -ne 'HIGH') { continue }
+    if ($Mode -eq 'triage' -and $e.Tier -eq 'LOW') { continue }
     if ($e.ScopeMode -eq 'review-pass-only') {
-        # Surfaced via invoke-panel.ps1; not detectable by rg.
-        $findings += [pscustomobject]@{ slug = $e.Slug; hits = 'review-required'; sites = @(); scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt }
+        $findings += [pscustomobject]@{ slug = $e.Slug; hits = 'review-required'; sites = @(); scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt; tier = $e.Tier }
         continue
     }
     $rawHits = @()
@@ -196,13 +206,37 @@ foreach ($e in $entries) {
         $rawHits = @($treeHits) + @($diffHits)
     }
     $sites = $rawHits | Sort-Object | Select-Object -Unique
-    $findings += [pscustomobject]@{ slug = $e.Slug; hits = $sites.Count; sites = $sites; scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt }
+    $findings += [pscustomobject]@{ slug = $e.Slug; hits = $sites.Count; sites = $sites; scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt; tier = $e.Tier }
 }
 
 # ===== Emit QUALITY GATE block =====
 $ts = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $diffLine = "$BaseSha..$HeadSha ($fileCount files)"
 $gateStatus = if ($findings | Where-Object { $_.hits -gt 0 -and $_.hits -ne 'review-required' }) { 'BLOCKED — findings present' } else { 'READY' }
+
+# ===== Build HIGH-tier required-ack slug list (filtered by Mode) =====
+$tierForMode = switch ($Mode) {
+    'full'      { @('HIGH','MEDIUM','LOW') }
+    'triage'    { @('HIGH','MEDIUM') }
+    'lint-only' { @('HIGH') }
+}
+$requiredRuleAckSlugs = @($entries | Where-Object { $_.Tier -in $tierForMode -and $_.ScopeMode -eq 'review-pass-only' } | ForEach-Object { $_.Slug })
+
+# ===== Build rg_flagged_sites map per slug (for reviewers' cross-reference) =====
+$rgFlaggedSites = @{}
+foreach ($f in $findings) {
+    if ($f.scope_mode -eq 'review-pass-only') { continue }
+    if (-not $f.sites -or $f.sites.Count -eq 0) { continue }
+    $rgFlaggedSites[$f.slug] = $f.sites
+}
+
+# ===== Build anti-recidivism preamble (when -PrRef supplied) =====
+$antiRecidivismSlugs = @()
+$panelMissesCsvPath = Join-Path $clone '.github/pr-quality-gate/data/panel-misses.csv'
+if ($PrRef -and (Test-Path -LiteralPath $panelMissesCsvPath)) {
+    $priorRows = Import-Csv -LiteralPath $panelMissesCsvPath -Encoding UTF8 | Where-Object { $_.pr_ref -eq $PrRef }
+    $antiRecidivismSlugs = @($priorRows | ForEach-Object { $_.proposed_catalog_slug } | Sort-Object -Unique | Where-Object { $_ })
+}
 
 @"
 QUALITY GATE
@@ -214,12 +248,31 @@ QUALITY GATE
   head_sha: $HeadSha
   diff_scope: $diffLine
   patterns_run: $($entries.Count)
-  findings:
+  pr_ref: $PrRef
+  required_rule_ack: [$(($requiredRuleAckSlugs | ForEach-Object { $_ }) -join ', ')]
 "@
+
+if ($antiRecidivismSlugs.Count -gt 0) {
+    "  anti_recidivism_preamble:"
+    "    pr_ref: $PrRef"
+    "    prior_slugs:"
+    foreach ($s in $antiRecidivismSlugs) { "      - $s" }
+    "    reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
+}
+
+if ($rgFlaggedSites.Count -gt 0) {
+    "  rg_flagged_sites:"
+    foreach ($slug in $rgFlaggedSites.Keys | Sort-Object) {
+        "    ${slug}:"
+        foreach ($site in $rgFlaggedSites[$slug]) { "      - $site" }
+    }
+}
+
+"  findings:"
 
 foreach ($f in $findings) {
     $hitDisplay = if ($f.scope_mode -eq 'review-pass-only') { 'review-required' } else { $f.hits }
-    "    - pattern: $($f.slug)`n      scope_mode: $($f.scope_mode)`n      hits: $hitDisplay"
+    "    - pattern: $($f.slug)`n      scope_mode: $($f.scope_mode)`n      tier: $($f.tier)`n      hits: $hitDisplay"
     if ($f.sites -and $f.sites.Count -gt 0) {
         "      sites:"
         foreach ($s in $f.sites) { "        - $s" }

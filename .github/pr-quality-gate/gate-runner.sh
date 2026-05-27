@@ -13,6 +13,7 @@ ALLOWED_CLONE_URL_PATTERN='^https?://.+/CopilotInstructions(\.git)?$'
 AUTO_FETCH_CATALOG=0
 LOCK_TIMEOUT_SECONDS=30
 PROJECT_ROOT="$(pwd)"
+PR_REF=''
 
 # ===== CLI parsing =====
 while [[ $# -gt 0 ]]; do
@@ -24,6 +25,7 @@ while [[ $# -gt 0 ]]; do
         -AutoFetchCatalog|--auto-fetch-catalog) AUTO_FETCH_CATALOG=1; shift ;;
         -LockTimeoutSeconds|--lock-timeout-seconds) LOCK_TIMEOUT_SECONDS="$2"; shift 2 ;;
         -ProjectRoot|--project-root)        PROJECT_ROOT="$2"; shift 2 ;;
+        -PrRef|--pr-ref)                    PR_REF="$2"; shift 2 ;;
         *) echo "[gate-runner ERROR] Unknown flag: $1" >&2; exit 2 ;;
     esac
 done
@@ -74,6 +76,7 @@ declare -A SLUG_SEEN=()
 declare -a SCOPE_MODES=()
 declare -a PARAMS_JSON=()
 declare -a REVIEW_PROMPTS=()
+declare -a TIERS=()
 
 LINE_NUM=0
 while IFS= read -r line; do
@@ -93,12 +96,19 @@ while IFS= read -r line; do
         cells+=("$trimmed")
     done
 
-    [[ ${#cells[@]} -lt 5 ]] && die 2 "Malformed catalog row at line $LINE_NUM: expected 5 cells, got ${#cells[@]}: $line"
+    [[ ${#cells[@]} -lt 5 ]] && die 2 "Malformed catalog row at line $LINE_NUM: expected at least 5 cells, got ${#cells[@]}: $line"
     slug="${cells[0]}"
     scope="${cells[1]}"
     params="${cells[2]}"
     review_prompt="${cells[3]}"
     fp_slug="${cells[4]:-}"
+    if [[ ${#cells[@]} -ge 6 && -n "${cells[5]}" ]]; then
+        tier="${cells[5]}"
+        case "$tier" in HIGH|MEDIUM|LOW) ;; *) die 2 "Invalid tier '$tier' at line $LINE_NUM: expected HIGH | MEDIUM | LOW" ;; esac
+    else
+        echo "[gate-runner WARNING] Catalog row '$slug' at line $LINE_NUM uses legacy 5-cell schema (no tier column); defaulting to tier=MEDIUM. Add explicit tier in next catalog edit (sunset by next lightweight-gate-v5 catalog edit)." >&2
+        tier='MEDIUM'
+    fi
 
     [[ -n "${SLUG_SEEN[$slug]:-}" ]] && die 2 "Duplicate slug '$slug' at line $LINE_NUM"
     SLUG_SEEN[$slug]=1
@@ -125,7 +135,7 @@ while IFS= read -r line; do
             ;;
     esac
 
-    SLUGS+=("$slug"); SCOPE_MODES+=("$scope"); PARAMS_JSON+=("$params"); REVIEW_PROMPTS+=("$review_prompt")
+    SLUGS+=("$slug"); SCOPE_MODES+=("$scope"); PARAMS_JSON+=("$params"); REVIEW_PROMPTS+=("$review_prompt"); TIERS+=("$tier")
     PATTERNS_RUN=$((PATTERNS_RUN+1))
 done < "$CATALOG_PATH"
 
@@ -161,11 +171,17 @@ run_rg() {  # args: pattern, globs-json-array, file-list-or-empty (newline-separ
 declare -a FINDING_SLUGS=()
 declare -a FINDING_HITS=()
 declare -a FINDING_SCOPES=()
+declare -a FINDING_TIERS=()
 declare -A FINDING_SITES=()
 TOTAL_REAL_FINDINGS=0
 
 for i in "${!SLUGS[@]}"; do
-    slug="${SLUGS[$i]}"; scope="${SCOPE_MODES[$i]}"; params="${PARAMS_JSON[$i]}"
+    slug="${SLUGS[$i]}"; scope="${SCOPE_MODES[$i]}"; params="${PARAMS_JSON[$i]}"; tier="${TIERS[$i]}"
+    # Tier filter applies to ALL rule types: full runs everything; triage skips LOW; lint-only keeps HIGH only.
+    case "$MODE" in
+        lint-only) [[ "$tier" != 'HIGH' ]] && continue ;;
+        triage)    [[ "$tier" == 'LOW' ]] && continue ;;
+    esac
     hits=''
     case "$scope" in
         review-pass-only) hits='review-required'; sites='' ;;
@@ -184,7 +200,7 @@ for i in "${!SLUGS[@]}"; do
     esac
     [[ -z "${hits:-}" ]] && hits="$(echo "$sites" | grep -c '^' 2>/dev/null || echo 0)"
     [[ -z "$sites" ]] && hits=0
-    FINDING_SLUGS+=("$slug"); FINDING_HITS+=("$hits"); FINDING_SCOPES+=("$scope"); FINDING_SITES[$slug]="$sites"
+    FINDING_SLUGS+=("$slug"); FINDING_HITS+=("$hits"); FINDING_SCOPES+=("$scope"); FINDING_TIERS+=("$tier"); FINDING_SITES[$slug]="$sites"
     [[ "$hits" != 'review-required' && "$hits" -gt 0 ]] && TOTAL_REAL_FINDINGS=$((TOTAL_REAL_FINDINGS + hits))
 done
 
@@ -251,15 +267,70 @@ QUALITY GATE
   head_sha: $HEAD_SHA
   diff_scope: $BASE_SHA..$HEAD_SHA ($FILE_COUNT files)
   patterns_run: $PATTERNS_RUN
-  findings:
+  pr_ref: $PR_REF
 EOF
 
+# Build required_rule_ack list (review-pass-only HIGH-tier slugs filtered by mode)
+case "$MODE" in
+    full)      ALLOWED_TIERS='HIGH MEDIUM LOW' ;;
+    triage)    ALLOWED_TIERS='HIGH MEDIUM' ;;
+    lint-only) ALLOWED_TIERS='HIGH' ;;
+esac
+REQ_ACK=()
+for i in "${!SLUGS[@]}"; do
+    [[ "${SCOPE_MODES[$i]}" != 'review-pass-only' ]] && continue
+    case " $ALLOWED_TIERS " in *" ${TIERS[$i]} "*) REQ_ACK+=("${SLUGS[$i]}") ;; esac
+done
+IFS=','; echo "  required_rule_ack: [$(echo "${REQ_ACK[*]}" | sed 's/,/, /g')]"; IFS=$' \t\n'
+
+# Anti-recidivism preamble (when PR_REF supplied)
+if [[ -n "$PR_REF" ]]; then
+    PANEL_MISSES_CSV="$CLONE/.github/pr-quality-gate/data/panel-misses.csv"
+    if [[ -f "$PANEL_MISSES_CSV" ]]; then
+        PRIOR_SLUGS="$(python3 -c '
+import csv, sys
+seen=set()
+with open(sys.argv[1], newline="", encoding="utf-8") as f:
+    r = csv.DictReader(f)
+    for row in r:
+        if row.get("pr_ref","") == sys.argv[2]:
+            slug = row.get("proposed_catalog_slug","").strip()
+            if slug: seen.add(slug)
+print("\n".join(sorted(seen)))
+' "$PANEL_MISSES_CSV" "$PR_REF" 2>/dev/null || true)"
+        if [[ -n "$PRIOR_SLUGS" ]]; then
+            echo "  anti_recidivism_preamble:"
+            echo "    pr_ref: $PR_REF"
+            echo "    prior_slugs:"
+            while IFS= read -r s; do [[ -n "$s" ]] && echo "      - $s"; done <<< "$PRIOR_SLUGS"
+            echo "    reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
+        fi
+    fi
+fi
+
+# rg_flagged_sites: per-slug sites for reviewers' cross-reference
+RG_SITES_HEADER_EMITTED=0
 for i in "${!FINDING_SLUGS[@]}"; do
     slug="${FINDING_SLUGS[$i]}"; hits="${FINDING_HITS[$i]}"; scope="${FINDING_SCOPES[$i]}"
+    [[ "$scope" == 'review-pass-only' ]] && continue
+    [[ "$hits" == '0' || -z "${FINDING_SITES[$slug]:-}" ]] && continue
+    if [[ $RG_SITES_HEADER_EMITTED -eq 0 ]]; then
+        echo "  rg_flagged_sites:"
+        RG_SITES_HEADER_EMITTED=1
+    fi
+    echo "    ${slug}:"
+    while IFS= read -r s; do [[ -n "$s" ]] && echo "      - $s"; done <<< "${FINDING_SITES[$slug]}"
+done
+
+echo "  findings:"
+
+for i in "${!FINDING_SLUGS[@]}"; do
+    slug="${FINDING_SLUGS[$i]}"; hits="${FINDING_HITS[$i]}"; scope="${FINDING_SCOPES[$i]}"; tier="${FINDING_TIERS[$i]:-MEDIUM}"
     [[ "$scope" == 'review-pass-only' ]] && hits='review-required'
     cat <<EOF
     - pattern: $slug
       scope_mode: $scope
+      tier: $tier
       hits: $hits
 EOF
     sites="${FINDING_SITES[$slug]:-}"

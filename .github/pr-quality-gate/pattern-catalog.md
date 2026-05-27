@@ -14,11 +14,9 @@ This catalog is **project-deidentified**: signatures and patterns are abstract; 
 
 Tier controls cost optimization in lighter panel modes AND `HIGH-TIER-SLUGS.md` generation:
 
-| tier | applies to | lint-only mode | triage mode | full mode |
-|---|---|---|---|---|
-| HIGH | rg-rules + review-pass-only | rg-rules always run; review-pass-only emit `unreviewed_review_pass_only_slugs` warning | always checked | always checked |
-| MEDIUM | rg-rules + review-pass-only | rg-rules SKIP; review-pass-only SKIP | always checked | always checked |
-| LOW | rg-rules + review-pass-only | SKIP | SKIP | always checked |
+- **HIGH** (rg-rules + review-pass-only): rg-rules run in every mode (full/triage/lint-only); review-pass-only emit `unreviewed_review_pass_only_slugs` warning in lint-only.
+- **MEDIUM** (rg-rules + review-pass-only): run in full/triage only; SKIP in lint-only.
+- **LOW** (rg-rules + review-pass-only): run in full only; SKIP in triage and lint-only.
 
 Tier auto-derivation by `scripts/sync-critical-rules.ps1`:
 - rg-detectable rules (`scope_mode: diff-scoped|tree-scoped|hybrid`): tier from rg-corpus hit count
