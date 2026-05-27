@@ -42,6 +42,22 @@ For each comment:
 
 Do NOT silently apply changes you cannot independently justify.
 
+### 2.5. Self-similarity sweep BEFORE applying the fix (HARD GATE)
+
+Bot reviewers consistently flag only ONE instance of a recurring pattern in a diff, even when 2+ sister sites have the same shape. The catalog's `multi-model-review/pr-creation-mirror-prompt.md` already mandates a recurring-pattern sweep during the §2D panel, but bot findings on existing PRs bypass that gate: the fix iteration goes directly from "bot flagged site X" → "fix site X" → "amend" → "push", and the next round of bot review re-flags the pattern at site Y, then site Z, then site W.
+
+Before applying any bot fix that matches a known recurring pattern (entry-CT-throw, callback-defensive-catch, lock-syntax convention, doc-staleness, comment-extraction-drift, snapshot-before-mutation, etc.) OR introduces a new pattern shape, the agent MUST emit a one-line-per-site sweep report enumerating every site in the diff that matches the pattern. Format:
+
+```
+Self-similarity sweep for <pattern>: <N> sites found, <K> already-fixed, <J> need-fix.
+  - file.cs:line — <status: bot-flagged | sister-site-found | already-applies | not-applicable + 1-line rationale>
+  - file2.cs:line — ...
+```
+
+This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask_user` diff-approval gate fires. If the sweep finds 0 sister sites, the report is still emitted with `0 sister sites; pattern is single-instance in this diff` — explicit-by-design, not implied. Skipping the sweep on the rationale "the bot flagged only one site so probably just one site needs fixing" is a process violation tracked under `self-similarity-sweep-incomplete-after-bot-finding` in `pr-quality-gate/data/panel-misses.csv` (consuming-pr-8 round 5).
+
+**Pattern recognition primer**: the most common recurring shapes bot reviewers flag in this corpus are: (a) entry-`ThrowIfCancellationRequested` missing at one method of N CT-accepting methods; (b) defensive catch missing at one callback of N callbacks; (c) lock convention mismatch at some sites but not others; (d) XML doc staleness when interface gets new members; (e) comment-vs-code drift after method extraction. Always sweep for these patterns regardless of which single instance the bot cited.
+
 ### 3. Run the multi-model reviewer panel in parallel — same parallel rule as `post-code-change.md`
 
 Same default panel (`claude-opus-4.7-xhigh` + `gpt-5.5` + `gpt-5.3-codex` + `gpt-5.4` + rubber-duck with `model: 'claude-opus-4.7'`), same parallel-launch rule, same anti-anchoring rules.
