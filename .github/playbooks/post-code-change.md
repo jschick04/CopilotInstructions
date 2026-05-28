@@ -159,7 +159,7 @@ Run the panel via `multi-model-review.md` with the following post-code-change in
   - `gpt-5.5` (OpenAI family, premium reasoning) — `code-review`.
   - `gpt-5.3-codex` (OpenAI family, codex-tuned — code-specialized perspective) — `code-review`.
   - `gpt-5.4` (OpenAI family, cross-version — different reasoning profile from gpt-5.5) — `code-review`.
-  - **rubber-duck** agent with `model: 'claude-opus-4.7'` (independent critique angle — Opus-level reasoning for design / blind-spot feedback complementing line-level review).
+  - **rubber-duck** agent with `model: 'claude-opus-4.8'` (independent critique angle — Opus-level reasoning for design / blind-spot feedback complementing line-level review).
   Add reviewers liberally for risky / cross-cutting / unfamiliar-area changes — there's no "too many reviewers".
 - **critique focus areas** — pass these in addition to the panel's default critique focus (see *Anti-anchoring focus areas to pass to the panel* below for the full list of diff-review-specific focus areas).
 

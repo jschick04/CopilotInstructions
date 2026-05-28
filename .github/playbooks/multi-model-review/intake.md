@@ -20,7 +20,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
    - `gpt-5.5` — OpenAI family, premium reasoning. `code-review` slot.
    - `gpt-5.3-codex` — OpenAI family, code-specialized. `code-review` slot (different perspective from gpt-5.5 via codex tuning).
    - `gpt-5.4` — OpenAI family, cross-version. `code-review` slot (different reasoning profile from gpt-5.5).
-   - **rubber-duck** agent with `model: 'claude-opus-4.7'` — independent design / blind-spot critique (Opus-level reasoning per AGENTS.md sub-agent model selection defaults).
+   - **rubber-duck** agent with `model: 'claude-opus-4.8'` — independent design / blind-spot critique (Opus-level reasoning per AGENTS.md sub-agent model selection defaults).
 
    The user can override individual slots, swap families, or add a 6th+ model when convergence is critical.
 

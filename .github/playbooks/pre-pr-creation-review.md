@@ -95,7 +95,7 @@ Items not in the matrix are NOT waivable.
 | 2 | `gpt-5.5` | GPT | `code-review` |
 | 3 | `gpt-5.3-codex` | GPT | `code-review` |
 | 4 | `gpt-5.4` | GPT | `code-review` |
-| 5 | `claude-opus-4.7` | Claude | `rubber-duck` |
+| 5 | `claude-opus-4.8` | Claude | `rubber-duck` |
 
 **Substitution rule**: if a model is unavailable (deprecated, API down, removed from runtime), substitute the highest-capability successor from the same family. Record under `slate-substitutions: [{slot, requested, substituted, reason}]`. Slate-floor (from waive matrix) re-checked after every substitution.
 

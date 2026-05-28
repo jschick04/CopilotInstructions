@@ -270,10 +270,10 @@ Do **not** proceed using only the abbreviated hard-gate checklist as the procedu
 - **Unintended reverts:** if you see code that was removed, refactored, or renamed that differs from a previous change you made, ASK before reverting.
 - **Do NOT report the task ready to push / ready to open the PR** until every required phase has either (a) been completed for every committed work cycle (per the relevant playbook's hard gates) or (b) been explicitly skipped by the user with a recorded warning. (The preamble's "ASK before skipping" rule is the only escape hatch — never self-judge a change as exempt.)
 - **Sub-agent model selection defaults.** Override the runtime default model on every sub-agent launch to maximize reasoning depth:
-  - **Rubber-duck** passes: `model: 'claude-opus-4.7'`.
+  - **Rubber-duck** passes: `model: 'claude-opus-4.8'`.
   - **Standalone code-review**: `model: 'claude-opus-4.7-xhigh'`.
   - **Explore** agents for architecture, design-spec grounding, or multi-module cross-cutting investigation: `model: 'claude-sonnet-4.6'`. Simple single-file lookups may use the default.
-  - **General-purpose** sub-agents doing reasoning-heavy work (debugging, synthesis, migration planning, ambiguity resolution): `model: 'claude-opus-4.7'`.
+  - **General-purpose** sub-agents doing reasoning-heavy work (debugging, synthesis, migration planning, ambiguity resolution): `model: 'claude-opus-4.8'`.
   - **Security-review**: `model: 'claude-opus-4.7-xhigh'`.
   - **Multi-model review panels**: exact per-slot models defined in `multi-model-review/intake.md` item 4 (canonical source).
 - **Instruction-set maintenance — mind the context cost.** Every line in `AGENTS.md` / `.github/instructions/*.md` is loaded into every matching session forever; adding paragraphs raises the prompt cost of every future session unrelated to the new rule. **Hard check before editing any always-loaded instruction file:** principle / rule statement (1-3 sentences, applies broadly) → AGENTS.md or the appropriate language-specific instructions file; procedural detail (multi-step procedure, intake questions, decision trees, code examples, full rationale paragraphs) → new or existing playbook in `.github/playbooks/` with a brief `STOP. Before X, view <playbook>.` pointer. Size guideline: if a new AGENTS.md section would exceed ~10 lines / ~1.5KB, split detail to a playbook by default. Cost-of-add is one-time; cost-of-keep is per-session forever — when in doubt, lean to the playbook.

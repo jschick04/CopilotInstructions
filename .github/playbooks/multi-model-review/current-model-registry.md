@@ -15,6 +15,7 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 | --- | --- |
 | `heavy-claude-xhigh` | Top-of-line Claude model with extra-high / max reasoning effort. Used for deep architectural reasoning, design critique, and the slot 1 anchor reviewer. |
 | `heavy-claude-standard` | Top-of-line Claude model at standard reasoning. Used for the rubber-duck slot when the orchestrator is Claude-family. |
+| `heavy-claude-cross-version` | A Claude model from a different version line than `heavy-claude-standard` for additional within-family diversity. Used when a panel needs Claude-family triangulation beyond the standard slot (mirrors `heavy-gpt-cross-version`). |
 | `heavy-gpt-premium` | Top-of-line GPT model with premium reasoning. Used for slot 2 (different family from slot 1). |
 | `heavy-gpt-codex` | Top-of-line code-specialized GPT model. Used for slot 3 (within-family triangulation against premium). |
 | `heavy-gpt-cross-version` | A GPT model from a different version line than `heavy-gpt-premium` for additional within-family diversity. Used for slot 4. |
@@ -27,7 +28,8 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 | Tier id | Current model | Notes |
 | --- | --- | --- |
 | `heavy-claude-xhigh` | `claude-opus-4.7-xhigh` | — |
-| `heavy-claude-standard` | `claude-opus-4.7` | — |
+| `heavy-claude-standard` | `claude-opus-4.8` | — |
+| `heavy-claude-cross-version` | `claude-opus-4.7` | Different version line from `heavy-claude-standard`. |
 | `heavy-gpt-premium` | `gpt-5.5` | — |
 | `heavy-gpt-codex` | `gpt-5.3-codex` | — |
 | `heavy-gpt-cross-version` | `gpt-5.4` | Different reasoning profile from gpt-5.5. |
