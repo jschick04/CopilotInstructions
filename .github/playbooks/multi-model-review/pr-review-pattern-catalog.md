@@ -30,6 +30,8 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | stale-comment-after-refactor | 3 | 11 (hygiene) |
 | n-squared-selection-scan | 2 | 5 (performance / O(N²) on UI thread) |
 | aria-live-on-describedby-target | 2 | 7 (UI / a11y) |
+| state-mutation-bypasses-canonical-cleanup-helper | 1 | 11 (lifecycle / consistency) |
+| bulk-operation-clears-selection-regardless-of-success | 1 | 1 (logic / UX) |
 | test-fake-stores-mutable-reference | 1 | 11 (test-infrastructure hygiene) |
 | js-interop-lifecycle | 4 | 11 (lifecycle) |
 | internals-visibility | 4 | 11 (hygiene / API surface) |
@@ -302,6 +304,39 @@ A descriptive text span — typically `<span class="visually-hidden" id="@_helpI
 **Canonical fix**: remove `aria-live` (and `role="status"` / `aria-atomic` if present) from the `aria-describedby`-target span. Keep the `class="visually-hidden"` and the `id`. When the control gains focus, screen readers will read the description via the `aria-describedby` link without re-announcing on every content flip. Pair the project's separate live region (a single `role="status"` + `aria-live="polite"` announcer at the page/component root, fed by an `IAnnouncementService`-style channel) with explicit `Announce(...)` calls for the state transitions worth announcing.
 
 **§2D preflight prompt**: "For every `<span aria-live=...>` with `class=\"visually-hidden\"` in the diff: is the span's `id` referenced by an `aria-describedby` elsewhere in the same file? If yes, raise a finding (aria-live + aria-describedby on the same span is the anti-pattern). If the span is standalone (no `aria-describedby` link), the `aria-live` is correct — leave it."
+
+### 16. state-mutation-bypasses-canonical-cleanup-helper
+
+A method directly assigns a private state field (`_isInModeX = false`, `_currentY = null`, `_isOpen = false`) when a canonical cleanup helper for that state transition already exists (`ExitModeX()`, `ResetY()`, `Close()`). The direct assignment bypasses the helper's cleanup (clearing collateral collections, recomputing dependent counts, firing announcements, releasing handles). When the helper is later extended (a new collateral collection added, a new accessibility announcement added), the direct-assignment site silently misses the new behavior.
+
+**Signatures**:
+- `private void ExitSelectionMode() { _isSelectionMode = false; _selectedItems.Clear(); RecomputeCount(); Announce(...); }` paired with a different method that does `_isSelectionMode = false;` directly without calling the helper (typically an auto-exit triggered by an external state change).
+- A `Reset*()` / `Clear*()` / `Close*()` helper that touches 3+ fields, called from some paths but bypassed by a direct field assignment in another path that ostensibly does the same transition.
+
+**Discovery query** (diff-scoped, NUL-safe):
+- For each `private void Exit*()` / `Reset*()` / `Close*()` / `Clear*()` method in the diff, identify the FIRST field it assigns. Then `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never "<firstField>\s*=\s*(false|null|default|new)"` and flag every assignment that isn't inside the helper itself.
+- PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' '*.razor.cs' | ForEach-Object { rg --line-number --no-heading --color never -H "_isXxx\s*=\s*false" -- $_ }` — substitute the canonical state field name.
+
+**Canonical fix**: replace the direct assignment with a call to the canonical helper (`ExitSelectionMode()`, etc.). If the helper does too much for the auto-exit context, extract the shared cleanup into a smaller private method that both paths call. Sweep the rest of the file for the same direct-assignment idiom on the same field — typically the file has 1-3 sites that drifted from the helper over time.
+
+**§2D preflight prompt**: "For every private cleanup/transition helper (`Exit*`, `Reset*`, `Close*`, `Clear*`) in the diff: scan the rest of the same file for direct assignments to its FIRST field. If any are found OUTSIDE the helper, the assignment site is bypassing the helper's cleanup — raise a finding."
+
+### 17. bulk-operation-clears-selection-regardless-of-success
+
+A bulk operation (`BulkRemove`, `BulkUpgrade`, `BulkDelete`, etc.) that iterates a selection set and invokes per-item operations clears the ENTIRE selection set on completion (`foreach (var x in inputItems) { _selectedSet.Remove(x); }`) regardless of which items actually succeeded. When some items fail, the user loses the selection state for the failed items and cannot immediately retry without re-selecting them. Often paired with an auto-exit selection-mode condition that triggers on `succeeded.Count > 0`, ignoring `failed.Count > 0`.
+
+**Signatures**:
+- `foreach (var fileName in <inputParameter>) { _selectedForBulk.Remove(fileName); }` placed AFTER a try/catch loop that records both `succeeded` and `failed`.
+- `if (succeeded.Count > 0) { ExitSelectionMode(); }` — auto-exit on any success, no check for partial failure.
+- `_selected.Clear()` after a batch operation that can partially fail.
+
+**Discovery query** (diff-scoped, NUL-safe):
+- `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never -B 10 '_selected\w*\.(Remove|Clear)'` — for each match, look back 10 lines for a try/catch loop that builds a `failed` list. If found AND the `Remove`/`Clear` doesn't filter by `succeeded`, raise a finding.
+- Sibling check: `rg "if \(.*succeeded\.Count > 0.*ExitSelectionMode|if \(succeeded\.Count > 0\) \{ Exit" <source-tree>` — auto-exit-on-any-success without `failed.Count == 0` check is the paired anti-pattern.
+
+**Canonical fix**: iterate `succeeded` (not the input parameter) when clearing selection. Adjust any "auto-exit on success" condition to require `failed.Count == 0` so partial-failure leaves failed items selected for retry. Add a regression test asserting `IsInSelectionMode == true && HasBulkSelection == true` after a partial-failure scenario.
+
+**§2D preflight prompt**: "For every bulk-operation handler in the diff that iterates a selection set + records succeeded/failed: does the post-loop selection cleanup filter by `succeeded` (not the input parameter)? Does the auto-exit-selection-mode condition require `failed.Count == 0`? If either is missing, raise a finding (partial-failure UX regression)."
 
 ---
 
