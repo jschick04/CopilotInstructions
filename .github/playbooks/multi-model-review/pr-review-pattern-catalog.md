@@ -29,6 +29,7 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | aria-disabled-without-disabled | 4 | 7 (UI / framework binding) |
 | stale-comment-after-refactor | 3 | 11 (hygiene) |
 | n-squared-selection-scan | 2 | 5 (performance / O(N²) on UI thread) |
+| aria-live-on-describedby-target | 2 | 7 (UI / a11y) |
 | test-fake-stores-mutable-reference | 1 | 11 (test-infrastructure hygiene) |
 | js-interop-lifecycle | 4 | 11 (lifecycle) |
 | internals-visibility | 4 | 11 (hygiene / API surface) |
@@ -284,6 +285,23 @@ A handler iterates a "selected" set and for EACH element scans an "all entries" 
 **Canonical fix**: snapshot the "all entries" collection into a `Dictionary<TKey, TValue>` (with the correct comparer) ONCE at the top of the handler; use `TryGetValue` for O(1) lookups inside the loop. Extract a small `SnapshotByKey()` helper if the snapshot is needed in multiple sites. For computations that need a "is eligible + reason" answer, return a tuple `(bool IsEligible, ReasonEnum Reason)` from a per-entry helper so callers don't recompute internals.
 
 **§2D preflight prompt**: "For every `foreach` over a selection set / change set / batch in the diff: is the loop body scanning a separate collection with `FirstOrDefault` / `Single` / `Where`? If yes, snapshot the scanned collection to a dictionary outside the loop. Sweep `Recompute*` and `Refresh*` helpers in the same file for the same pattern."
+
+### 15. aria-live-on-describedby-target
+
+A descriptive text span — typically `<span class="visually-hidden" id="@_helpId">conditional content</span>` — is wired up as the target of an `aria-describedby` attribute on a button/input AND ALSO carries `aria-live="polite"` (or `assertive`). The two roles conflict: `aria-describedby` is for on-demand context fetched when the control gains focus; `aria-live` mutates the same span into a live region whose content changes are announced on every mutation. Result: when the underlying state flips (`IsBlocked` toggles, etc.) the screen reader spuriously announces the help text out of context, mid-task. Often paired with a real `role="status"` live region elsewhere in the same component, which the bot reviewer correctly identifies as the proper announcement surface.
+
+**Signatures**:
+- `<span aria-live="polite" class="visually-hidden" id="@_blockedHelpId">@(IsBlocked ? "Cannot ..." : string.Empty)</span>` paired with `<button aria-describedby="@(IsBlocked ? _blockedHelpId : null)" ...>`.
+- Conditional-content spans (text appears/disappears based on a `boolField`) that ALSO carry `aria-live` — the conditional flip itself becomes an announcement trigger.
+- `role="status"` + `aria-live="polite"` + `aria-atomic="true"` on a span/div that's referenced via `aria-describedby` (over-decoration — `role="status"` already implies `aria-live="polite"`).
+
+**Discovery query** (diff-scoped, NUL-safe):
+- `git diff --name-only -z <merge-base>..HEAD -- '*.razor' | xargs -0 -r rg --line-number --no-heading --color never 'aria-live=.*visually-hidden|visually-hidden.*aria-live='`. PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.razor' | ForEach-Object { rg --line-number --no-heading --color never -H 'aria-live=' -- $_ }`.
+- For each match: if the span has an `id` referenced by an `aria-describedby` elsewhere in the same file → finding. If the span is a standalone announcer (no `id` referenced by `aria-describedby`) → keep the `aria-live` (correct usage).
+
+**Canonical fix**: remove `aria-live` (and `role="status"` / `aria-atomic` if present) from the `aria-describedby`-target span. Keep the `class="visually-hidden"` and the `id`. When the control gains focus, screen readers will read the description via the `aria-describedby` link without re-announcing on every content flip. Pair the project's separate live region (a single `role="status"` + `aria-live="polite"` announcer at the page/component root, fed by an `IAnnouncementService`-style channel) with explicit `Announce(...)` calls for the state transitions worth announcing.
+
+**§2D preflight prompt**: "For every `<span aria-live=...>` with `class=\"visually-hidden\"` in the diff: is the span's `id` referenced by an `aria-describedby` elsewhere in the same file? If yes, raise a finding (aria-live + aria-describedby on the same span is the anti-pattern). If the span is standalone (no `aria-describedby` link), the `aria-live` is correct — leave it."
 
 ---
 
