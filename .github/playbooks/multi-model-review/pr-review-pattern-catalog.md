@@ -32,6 +32,7 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | aria-live-on-describedby-target | 2 | 7 (UI / a11y) |
 | state-mutation-bypasses-canonical-cleanup-helper | 1 | 11 (lifecycle / consistency) |
 | bulk-operation-clears-selection-regardless-of-success | 1 | 1 (logic / UX) |
+| missing-fast-path-when-input-empty | 1 | 5 (performance / allocation) |
 | test-fake-stores-mutable-reference | 1 | 11 (test-infrastructure hygiene) |
 | js-interop-lifecycle | 4 | 11 (lifecycle) |
 | internals-visibility | 4 | 11 (hygiene / API surface) |
@@ -337,6 +338,23 @@ A bulk operation (`BulkRemove`, `BulkUpgrade`, `BulkDelete`, etc.) that iterates
 **Canonical fix**: iterate `succeeded` (not the input parameter) when clearing selection. Adjust any "auto-exit on success" condition to require `failed.Count == 0` so partial-failure leaves failed items selected for retry. Add a regression test asserting `IsInSelectionMode == true && HasBulkSelection == true` after a partial-failure scenario.
 
 **§2D preflight prompt**: "For every bulk-operation handler in the diff that iterates a selection set + records succeeded/failed: does the post-loop selection cleanup filter by `succeeded` (not the input parameter)? Does the auto-exit-selection-mode condition require `failed.Count == 0`? If either is missing, raise a finding (partial-failure UX regression)."
+
+### 18. missing-fast-path-when-input-empty
+
+A helper method that allocates a collection / dictionary / array snapshot at the top — typically as a setup for a downstream `foreach` — runs that allocation on every invocation, even when the input collection it iterates is empty. Because the helper is often wired to high-frequency event handlers (`StateChanged`, `Tick`, `Resize`, banner/coordinator notifications), the wasted allocation happens many times per second on a UI thread. The empty-case fast-path (set the output field to its zero value + early return) avoids the allocation in the common case.
+
+**Signatures**:
+- `private void RecomputeX() { var snapshot = collection.ToDictionary(...); int count = 0; foreach (var item in _selectedSet) { ... } _xCount = count; }` — no `if (_selectedSet.Count == 0) { _xCount = 0; return; }` early-return.
+- A `Refresh*()` / `Recompute*()` / `Recalculate*()` helper that builds a `ToList()` / `ToDictionary()` / `ToArray()` snapshot on every call regardless of whether the downstream loop will execute.
+- A `_ = InvokeAsyncSafe()` wired to a coordinator/banner event whose handler calls a recompute-with-allocation helper without the empty-input guard.
+
+**Discovery query** (diff-scoped, NUL-safe):
+- `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never -A 2 'private\s+void\s+Recompute\w+|private\s+void\s+Refresh\w+|private\s+void\s+Recalculate\w+'` — for each match, inspect the first 2 lines of the body: if the FIRST statement is a `.ToDictionary` / `.ToList` / `.ToArray` snapshot AND no preceding `Count == 0` early-return, raise a finding.
+- PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' '*.razor.cs' | ForEach-Object { rg --line-number --no-heading --color never -H -A 2 'private\s+void\s+(Recompute|Refresh|Recalculate)\w+' -- $_ }`.
+
+**Canonical fix**: prepend `if (_inputSet.Count == 0) { _outputField = 0; return; }` (or the appropriate zero value: `null`, `ImmutableArray<T>.Empty`, `[]`, etc.). Document — typically with a `// Fast path: <reason>` comment ≤12 words — when the empty-case is the common case (e.g., "not in selection mode"). If the helper has multiple inputs, the fast-path should guard the most-common-empty one.
+
+**§2D preflight prompt**: "For every `Recompute*` / `Refresh*` / `Recalculate*` helper in the diff: does the first statement allocate a collection snapshot? If yes, is there a preceding `Count == 0` early-return for the iteration source? If not, raise a finding (avoidable allocation on every high-frequency event-handler invocation)."
 
 ---
 
