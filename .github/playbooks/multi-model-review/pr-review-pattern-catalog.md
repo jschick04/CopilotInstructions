@@ -30,9 +30,11 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | stale-comment-after-refactor | 3 | 11 (hygiene) |
 | n-squared-selection-scan | 2 | 5 (performance / O(N²) on UI thread) |
 | aria-live-on-describedby-target | 2 | 7 (UI / a11y) |
+| hashset-iteration-leaks-nondeterministic-order | 2 | 1 (logic / UX) |
 | state-mutation-bypasses-canonical-cleanup-helper | 1 | 11 (lifecycle / consistency) |
 | bulk-operation-clears-selection-regardless-of-success | 1 | 1 (logic / UX) |
 | missing-fast-path-when-input-empty | 1 | 5 (performance / allocation) |
+| jsdisconnectedexception-missing-from-js-interop-catch | 1 | 11 (lifecycle / resilience) |
 | test-fake-stores-mutable-reference | 1 | 11 (test-infrastructure hygiene) |
 | js-interop-lifecycle | 4 | 11 (lifecycle) |
 | internals-visibility | 4 | 11 (hygiene / API surface) |
@@ -355,6 +357,63 @@ A helper method that allocates a collection / dictionary / array snapshot at the
 **Canonical fix**: prepend `if (_inputSet.Count == 0) { _outputField = 0; return; }` (or the appropriate zero value: `null`, `ImmutableArray<T>.Empty`, `[]`, etc.). Document — typically with a `// Fast path: <reason>` comment ≤12 words — when the empty-case is the common case (e.g., "not in selection mode"). If the helper has multiple inputs, the fast-path should guard the most-common-empty one.
 
 **§2D preflight prompt**: "For every `Recompute*` / `Refresh*` / `Recalculate*` helper in the diff: does the first statement allocate a collection snapshot? If yes, is there a preceding `Count == 0` early-return for the iteration source? If not, raise a finding (avoidable allocation on every high-frequency event-handler invocation)."
+
+### 19. hashset-iteration-leaks-nondeterministic-order
+
+A bulk handler iterates a `HashSet<T>` (or `Dictionary<K,V>.Keys` / `Dictionary<K,V>.Values` / any unordered collection) and the iteration order leaks into a user-visible artifact: a confirmation-prompt bullet list, a focus-restoration target (e.g., `validFiles[0]`), a batch ordering passed to a downstream operation, an announcement message, or a backend call payload. `HashSet<string>` enumeration order depends on string-hash randomization, so the user gets a different ordering on different runs (and the test suite gets occasional CI flakes from order-sensitive assertions).
+
+**Signatures**:
+- `var snapshot = _selectedSet.ToArray();` followed by a flow that displays / focuses / serializes the snapshot in the array's order.
+- `foreach (var key in _hashSet) { eligible.Add(key); }` where the `eligible` list is later shown to the user or sent to a backend that orders its output by input.
+- `_focusRestorationTarget = (validList[0], target);` where `validList` is `HashSet.ToList()` or `HashSet.Where(...).ToArray()` — the [0] is whichever element happens to enumerate first.
+
+**Discovery query** (diff-scoped + tree-scoped):
+- Diff (NUL-safe): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never '_(selected|known|active|pending)\w*\.(ToArray|ToList|First|Single)'` — for each match, trace whether the result feeds a user-visible artifact (prompt text, focus target, batch order). If yes, raise a finding.
+- PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' '*.razor.cs' | ForEach-Object { rg --line-number --no-heading --color never -H 'foreach\s*\(\s*var\s+\w+\s+in\s+_[a-z]\w*Set' -- $_ }`.
+- Tree-scoped sweep: `rg --line-number --no-heading --color never 'HashSet<.*>\s+_\w+|new HashSet<' <source-tree>` — list all HashSet fields, then check whether each is iterated in a user-visible context.
+
+**Canonical fix**: iterate the ordered source collection (e.g., `DatabaseService.Entries`) and filter by `_selectedSet.Contains(...)`. Snapshot the ordered source with `.ToList()` first to guarantee a stable view in case the underlying collection mutates mid-iteration:
+```csharp
+foreach (var entry in DatabaseService.Entries.ToList())
+{
+    if (!_selectedSet.Contains(entry.Key)) { continue; }
+    // user-visible work in visible-row order
+}
+```
+Or for the snapshot pattern:
+```csharp
+var snapshot = DatabaseService.Entries
+    .Where(e => _selectedSet.Contains(e.Key))
+    .Select(e => e.Key)
+    .ToArray(); // ordered same as the visible list
+```
+
+**§2D preflight prompt**: "For every iteration over a `HashSet<T>` / `Dictionary<K,V>.Keys` / `Dictionary<K,V>.Values` / similar unordered collection in the diff: does the iteration order influence any user-visible output (prompts, focus, batch ordering, announcements, request payloads)? If yes, switch to iterating the ordered source collection filtered by the set's `Contains`."
+
+### 20. jsdisconnectedexception-missing-from-js-interop-catch
+
+A Blazor focus / JS-interop helper catches `ObjectDisposedException` + `JSException` around an `await rowRef.FocusAsync()` / `await JSRuntime.InvokeVoidAsync(...)` / similar call but omits `JSDisconnectedException`. The latter is the canonical exception thrown when the Blazor circuit is torn down mid-call (component dispose during JS invocation, MAUI WebView disposed, etc.). Without the catch, teardown paths surface the exception up to the modal-close pipeline / state-change handler / `IAsyncDisposable.DisposeAsync` and can wedge the operation. Pattern recurs across helpers: focus restorers, JS module imports, JSObjectReference disposals.
+
+**Signatures**:
+- `try { await rowRef.FocusAsync(); } catch (ObjectDisposedException) { } catch (JSException) { }` — missing `catch (JSDisconnectedException) { }`.
+- `try { await JSRuntime.InvokeVoidAsync(...); } catch (JSException) { }` — same.
+- Helper file has 2-3 similar try-blocks; one or two have the full triplet (`OD` + `JSD` + `JSE`) and one has only 2. The drift exposes the inconsistency.
+
+**Discovery query** (diff-scoped + tree-scoped):
+- Diff (NUL-safe): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never -B 1 -A 3 'try\s*\{[^}]*await.*Focus|try\s*\{[^}]*await.*JSRuntime\.InvokeVoidAsync'` — for each match, scan the next 3 lines for the catch chain. Verify `JSDisconnectedException` is present.
+- PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' '*.razor.cs' | ForEach-Object { rg --line-number --no-heading --color never -H -B 1 -A 3 'await.*\.(FocusAsync|InvokeVoidAsync)' -- $_ }`.
+- Tree-scoped pair sweep: `rg --line-number --no-heading --color never 'catch \(JSException\)' <source-tree>` — for each match, verify the immediately-preceding/following catch is `JSDisconnectedException`. If not, raise a finding.
+
+**Canonical fix**: add `catch (JSDisconnectedException) { }` between the `ObjectDisposedException` and `JSException` catches (or wherever sibling catches land):
+```csharp
+try { await rowRef.FocusAsync(); }
+catch (ObjectDisposedException) { }
+catch (JSDisconnectedException) { }
+catch (JSException) { }
+```
+When introducing a new focus helper or JS-interop wrapper, copy-paste the full triplet template from a sibling helper rather than authoring a fresh catch chain — drift originates in fresh-authoring.
+
+**§2D preflight prompt**: "For every `await *.FocusAsync(...)` / `await JSRuntime.InvokeVoidAsync(...)` / `await JSRuntime.InvokeAsync<...>(...)` in the diff: does the surrounding try-block catch `JSDisconnectedException` (or document why the omission is intentional)? Other focus helpers in the same file are the reference template — drift from the project pattern is the finding."
 
 ---
 
