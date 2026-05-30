@@ -160,6 +160,8 @@ Without this, the highest-frequency pattern in the seed corpus (`doc-impl-mismat
 
 Every panel verdict AND every pre-commit gate MUST emit a `core_rules_acknowledged` block enumerating every HIGH-tier review-pass-only catalog slug with an explicit disposition. This is the rule-coverage forcing function: without per-site evidence, an `applied` status is not falsifiable.
 
+**Process rules** (slugs that check a process artifact rather than code — currently `implementation-to-commit-transition-bypasses-user-approval`, `full-scan-against-new-rule-not-triggered-after-bot-finding`, `least-privilege-audit-required-on-visibility-delta`, `intent-driven-testing-required-on-test-or-SUT-delta`): reviewer verifies the artifact (PRE-GIT SENTINEL block, POST-CODE-CHANGE LEDGER field, `full_scan_results` field) in the agent's text output earlier in the conversation. The `evidence.per_site_citations` for a process rule points at the ledger / sentinel block citation rather than a source-file location.
+
 ### Schema (canonical)
 
 ```yaml

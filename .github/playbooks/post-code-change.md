@@ -125,7 +125,7 @@ Comment audit: scope=<files in diff>, <N> new comment lines in diff, <J> justifi
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 
-Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement; this gate just references it.
+Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates.md` §2B** — that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.). The summary below is illustrative; the full schema lives there.
 
 ```
 POST-CODE-CHANGE LEDGER
@@ -133,6 +133,7 @@ POST-CODE-CHANGE LEDGER
   shown_diff_matches_intent: yes | no
   self_similarity_sweep: clean | <list of sibling sites + dispositions>
   tests_run: <result summary or n/a>
+  # ... plus every gate row from review-workflow-gates.md §2B (touched-file-LPA, intent-driven-testing-audit, post-code-change-panel, delta-g-sweeps, etc.)
   core_rules_acknowledged:
     # Per panel-policy.md §Per-rule acknowledgement — required enumeration with per-site citations.
     - slug: <string>
@@ -143,6 +144,8 @@ POST-CODE-CHANGE LEDGER
       rationale: <≤30 words; required when status=not-applicable>
   rule_coverage_passed: <bool>
 ```
+
+**Catalog rule cross-references**: two HIGH-tier process rules enforce that ledger gate-rows are populated when triggers fire — `least-privilege-audit-required-on-visibility-delta` checks `touched-file-LPA` field when diff has a visibility delta (any added `public`/`protected`/`internal`/`export`/Rust `pub` declaration, or removed `sealed`/`final`); `intent-driven-testing-required-on-test-or-SUT-delta` checks `intent-driven-testing-audit` field when diff has test files OR ANY production-source SUT modification (new exported member, signature change, new conditional branch, new method declaration public OR private, new error-handling branch). Private-only SUT branches DO trigger the ITD rule. See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 The pre-commit gate (step 4 in `pre-commit.md`) consumes this block's `core_rules_acknowledged` field and re-validates against the staged diff before commit. The two emissions can differ if the agent edits between post-code-change and pre-commit; the pre-commit version is authoritative for the commit object.
 
@@ -189,7 +192,7 @@ Sub-agent findings outside the immediate scope are routed via `ask_user` per the
 
 The benchmark / test from `pre-implementation.md` must show the expected delta (perf) or pass (functional). If the metric didn't move, the change is a no-op — revert and re-diagnose. Do not paper over a no-op fix with reviewer agreement.
 
-**Intent-driven testing retrospective dispatch**: if the diff contains new test files OR a production SUT branch / public API delta vs the prior commit, `intent-driven-testing.md` (retrospective mode) fires as a phase sub-step — produces the Test-loop audit evidence-gate output (Direction A regression-pinning + Direction B gap list) per that playbook. Surfaces gaps as C2 follow-up candidates; does NOT fail this phase for missing tests on a mechanical-port commit.
+**Intent-driven testing retrospective dispatch**: if the diff contains new test files OR a production SUT branch / public API delta vs the prior commit, `intent-driven-testing.md` (retrospective mode) fires as a phase sub-step — produces the Test-loop audit evidence-gate output (Direction A regression-pinning + Direction B gap list) per that playbook. Surfaces gaps as C2 follow-up candidates; does NOT fail this phase for missing tests on a mechanical-port commit. **Record the result in the POST-CODE-CHANGE LEDGER's `intent-driven-testing-audit` field** (per `review-workflow-gates.md` §2B); the catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) enforces the field is populated when the trigger fires.
 
 ### 7. Run affected builds and tests
 

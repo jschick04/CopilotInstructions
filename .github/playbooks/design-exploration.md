@@ -27,6 +27,11 @@ Companion playbook for performance-driven exploration: `performance-comparison.m
 - **Zero production-to-prototype imports**: production / build paths MUST NOT import or reference prototype paths. Grep-verified at the cleanup gate. (Prototype → production read-only references allowed only when the prototype is build-isolated.)
 - **Cleanup / expiry gate**: before declaring the exploration "ready" or "done", the user explicitly chooses: (a) delete (default), (b) commit-as-artifact (with documented rationale + 0-import grep proof), or (c) defer-with-explicit-expiry-event in the decision log.
 - **Evidence-gate output**: variants audit produced as structured chat output before the decision log (see *Procedure* step 4).
+- **Catalog rule cross-references**: two catalog rules enforce this playbook's invariants continuously (not just at user strong-trigger time):
+  - `prototype-imported-by-production` (HIGH, tree-scoped rg) — multi-language import-statement detection (C# `using`, TS/JS `import`/`require`, Python `import`/`from`, Rust `use`, Go `import`, Java/Kotlin `import`, C++ `#include`) for any production-code reference to `prototypes/`. Excludes prototype subtree via `--glob '!prototypes/**'`. Word-boundary anchored to avoid `myprototypes`/`prototypes2` false positives.
+  - `prototype-file-missing-throwaway-marker` (MEDIUM, review-pass-only) — fires when diff adds a NEW file under `prototypes/` without the canonical `THROWAWAY: <name>` header (or sibling README marker for non-commentable files).
+  
+  See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 ## Intake questions
 

@@ -315,6 +315,17 @@ POST-CODE-CHANGE LEDGER
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
     post-code-change-panel: <ran, unanimous | N/A — reason | user-waived — "<quote>">
+    intent-driven-testing-audit: <ran — prospective | ran — retrospective | N/A — <reason>>
+      # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
+      # Fires when diff contains EITHER (a) NEW or modified test files OR (b) ANY production-source
+      # modification that changes the SUT surface — new exported member, signature change, NEW
+      # conditional branch (if/switch/?:/when), new state-mutating statement, new method declaration
+      # (public OR private), new error-handling branch (try/catch/throw), or new state-transition.
+      # `N/A` reason MUST cite a specific carve-out from `intent-driven-testing.md`: rename-only
+      # delta (test body byte-equivalent before/after), mechanical-port commit per §3.4, auto-generated
+      # test files, pure whitespace/comment/formatting change, pure deletion. Bare `N/A` or
+      # `N/A — private-only SUT delta` is NOT a valid carve-out (private branches still need test
+      # coverage per §3.4 Direction B).
     delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A — reason>
       # Format and semantics defined in `multi-model-review/pr-creation-mirror-prompt.md` Delta K
       # (status enum, evidence/rationale rules, branch_new_files_verified format, falsifiability).

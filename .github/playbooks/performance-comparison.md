@@ -25,6 +25,12 @@ Additional hard gates for performance work:
 - **Evidence-gate output** with metric + delta + hardening fields (see *Procedure* step 5).
 - **Mandatory `software-install.md` handoff**: when the chosen benchmark tooling is not installed in the user's environment, `software-install.md` runs with all its hard gates (platform package manager first, signature verification, etc.) BEFORE the benchmark harness is authored. Record the install handoff outcome in the evidence-gate output.
 - **Environment capture**: every benchmark run records machine spec, OS, runtime version, warmup count, sample size in the decision log so numbers are reproducible.
+- **Catalog rule cross-references**: this playbook's invariants are continuously enforced by THREE catalog rules:
+  - `prototype-imported-by-production` (HIGH, tree-scoped rg) — inherited from design-exploration; flags production-code imports of `prototypes/`.
+  - `prototype-file-missing-throwaway-marker` (MEDIUM, review-pass-only) — inherited from design-exploration; flags new `prototypes/` files without the `THROWAWAY:` header.
+  - `perf-claim-without-environment-capture` (MEDIUM, review-pass-only) — specific to performance work. Fires when PR description / commit message / code comment makes a QUANTITATIVE perf claim (e.g., `30% faster`, `5x throughput`, `15ms latency`, `300μs faster`, `N% lower CPU`) WITHOUT environment-capture fields (machine / OS / runtime / warmup / sample size) or a link to a documented benchmark artifact. Casual qualitative claims (`"faster"`, `"more efficient"`) with no number do NOT fire.
+  
+  See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 ## Intake questions
 

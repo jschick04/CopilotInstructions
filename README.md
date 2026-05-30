@@ -64,8 +64,25 @@ CopilotInstructions/
 │           ├── current-state-survey.md
 │           ├── design-change-request.md
 │           └── dev-design-spec.md
+├── pr-quality-gate/                                    # catalog + ack-gate + drift safeguard (rule enforcement during code review)
+│   ├── pattern-catalog.md                              # canonical rule catalog (~100 rows; HIGH/MEDIUM/LOW tier)
+│   ├── HIGH-TIER-SLUGS.md                              # GENERATED — derived from pattern-catalog.md; ack-required slug list
+│   ├── panel-policy.md                                 # convergence model + per-rule ack schema + catalog-edit invariant
+│   ├── gate-runner.ps1 / .sh                           # rg battery runner (cross-platform; pwsh + bash twins, parity-checked)
+│   ├── invoke-panel.ps1                                # panel launcher with mode-receipt validation
+│   └── data/                                           # findings + panel-miss telemetry (project-deidentified)
+├── scripts/
+│   ├── sync-critical-rules.ps1 / .sh                   # regen HIGH-TIER-SLUGS.md from pattern-catalog.md (byte-identical twins)
+│   ├── Add-PanelMissesRow.ps1                          # RFC 4180-compliant CSV appender
+│   └── migrate-panel-misses-csv.ps1
+├── .githooks/
+│   └── pre-commit                                      # NEW — POSIX shell hook; verifies HIGH-TIER-SLUGS.md stays in sync with pattern-catalog.md; mode 100755
+├── .github/workflows/
+│   └── catalog-sync-check.yml                          # NEW — CI backstop; verify + parity jobs on every push/PR
+├── .gitattributes                                      # NEW — `* text=auto` for LF normalization across platforms
 ├── README.md                                           # this file
-└── setup.ps1                                           # one-time configuration helper (Windows)
+├── setup.ps1                                           # one-time configuration helper (Windows; configures env var + core.hooksPath)
+└── setup.sh                                            # NEW — Unix equivalent of setup.ps1
 ```
 
 ## How loading works
@@ -92,6 +109,56 @@ Pointing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` at this cloned repo makes every edit
 | `css.instructions.md` | `**/*.css`, `**/*.scss`, `**/*.sass`, `**/*.less` |
 
 Razor markup files (`*.razor`, `*.cshtml`) intentionally match both the C# file (for codebehind / `@code` blocks) and the HTML file (for markup syntax).
+
+## PR quality gate (catalog + ack + drift safeguard)
+
+Beyond the playbooks (which are procedural), this repo provides a **rule enforcement gate** that runs during code review. The gate has four layers (defense in depth):
+
+1. **Catalog of rules** — `.github/pr-quality-gate/pattern-catalog.md` lists ~100 patterns (HIGH/MEDIUM/LOW tier) the multi-model panel checks against every commit's diff. Rules are either **rg-detectable** (deterministic regex) or **review-pass-only** (panel reviewer reads the diff against an audit-method clause).
+2. **Per-rule acknowledgement** — for every HIGH-tier `review-pass-only` slug, every commit MUST emit a `core_rules_acknowledged` block enumerating each slug with per-site disposition (`applied` / `not-applicable` + rationale). The generated `HIGH-TIER-SLUGS.md` is the authoritative ack-required list; the panel and pre-commit gate cross-reference it.
+3. **Process-rule gates** — some catalog rules check process artifacts rather than code: e.g., `least-privilege-audit-required-on-visibility-delta` and `intent-driven-testing-required-on-test-or-SUT-delta` verify the POST-CODE-CHANGE LEDGER block has the matching playbook-evidence field. This is how the LPA and ITD playbooks fire automatically (not just on user strong-trigger).
+4. **Drift safeguard** — git pre-commit hook + CI workflow + gate-runner `-Verify` integration prevent `HIGH-TIER-SLUGS.md` from going stale relative to `pattern-catalog.md`. Mechanism uses `git hash-object` (canonical normalized blob SHA-1; cross-platform stable, immune to CRLF/LF drift).
+
+**Canonical sources** (this README is overview-only):
+- `panel-policy.md` — convergence model, per-rule ack schema, catalog-edit + ack-sync invariant
+- `review-workflow-gates.md` — POST-CODE-CHANGE LEDGER §2B canonical format
+- `pattern-catalog.md` — full rule definitions with audit methods
+
+## Catalog rule lifecycle
+
+```
+pattern-catalog.md (canonical source)
+       │
+       │  scripts/sync-critical-rules.ps1  (pwsh)
+       │  scripts/sync-critical-rules.sh   (bash twin, byte-identical output)
+       ▼
+HIGH-TIER-SLUGS.md (generated — listed slugs require per-commit ack)
+```
+
+Both generators embed `git hash-object .github/pr-quality-gate/pattern-catalog.md` as the content hash in the output header. `git hash-object` is git's canonical normalized blob SHA-1, immune to working-tree CRLF/LF drift. `.gitattributes` (`* text=auto`) ensures consistent normalization on commit.
+
+**Enforcement layers** (panel-policy.md §"Catalog-edit + ack-sync invariant"):
+1. `.githooks/pre-commit` — local enforcement at moment-of-edit. Triggers on `pattern-catalog.md` OR `HIGH-TIER-SLUGS.md` staged. Uses `git show :path` to verify the staged index (not working tree).
+2. `setup.ps1` (Windows) / `setup.sh` (Unix) — wire `core.hooksPath .githooks` for new clones. Existing contributors run one of these once per clone.
+3. `gate-runner.ps1` / `.sh` + `invoke-panel.ps1` — panel-time secondary check (catches stale clones).
+4. `.github/workflows/catalog-sync-check.yml` — CI backstop (catches `git commit --no-verify` bypass + contributors who never ran setup). Two jobs: `verify` (HIGH-TIER-SLUGS in sync) + `parity` (pwsh and bash generators produce byte-identical output).
+
+To add a new rule: edit `pattern-catalog.md`, run `pwsh -File scripts/sync-critical-rules.ps1`, stage both files. The pre-commit hook verifies.
+
+## Playbook integrations
+
+Four in-repo playbooks have catalog enforcement (so they fire automatically during commit / panel review, not just when explicitly user-triggered):
+
+| Playbook | Enforcement engine | Catalog rule(s) |
+|---|---|---|
+| `least-privilege-audit.md` | commit-time ledger gate (POST-CODE-CHANGE LEDGER `touched-file-LPA` field) | `least-privilege-audit-required-on-visibility-delta` (HIGH) |
+| `intent-driven-testing.md` | commit-time ledger gate (POST-CODE-CHANGE LEDGER `intent-driven-testing-audit` field) + reviewer pass for §3.4 Direction A check | `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) + `test-without-direction-A-regression-pin` (MEDIUM) |
+| `design-exploration.md` | rg battery (`prototype-imported-by-production`) + reviewer pass (marker check) | `prototype-imported-by-production` (HIGH, tree-scoped rg) + `prototype-file-missing-throwaway-marker` (MEDIUM) |
+| `performance-comparison.md` | inherits design-exploration rules + reviewer pass (quantitative-claim check) | the two prototype rules above + `perf-claim-without-environment-capture` (MEDIUM) |
+
+The ledger-gate rules (LPA, ITD) work by requiring evidence in the agent's POST-CODE-CHANGE LEDGER block (canonical schema in `review-workflow-gates.md` §2B). Reviewers verify the field is populated when the diff's trigger condition holds. `N/A — <reason>` values must cite a specific carve-out from the playbook (framework-mandated visibility, rename-only test delta, etc.) — bare `N/A` is a violation.
+
+The rg-rule (`prototype-imported-by-production`) is `tree-scoped` and uses a multi-language import-statement regex (C#, TS/JS, Python, Rust, Go, Java/Kotlin, C++) with word-boundary anchoring to avoid `myprototypes`/`prototypes2` false positives. Excludes the prototype subtree itself via `--glob '!prototypes/**'`.
 
 ## Workflows at a glance
 
