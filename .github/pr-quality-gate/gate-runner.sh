@@ -59,6 +59,21 @@ if [[ $AUTO_FETCH_CATALOG -eq 1 ]]; then
     git -C "$CLONE" checkout "origin/$CUR_BRANCH" -- '.github/pr-quality-gate/' >/dev/null 2>&1
 fi
 
+# ===== Drift-safeguard: verify HIGH-TIER-SLUGS.md is in sync with pattern-catalog.md =====
+# Panel-time secondary defense (primary is the .githooks/pre-commit hook).
+# Pure-bash verify via the sync-critical-rules.sh twin — does NOT shell out to pwsh
+# (preserves the bash gate-runner's no-pwsh-required contract).
+SYNC_BASH="$CLONE/scripts/sync-critical-rules.sh"
+if [[ -f "$SYNC_BASH" ]]; then
+    if ! bash "$SYNC_BASH" -Verify \
+        -CatalogPath "$CLONE/.github/pr-quality-gate/pattern-catalog.md" \
+        -OutputPath "$CLONE/.github/pr-quality-gate/HIGH-TIER-SLUGS.md" >/dev/null 2>&1; then
+        die 4 "HIGH-TIER-SLUGS.md is out of sync with pattern-catalog.md in clone '$CLONE'. Run: bash '$SYNC_BASH'"
+    fi
+else
+    diag "sync-critical-rules.sh not found in clone; skipping ack-sync drift check (clone may be at an older revision)."
+fi
+
 CATALOG_PATH="$CLONE/.github/pr-quality-gate/pattern-catalog.md"
 PREFS_PATH="$CLONE/.github/pr-quality-gate/coding-preferences.md"
 [[ -f "$CATALOG_PATH" ]] || die 2 "Catalog not found: $CATALOG_PATH"

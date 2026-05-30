@@ -175,6 +175,21 @@ function Append-FindingsRows { param([string] $DataDir, [array] $Rows)
 $clone = Test-CloneValid
 Invoke-AutoFetch -Clone $clone
 
+# ===== Drift-safeguard: verify HIGH-TIER-SLUGS.md is in sync with pattern-catalog.md =====
+# Panel-time secondary defense (primary is the .githooks/pre-commit hook).
+# Catches stale clones where a contributor pulled an interim commit with stale ack file.
+$syncScript = Join-Path $clone 'scripts/sync-critical-rules.ps1'
+$catalogInClone = Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md'
+$outputInClone = Join-Path $clone '.github/pr-quality-gate/HIGH-TIER-SLUGS.md'
+if (Test-Path -LiteralPath $syncScript) {
+    & pwsh -NoProfile -File $syncScript -Verify -CatalogPath $catalogInClone -OutputPath $outputInClone 2>&1 | Out-String -Stream | ForEach-Object { Write-Diag $_ }
+    if ($LASTEXITCODE -ne 0) {
+        Exit-Runner 4 "HIGH-TIER-SLUGS.md is out of sync with pattern-catalog.md in clone '$clone'. Run: pwsh -File '$syncScript'"
+    }
+} else {
+    Write-Diag "sync-critical-rules.ps1 not found in clone; skipping ack-sync drift check (clone may be at an older revision)."
+}
+
 $catalogPath = Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md'
 $prefsPath = Join-Path $clone '.github/pr-quality-gate/coding-preferences.md'
 $catalogRevision = Get-FileRevision -Clone $clone -RelPath '.github/pr-quality-gate/pattern-catalog.md'

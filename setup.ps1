@@ -258,4 +258,58 @@ Write-Host @"
        Remove-Item '$homeFile'
 "@
 
+# --- 7. Configure git hook path (catalog-sync drift safeguard) ----------------
+
+Write-Heading "Configuring git hooks path"
+
+$gitDir = Join-Path $repoRoot '.git'
+if (-not (Test-Path $gitDir)) {
+    Write-Host "WARNING: .git directory not found at '$gitDir'. Skipping hooks config — this script is not running inside a git clone." -ForegroundColor Yellow
+} else {
+    $hooksDir = Join-Path $repoRoot '.githooks'
+    if (-not (Test-Path $hooksDir)) {
+        Write-Host "WARNING: .githooks directory not found at '$hooksDir'. Skipping hooks config — the committed hook directory is missing." -ForegroundColor Yellow
+    } else {
+        $currentHooksPath = & git -C $repoRoot config --get core.hooksPath 2>$null
+        $hooksPathScope = $null
+        if ($LASTEXITCODE -eq 0 -and $currentHooksPath) {
+            $currentHooksPath = $currentHooksPath.Trim()
+            # Detect the scope so we can surface where the existing setting lives.
+            $scopeOutput = & git -C $repoRoot config --show-scope --get core.hooksPath 2>$null
+            if ($LASTEXITCODE -eq 0 -and $scopeOutput) {
+                $hooksPathScope = ($scopeOutput -split '\s+', 2)[0]
+            }
+        }
+        if ($currentHooksPath -and $currentHooksPath -ne '.githooks') {
+            Write-Host "WARNING: core.hooksPath is already set:" -ForegroundColor Yellow
+            Write-Host "  Current value: $currentHooksPath"
+            if ($hooksPathScope) { Write-Host "  Set at scope:  $hooksPathScope" }
+            Write-Host "  Repo expects:  .githooks"
+            Write-Host ""
+            Write-Host "Choose how to handle this:" -ForegroundColor Yellow
+            Write-Host "  [O] Overwrite (set --local .githooks; this repo's hook will run; other scopes preserved but shadowed for this repo)"
+            Write-Host "  [S] Skip (existing value preserved; catalog-sync hook will NOT run on commit)"
+            $choice = Read-Choice -Prompt "Selection (O/S)" -ValidChoices @('O', 'S')
+            switch ($choice) {
+                'O' {
+                    & git -C $repoRoot config --local core.hooksPath .githooks 2>&1 | Out-Null
+                    if ($LASTEXITCODE -eq 0) { Write-Host "Set core.hooksPath = .githooks (local scope)." -ForegroundColor Green }
+                    else { Write-Host "ERROR: git config failed. Run manually: git config --local core.hooksPath .githooks" -ForegroundColor Red }
+                }
+                'S' {
+                    Write-Host "Skipped. Existing core.hooksPath preserved. CI workflow catalog-sync-check.yml will still verify on PR." -ForegroundColor Yellow
+                }
+            }
+        } else {
+            & git -C $repoRoot config --local core.hooksPath .githooks 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "Set core.hooksPath = .githooks (local scope)." -ForegroundColor Green
+                Write-Host "  Pre-commit hook will verify HIGH-TIER-SLUGS.md stays in sync with pattern-catalog.md." -ForegroundColor Green
+            } else {
+                Write-Host "ERROR: git config failed. Run manually: git -C `"$repoRoot`" config --local core.hooksPath .githooks" -ForegroundColor Red
+            }
+        }
+    }
+}
+
 Write-Heading "Done"

@@ -1,0 +1,45 @@
+#!/usr/bin/env sh
+# Pre-commit hook: enforce HIGH-TIER-SLUGS.md stays in sync with pattern-catalog.md.
+#
+# Triggers when EITHER pattern-catalog.md OR HIGH-TIER-SLUGS.md is staged.
+# Prefers pwsh (full canonical generator); falls back to bash twin
+# (scripts/sync-critical-rules.sh) when pwsh is unavailable.
+# Bypassable via `git commit --no-verify`; CI catalog-sync-check.yml is the backstop.
+#
+# See panel-policy.md §"Catalog-edit + ack-sync invariant" for design rationale.
+
+set -e
+
+if ! git diff --cached --name-only | grep -qE '\.github/pr-quality-gate/(pattern-catalog|HIGH-TIER-SLUGS)\.md$'; then
+    exit 0
+fi
+
+if ! git ls-files --error-unmatch .github/pr-quality-gate/HIGH-TIER-SLUGS.md >/dev/null 2>&1; then
+    echo "ERROR: .github/pr-quality-gate/HIGH-TIER-SLUGS.md is missing from the index." >&2
+    echo "       Restore it via: pwsh -File scripts/sync-critical-rules.ps1" >&2
+    echo "       Then stage it: git add .github/pr-quality-gate/HIGH-TIER-SLUGS.md" >&2
+    exit 1
+fi
+
+if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/sync-critical-rules.ps1 -Verify -StagedMode; then
+        echo "" >&2
+        echo "ERROR: HIGH-TIER-SLUGS.md is out of sync with the staged pattern-catalog.md." >&2
+        echo "       Run: pwsh -File scripts/sync-critical-rules.ps1" >&2
+        echo "       Then: git add .github/pr-quality-gate/HIGH-TIER-SLUGS.md" >&2
+        exit 1
+    fi
+elif command -v bash >/dev/null 2>&1; then
+    if ! bash scripts/sync-critical-rules.sh -Verify -StagedMode; then
+        echo "" >&2
+        echo "ERROR: HIGH-TIER-SLUGS.md is out of sync (verified via bash twin)." >&2
+        echo "       Run: bash scripts/sync-critical-rules.sh" >&2
+        echo "       Then: git add .github/pr-quality-gate/HIGH-TIER-SLUGS.md" >&2
+        exit 1
+    fi
+else
+    echo "ERROR: neither pwsh nor bash is available; cannot verify ack-sync." >&2
+    echo "       Install PowerShell 7+ (pwsh) or bash to enable the pre-commit hook." >&2
+    echo "       Bypass at your own risk: git commit --no-verify (CI will still verify)." >&2
+    exit 1
+fi

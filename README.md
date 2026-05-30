@@ -167,13 +167,32 @@ The script is idempotent: it reads the existing `COPILOT_CUSTOM_INSTRUCTIONS_DIR
 
 ### macOS / Linux
 
-The env var works identically. Add to your shell rc file (`~/.bashrc`, `~/.zshrc`, etc.):
+The env var works identically. Run:
+
+```bash
+cd <path-to-this-repo>
+bash ./setup.sh
+```
+
+Or manually add to your shell rc file (`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 export COPILOT_CUSTOM_INSTRUCTIONS_DIRS="$HOME/path/to/CopilotInstructions"
 ```
 
 Then `source` the rc file or open a new terminal. Optional: back up and remove `~/.copilot/copilot-instructions.md` after validating.
+
+### Existing contributors — one-time migration for the catalog-sync hook
+
+If you cloned this repo BEFORE the `.githooks/` directory was introduced, your local clone doesn't have `core.hooksPath` pointed at `.githooks/` and the pre-commit drift safeguard for `HIGH-TIER-SLUGS.md` won't run. Re-run `setup.ps1` (Windows) or `setup.sh` (Unix) — both are idempotent and detect / configure `core.hooksPath` automatically.
+
+Manual migration (any platform):
+
+```sh
+git -C <path-to-this-repo> config --local core.hooksPath .githooks
+```
+
+CI (`.github/workflows/catalog-sync-check.yml`) is the backstop — even without the local hook, drift is caught at PR-review time. The local hook just gives you faster feedback.
 
 ## Verifying the install
 

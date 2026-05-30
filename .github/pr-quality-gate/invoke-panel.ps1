@@ -35,6 +35,23 @@ if ($expectedToken) {
     }
 }
 
+# ===== Drift-safeguard: verify HIGH-TIER-SLUGS.md is in sync with pattern-catalog.md =====
+# Must run in ALL modes including lint-only — placed BEFORE the lint-only short-circuit.
+# Panel-time secondary defense (primary is the .githooks/pre-commit hook). Catches stale clones.
+$clone = $env:COPILOT_INSTRUCTIONS_CLONE
+if (-not $clone) { Exit-Launcher 3 'COPILOT_INSTRUCTIONS_CLONE env var not set.' }
+$syncScript = Join-Path $clone 'scripts/sync-critical-rules.ps1'
+if (Test-Path -LiteralPath $syncScript) {
+    & pwsh -NoProfile -File $syncScript -Verify `
+        -CatalogPath (Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md') `
+        -OutputPath (Join-Path $clone '.github/pr-quality-gate/HIGH-TIER-SLUGS.md') 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Exit-Launcher 4 "HIGH-TIER-SLUGS.md is out of sync with pattern-catalog.md in clone '$clone'. Run: pwsh -File '$syncScript'"
+    }
+} else {
+    [Console]::Error.WriteLine("[invoke-panel] sync-critical-rules.ps1 not found in clone; skipping ack-sync drift check.")
+}
+
 # ===== Lint-only short-circuit (no panel) =====
 if ($Mode -eq 'lint-only') {
     @"
@@ -54,8 +71,6 @@ PANEL CONVERGED
 }
 
 # ===== Read panel-policy.md =====
-$clone = $env:COPILOT_INSTRUCTIONS_CLONE
-if (-not $clone) { Exit-Launcher 3 'COPILOT_INSTRUCTIONS_CLONE env var not set.' }
 $policyPath = Join-Path $clone '.github/pr-quality-gate/panel-policy.md'
 if (-not (Test-Path -LiteralPath $policyPath)) { Exit-Launcher 2 "panel-policy.md not found: $policyPath" }
 $catalogPath = Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md'

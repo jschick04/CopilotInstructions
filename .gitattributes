@@ -1,0 +1,8 @@
+# Force LF line endings on commit regardless of contributor's core.autocrlf setting.
+# Required by the catalog-sync drift safeguard: scripts/sync-critical-rules.ps1 and
+# scripts/sync-critical-rules.sh both compute git hash-object of pattern-catalog.md
+# and embed it into HIGH-TIER-SLUGS.md. Without consistent normalization, a Windows
+# contributor with autocrlf=false would commit a CRLF blob while CI computes the
+# LF blob hash — the pre-commit hook + CI parity check would block loudly.
+# See panel-policy.md §"Catalog-edit + ack-sync invariant" for the full design.
+* text=auto
