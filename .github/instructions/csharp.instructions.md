@@ -258,6 +258,26 @@ Type suffixes carry semantic weight. Pick a suffix only when it conveys informat
 - Opening braces on new lines (Allman style).
 - Use `var` only when the type is evident from a **non-constructor** right-hand side (LINQ, casts, expressions). For object instantiation use `Type x = new()` — never `var x = new Type()` (RHS type is redundant) or `Type x = new Type()` (type-on-both-sides). The LHS type doubles as documentation; target-typed `new()` drops the redundant repeat.
 - Use collection expressions (`[]`) over `new List<T>()` / `new T[0]` / `Array.Empty<T>()` / `Enumerable.Empty<T>()`. Prefer `List<X> items = [];` and `int[] empty = [];` (target-typed; same LHS-as-documentation rationale as above).
+- **Prefer the C# 14 `extension(receiver)` block syntax** over the conventional `this`-parameter style for new extension methods. The block form groups related extensions on the same receiver, makes the receiver name reusable across multiple methods, and aligns with future-direction extension features (extension properties, extension constructors). Convert conventional `this`-style extensions to the block form when touching the file for another reason; do not sweep untouched files purely for the conversion.
+  ```csharp
+  // Preferred
+  internal static class FooExtensions
+  {
+      extension(IServiceCollection services)
+      {
+          public IServiceCollection AddX() { services.AddSingleton<...>(); return services; }
+          public IServiceCollection AddY() { services.AddSingleton<...>(); return services; }
+      }
+  }
+
+  // Legacy (acceptable for untouched files, but convert when touched)
+  internal static class FooExtensions
+  {
+      public static IServiceCollection AddX(this IServiceCollection services) { ... }
+      public static IServiceCollection AddY(this IServiceCollection services) { ... }
+  }
+  ```
+  Visibility: the wrapping class must be `public` if any consumer outside the declaring assembly calls the extension; the `extension(...)` block's methods must each declare their own access modifier (typically `public`). Bot reviewers that flag the block syntax as "inconsistent with the conventional style elsewhere" are pre-empted by this project preference — dismiss the finding and (when in scope) convert the conventional file rather than reverting the block-syntax file.
 - Use expression-bodied members when applicable (methods, properties, accessors, constructors, local functions).
 - Require braces for `if`, `for`, `foreach`, `while` statements.
 - No `this.` qualification unless necessary.
