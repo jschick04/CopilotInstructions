@@ -160,6 +160,27 @@ The ledger-gate rules (LPA, ITD) work by requiring evidence in the agent's POST-
 
 The rg-rule (`prototype-imported-by-production`) is `tree-scoped` and uses a multi-language import-statement regex (C#, TS/JS, Python, Rust, Go, Java/Kotlin, C++) with word-boundary anchoring to avoid `myprototypes`/`prototypes2` false positives. Excludes the prototype subtree itself via `--glob '!prototypes/**'`.
 
+## Phase-by-phase playbook map
+
+Cycle-3 expanded catalog enforcement to 7 cycle-3-scope playbooks at the pre-implementation phase (G6 step in `pre-implementation.md`) PLUS 2 post-impl gap-fill rules. Combined with cycle-1/2 enforcement, the map per phase is:
+
+| Phase | Auto-invoked | Required-on-trigger | Offered-on-trigger | Referenced |
+|---|---|---|---|---|
+| Pre-implementation | `multi-model-review` panel (target-type `plan`); G5 + G6 evaluations | `implementation-planning` (non-trivial change), `library-restructure` (folder/namespace move) | `design-exploration` (≥2 competing approaches), `performance-comparison` (quantitative perf goal), `scope-planning` (scope <50 chars + no artifact), `system-framing` (cross-asm/project boundary), `project-vocabulary` (≥3 new domain terms) | `solution-architecture` (informational), `design-spec`, `ado-task-planning` |
+| Implementation | `intent-driven-testing` (prospective — when `behaviors_to_cover` non-empty) | (catalog meta-rule `implementation-phase-missed-playbook-required-by-pre-impl` verifies the 4 in-scope decision-having playbooks were honored per pre-impl LEDGER decisions) | | `software-install` (as needed) |
+| Post-code-change | `least-privilege-audit` (touched-file scope), `intent-driven-testing` (retrospective), `multi-model-review` panel, recurring-pattern sweep, prior-PR-review sweep, DRY-audit, §3.1 comment audit | (post-impl rules `library-restructure-required-on-folder-namespace-move-in-diff` HIGH + `implementation-planning-required-on-nontrivial-final-diff` HIGH catch missed-re-entry bypasses) | | |
+| Pre-commit | (consumes POST-CODE-CHANGE LEDGER incl. `pre-impl-trigger-detections` + `pre-impl-playbook-decisions` + `playbook-invocations` sub-blocks per `review-workflow-gates.md` §2B) | | | |
+| Pre-PR-creation | `pre-pr-creation-review` heavy panel (Delta-G sweeps, 11-category mirror prompt) | | | |
+| Pre-PR-push | `least-privilege-audit` (branch-wide scope), `per-commit-micro-hygiene`, `branch-wide-sweep`, prior-PR-review sweep | | | |
+| Post-PR-review | bot-finding audit + C2 status enum + instructions delta | | | |
+
+**REQUIRED-decision-recorded vs OFFERED classes** (cycle-3 G6 decision-value semantics):
+
+- **REQUIRED-decision-recorded class** (`implementation-planning`, `library-restructure`): when G6 detects the trigger, the LEDGER decision MUST be `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`. When G6 does NOT detect, the LEDGER decision is `not-required-trigger-not-detected` (sentinel). `not-applicable` / `offered-and-declined` are INVALID for REQUIRED-class.
+- **OFFERED class** (`design-exploration`, `performance-comparison`, `scope-planning`, `system-framing`, `project-vocabulary`): when G6 detects the trigger, the LEDGER decision MUST be `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`. When G6 does NOT detect, the LEDGER decision is `not-applicable`. `not-applicable` is INVALID for OFFERED-class when the matching `trigger-detected-*` line is `yes` (silent-downgrade bypass).
+
+**G6 re-entry on mid-implementation scope change**: when scope materially changes during implementation (e.g., the diff grows beyond the closed-enumeration triviality set after G6 originally said the change was trivial), the agent MUST re-enter G6 per `pre-implementation.md` *G6 re-entry clause* and UPDATE the LEDGER decision lines. The LEDGER reflects the FINAL G6 state, not the initial G6 snapshot. Post-impl rules 12 + 13 catch missed-re-entry cases.
+
 ## Workflows at a glance
 
 Quick reference for what's in `.github/playbooks/`. Each file is loaded only when its phase fires or its strong-trigger intent is detected and confirmed.

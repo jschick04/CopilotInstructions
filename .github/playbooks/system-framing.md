@@ -30,6 +30,12 @@ Standalone playbook (no chain dependency).
 - **Source-grounded**: every consumer / caller / sibling claim cites `file:line`. Method (`grep`, `view`, language-server, call-graph tool) stated.
 - **Greenfield short-circuit**: if the named subject does not exist (typo / not yet created), surface that as the result; do NOT invent context.
 
+## Phase enforcement
+
+OFFERED class. Detected at `pre-implementation.md` G6 step when the plan crosses module / project / assembly boundaries (new cross-asm reference or new project added). Enforced by ONE catalog rule:
+
+- `pre-impl-skipped-system-framing-when-crossing-boundaries` (LOW, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.system-framing` is missing OR `not-applicable` (silent-downgrade bypass). Valid values when detected: `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`.
+
 ## Intake questions
 
 Bundle:

@@ -24,6 +24,12 @@ This is the **first** stage of the planning chain: `scope-planning` → `impleme
 - **Evidence-gate output**: scope audit produced as structured chat output before the Q&A summary (see *Procedure* step 4).
 - **Marked assumptions**: any technical claim derived from the codebase (file path, type name, behavior) must be either citation-backed (`file:line`) or marked `[assumed]`.
 
+## Phase enforcement
+
+OFFERED class. Detected at `pre-implementation.md` G6 step when the scope statement is ambiguous (< 50 chars AND no scope-planning artifact citation in session — tightened from `< 100 chars OR missing` to reduce false-positive ledger noise). Enforced by ONE catalog rule:
+
+- `pre-impl-skipped-scope-planning-when-scope-ambiguous` (MEDIUM, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.scope-planning` is missing OR `not-applicable` (silent-downgrade bypass). Valid values when detected: `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`.
+
 ## Intake questions
 
 Bundle all six questions in one `ask_user` prompt (independent; no conditional branching needed):

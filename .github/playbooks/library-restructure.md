@@ -24,6 +24,13 @@ Triggered when the agent is about to (a) restructure an assembly's folder topolo
 - **`partial` cleanup when removing the only `[GeneratedRegex]`.** Drop the `partial` modifier AND the `using System.Text.RegularExpressions;` from the class. Otherwise CS8795 + CS0246.
 - **Friend-asm grant check before recommending `internal + IVT`.** Open the producing project's csproj and `Properties/AssemblyInfo.cs` (if present) and confirm the `[InternalsVisibleTo("ConsumerAsm")]` entry covers the friend you expect. If missing, the recommendation becomes *internalize-and-add-IVT-entry*. Per `csharp.instructions.md`, prefer csproj `<InternalsVisibleTo Include="OtherAsm" />` over `Properties/AssemblyInfo.cs`.
 
+## Phase enforcement
+
+REQUIRED-decision-recorded class. Detected at `pre-implementation.md` G6 step when the plan touches folder topology — **any move or rename of a folder or namespace** (verbatim G5 safety-critical trigger scope reused by G6). Enforced by TWO catalog rules:
+
+- `pre-impl-skipped-library-restructure-on-folder-or-namespace-move` (MEDIUM, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.library-restructure` is missing OR `not-applicable` / `offered-and-declined` / `not-required-trigger-not-detected`. Valid values: `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`.
+- `library-restructure-required-on-folder-namespace-move-in-diff` (HIGH, post-impl) — companion that catches the ad-hoc `git mv` bypass: when `git diff <base>..HEAD --name-status` shows `R` (rename) entries crossing directory boundaries OR added `namespace` declarations with new path-prefix segments AND the ledger still says `not-required-trigger-not-detected`, fire. Satisfiability: the agent re-enters G6 per `pre-implementation.md` *G6 re-entry clause* and updates the LEDGER decision line.
+
 ## Intake questions
 
 Bundle these in one prompt unless answers cascade:

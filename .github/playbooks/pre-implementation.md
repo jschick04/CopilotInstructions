@@ -10,6 +10,7 @@ Run diagnosis verification + approach-selection gate + safety-critical-skip eval
 - **Step 1** — Reproduction or benchmark exists when applicable (no fix without a number that moves).
 - **Step 1.5 — G3 approach-selection gate** — for in-scope findings with both "fix the cause" and "document the symptom" options, default is fix-the-cause. **Out-of-scope findings stay on the cross-cutting `ask_user`-mandatory path. G3 does NOT grant scope expansion. NO file edits for out-of-scope findings.**
 - **Step 2 entry — G5 safety-critical-skip evaluation** — when work touches individual safety-critical triggers (public API surface, folder/namespace restructure, test surface migration) OR ≥3 softer signals, skipping the multi-model panel becomes safety-critical and requires explicit re-confirmation per the User-skip policy. Augments (does not replace) the existing safety-critical category list.
+- **Step 2 entry-2 — G6 Playbook offer evaluation** — scan the proposed change for the 7 cycle-3 playbook triggers (implementation-planning, library-restructure, design-exploration, performance-comparison, scope-planning, system-framing, project-vocabulary) and emit chat-visible `trigger-detected-<playbook>: yes|no` + `playbook-decision-<playbook>: <value>` lines per playbook. REQUIRED-class triggers (implementation-planning, library-restructure) and OFFERED-class triggers (rest) follow different decision-value semantics; G6 re-entry is mandatory when scope materially changes mid-implementation. Enforced by catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13.
 - **Step 2** — Multi-model reviewer panel via `multi-model-review.md` (target-type: `plan`) run with unanimous convergence; 0 unaddressed blocking; `subagent_ask_user_calls=0`. Panel runs unless explicitly skipped (with the safety-critical re-confirmation from step 2 entry applied).
 - **Step 3** — Phase state recorded; out-of-scope findings routed via `ask_user`.
 
@@ -78,6 +79,62 @@ Before the multi-model panel, evaluate whether the user's intent to skip (if any
 
 **When safety-critical fires**: explicit re-confirmation required per the existing User-skip policy. The skip is NOT silently accepted; the user must explicitly acknowledge the safety-critical nature in the chat transcript.
 
+### Step 2 entry-2 — G6 Playbook offer evaluation
+
+Sibling step to G5 (G5 handles binary safety-critical-skip; G6 handles playbook trigger detection). Same scan-source, separate outputs. Runs BEFORE the multi-model panel.
+
+Scan the proposed change against the 7 cycle-3 playbook triggers below. For each, emit TWO chat-visible greppable lines:
+
+1. `trigger-detected-<playbook>: yes|no`
+2. `playbook-decision-<playbook>: <value-per-decision-class>`
+
+**Detection table:**
+
+| Trigger (crisp definition) | Playbook | Decision class | Source |
+|---|---|---|---|
+| Change is **non-trivial** — does NOT match `{single-line typo, single-property/single-config-key tweak, comment-only edit, formatting-only edit}` AND has any other change in diff | implementation-planning | REQUIRED-decision-recorded | Closed enumeration |
+| Plan touches folder topology — **any move or rename of a folder or namespace** (verbatim G5 trigger scope) | library-restructure | REQUIRED-decision-recorded | Verbatim G5 reuse |
+| Plan has ≥2 viable competing approaches (plan text contains "option A vs B", "either approach", "compare", "trade-off", OR user asked "which X is better") | design-exploration | OFFERED | Plan-text indicators |
+| Plan has quantitative perf goal (numeric throughput / latency / memory target; user-stated) | performance-comparison | OFFERED | User-stated; easy detection |
+| Scope statement is < 50 chars AND no scope-planning artifact citation in session | scope-planning | OFFERED | Tightened to reduce false-positive ledger noise |
+| Plan crosses module / project / assembly boundaries (new cross-asm reference or new project added) | system-framing | OFFERED | Plan mentions new project / cross-asm reference |
+| Plan introduces ≥3 new domain terms (types / methods / concepts) NOT in project-vocabulary.md | project-vocabulary | OFFERED | Count new domain nouns; check vocab doc |
+
+**Decision values per class:**
+
+- **REQUIRED-decision-recorded class** (implementation-planning, library-restructure):
+  - VALID when `trigger-detected: yes`: `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`
+  - VALID when `trigger-detected: no`: `not-required-trigger-not-detected` (sentinel — preserves fixed cardinality without omission)
+  - INVALID: `offered-and-declined`, `not-applicable` (silent-bypass; catalog rules 2/3/12/13 fire)
+
+- **OFFERED class** (design-exploration, performance-comparison, scope-planning, system-framing, project-vocabulary):
+  - VALID when `trigger-detected: yes`: `invoked` / `offered-and-declined: "<user-quote-justifying-decline>"` / `required-but-skipped: "<reason>"`
+  - VALID when `trigger-detected: no`: `not-applicable`
+  - INVALID when `trigger-detected: yes`: `not-applicable` (silent-downgrade bypass; catalog rules 6/7/8/10/11 fire)
+
+**Chat output example (trivial single-property tweak with no other change):**
+
+```
+trigger-detected-implementation-planning: no
+trigger-detected-library-restructure: no
+trigger-detected-design-exploration: no
+trigger-detected-performance-comparison: no
+trigger-detected-scope-planning: no
+trigger-detected-system-framing: no
+trigger-detected-project-vocabulary: no
+playbook-decision-implementation-planning: not-required-trigger-not-detected
+playbook-decision-library-restructure: not-required-trigger-not-detected
+playbook-decision-design-exploration: not-applicable
+playbook-decision-performance-comparison: not-applicable
+playbook-decision-scope-planning: not-applicable
+playbook-decision-system-framing: not-applicable
+playbook-decision-project-vocabulary: not-applicable
+```
+
+**G6 re-entry on mid-implementation scope change:** if scope materially changes during implementation (e.g., the diff grows beyond the closed-enumeration triviality set after G6 originally emitted `trigger-detected-implementation-planning: no` + `playbook-decision-implementation-planning: not-required-trigger-not-detected`), the agent MUST re-enter G6, re-evaluate triggers against the new scope, and UPDATE the chat-visible decision lines (which feed the POST-CODE-CHANGE LEDGER sub-blocks per `review-workflow-gates.md` §2B and the pre-impl phase-state per AGENTS.md *Per-phase additional fields*) to reflect the new state. The LEDGER reflects the FINAL G6 state — not the initial G6 snapshot. Post-impl rules 12 (library-restructure) and 13 (implementation-planning) catch the missed-re-entry case: when the final diff is non-trivial (or contains folder/namespace moves) AND the ledger still records the sentinel, the post-impl rule fires. Once re-entry happens correctly, the LEDGER decision becomes `invoked` or `required-but-skipped` and the post-impl rule does not fire.
+
+**Codebase-architecture-audit (informational only):** G6 may informally surface a codebase-architecture-audit offer when the plan touches unfamiliar code areas, but there is NO catalog enforcement for it (rule 9 was dropped because the underlying detection mechanism was unreliable). No `trigger-detected-codebase-architecture-audit` or `playbook-decision-codebase-architecture-audit` line is required.
+
 ### Step 2 — Multi-model review panel on the plan
 
 Run the multi-model reviewer panel via `multi-model-review.md` with target-type `plan`. The review target is the proposed approach / plan produced during Step 1 diagnosis verification.
@@ -96,7 +153,7 @@ The panel must reach **unanimous convergence** (all reviewers verdict `READY_TO_
 
 After the multi-model panel:
 
-- Record phase-state: phase entered, intake complete, diagnose artifact-type chosen, G3 in-scope findings handled, G5 evaluation outcome (not-applicable / safety-critical-confirmed-skip / panel-ran), multi-model panel run / skipped.
+- Record phase-state: phase entered, intake complete, diagnose artifact-type chosen, G3 in-scope findings handled, G5 evaluation outcome (not-applicable / safety-critical-confirmed-skip / panel-ran), G6 trigger-detection + decision lines (14 lines per pre-impl record: 7 `trigger-detected-<playbook>:` + 7 `playbook-decision-<playbook>:`), multi-model panel run / skipped.
 - Findings surfaced outside the immediate task's scope per G3's truth table — route via `ask_user` per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule. Never silently expand scope.
 - **Intent-driven testing dispatch**: if `implementation-planning.md` ran in this session AND its output schema contains a non-empty `behaviors_to_cover` section, `intent-driven-testing.md` (prospective mode) fires for the implementation phase — pre-implementation only records the RED-test plan; the RED → GREEN cycles execute as the implementation phase, NOT inside pre-implementation.
 - Proceed to implementation. Next phase: `post-code-change.md` (which runs its existing diagnosis-verifying gate as the post-fix verification step).

@@ -26,6 +26,10 @@ Read-only audit of an existing codebase (or one project / subsystem) against est
 - **All 5 lenses by default**: full audits apply all 5 lenses unless intake explicitly narrows. Single-lens fetches allowed when the user names a specific lens.
 - **Greenfield short-circuit**: if no in-scope code exists, output one-line not-applicable; offer `scope-planning.md` / `implementation-planning.md`.
 
+## Phase enforcement
+
+OFFERED (informational) — NOT catalog-enforced in cycle-3. The originally-planned `pre-impl-skipped-codebase-architecture-audit-on-unfamiliar-code` rule was DROPPED because the proposed detection mechanism (`session_files` SQL cross-check) was unreliable: `session_files` records only edit/create operations, lives in the DuckDB cloud session store, and is empty post-compact. `pre-implementation.md` G6 may informally surface a codebase-architecture-audit offer when the plan touches unfamiliar code areas, but no `trigger-detected-codebase-architecture-audit` / `playbook-decision-codebase-architecture-audit` LEDGER line is required and no catalog rule fires on its absence.
+
 ## Intake questions
 
 Bundle in one `ask_user` prompt:

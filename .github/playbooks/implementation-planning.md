@@ -30,6 +30,13 @@ Deep planning for a specific code change, **codebase-aware**. Reads the modules 
 - **Greenfield short-circuit**: when there's no in-scope code, see *Procedure* step 1.
 - **No fix code**: this playbook produces a PLAN, not implementation. Code edits are the next phase.
 
+## Phase enforcement
+
+REQUIRED-decision-recorded class. Detected at `pre-implementation.md` G6 step when the proposed change is non-trivial (closed-enumeration triviality: NOT in `{single-line typo, single-property/single-config-key tweak, comment-only edit, formatting-only edit}` AND has any other change in diff). Enforced by TWO catalog rules:
+
+- `pre-impl-missed-implementation-planning-on-nontrivial-change` (HIGH, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.implementation-planning` is missing OR `not-applicable` / `offered-and-declined` / `not-required-trigger-not-detected`. Valid values: `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`.
+- `implementation-planning-required-on-nontrivial-final-diff` (HIGH, post-impl) — companion that catches the scope-grew-during-implementation bypass: when `git diff <base>..HEAD` (final state) is non-trivial AND the ledger still says `not-required-trigger-not-detected`, fire. Satisfiability: the agent re-enters G6 per `pre-implementation.md` *G6 re-entry clause* and updates the LEDGER decision line.
+
 ## Intake questions
 
 Bundle in one `ask_user` prompt:

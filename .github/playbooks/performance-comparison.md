@@ -32,6 +32,14 @@ Additional hard gates for performance work:
   
   See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
+## Phase enforcement
+
+OFFERED class. Detected at `pre-implementation.md` G6 step when the plan has a quantitative perf goal (numeric throughput / latency / memory target; user-stated). Enforced by ONE pre-impl catalog rule plus the existing prototype + perf invariants:
+
+- `pre-impl-skipped-performance-comparison-when-quantitative-goal` (MEDIUM, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.performance-comparison` is missing OR `not-applicable` (silent-downgrade bypass). Valid values when detected: `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`.
+
+Prototype + perf invariants (continuously enforced, NOT pre-impl-only) — `prototype-imported-by-production` (HIGH), `prototype-file-missing-throwaway-marker` (MEDIUM), `perf-claim-without-environment-capture` (MEDIUM). See *Hard gates* above.
+
 ## Intake questions
 
 Bundle in one `ask_user` prompt:

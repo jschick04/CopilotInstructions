@@ -33,6 +33,14 @@ Companion playbook for performance-driven exploration: `performance-comparison.m
   
   See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
+## Phase enforcement
+
+OFFERED class. Detected at `pre-implementation.md` G6 step when the plan has ≥2 viable competing approaches (plan text contains "option A vs B", "either approach", "compare", "trade-off", OR user asked "which X is better"). Enforced by ONE pre-impl catalog rule plus the existing prototype invariants:
+
+- `pre-impl-skipped-design-exploration-when-competing-approaches` (MEDIUM, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.design-exploration` is missing OR `not-applicable` (silent-downgrade bypass — `not-applicable` is INVALID when trigger was detected). Valid values when detected: `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`.
+
+Prototype invariants (continuously enforced, NOT pre-impl-only) — see *Hard gates* above for the full list.
+
 ## Intake questions
 
 Bundle in one `ask_user` prompt:

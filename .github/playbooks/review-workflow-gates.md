@@ -342,6 +342,54 @@ POST-CODE-CHANGE LEDGER
             rationale: <one line>            # REQUIRED for not-applicable; (a) code property
                                              #   verifiable from the cited file OR (b) repo invariant
         branch_new_files_verified: yes — merge-base <SHA8>
+    pre-impl-trigger-detections:
+      # Cycle-3 (`pre-implementation.md` G6). Mirrors G6 chat-visible `trigger-detected-<playbook>:`
+      # lines into the LEDGER. Each cycle-3-scope playbook gets one line; this is the audit anchor
+      # for OFFERED-class rules 6/7/8/10/11 (silent-downgrade-to-`not-applicable` bypass closure).
+      # Updated by G6 re-entry per `pre-implementation.md` if scope changes mid-implementation.
+      implementation-planning: <yes | no>
+      library-restructure: <yes | no>
+      design-exploration: <yes | no>
+      performance-comparison: <yes | no>
+      scope-planning: <yes | no>
+      system-framing: <yes | no>
+      project-vocabulary: <yes | no>
+    pre-impl-playbook-decisions:
+      # Cycle-3 (`pre-implementation.md` G6). Mirrors G6 chat-visible `playbook-decision-<playbook>:`
+      # lines into the LEDGER. Enforced by catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13.
+      #
+      # **Allowed decision values per playbook class:**
+      # - REQUIRED-decision-recorded class (implementation-planning, library-restructure):
+      #   VALID = {invoked | required-but-skipped: "<safety-critical re-confirmation per User-skip policy>" | not-required-trigger-not-detected}
+      #   INVALID = {offered-and-declined, not-applicable} — these silently bypass the required gate
+      #   The `not-required-trigger-not-detected` sentinel is the canonical value when G6 emitted
+      #   `trigger-detected: no` (preserves fixed cardinality without omission contradiction).
+      # - OFFERED class (design-exploration, performance-comparison, scope-planning, system-framing, project-vocabulary):
+      #   VALID when trigger-detected: yes = {invoked | offered-and-declined: "<quote>" | required-but-skipped: "<reason>"}
+      #   VALID when trigger-detected: no = {not-applicable}
+      #   INVALID when trigger-detected: yes = {not-applicable} (silent-downgrade bypass)
+      #
+      # User-quoted values use double-quoted YAML strings (RFC YAML) to handle `: ` and special chars
+      # in user quotes. Example: `offered-and-declined: "user said 'this is a simple bump'"`
+      implementation-planning: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>    # REQUIRED class
+      library-restructure: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>        # REQUIRED class
+      design-exploration: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
+      performance-comparison: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
+      scope-planning: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
+      system-framing: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
+      project-vocabulary: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
+    playbook-invocations:
+      # Cycle-3. Evidence each playbook actually ran during implementation. Scope: ONLY the 4
+      # playbooks that have a corresponding `pre-impl-playbook-decisions` entry AND produce
+      # implementation-phase artifacts. intent-driven-testing-prospective is enforced separately
+      # by cycle-2 rule `intent-driven-testing-required-on-test-or-SUT-delta` and is NOT in
+      # cycle-3 scope. The 3 decision-only playbooks (scope-planning, system-framing,
+      # project-vocabulary) have NO implementation evidence — their decision-line IS the evidence
+      # (rules 8/10/11 check the decision sub-block directly).
+      implementation-planning: <ran (artifact-path:line) | N/A — <reason>>
+      library-restructure: <ran (artifact-path:line) | N/A — <reason>>
+      design-exploration: <ran (prototypes/<name>/ citation) | N/A — <reason>>
+      performance-comparison: <ran (benchmark citation) | N/A — <reason>>
     comment-audit-§3.1: <ran | N/A — no comments touched>
     build: <passed | failed: …>
     tests: <passed, N/total | failed: …>
@@ -404,6 +452,7 @@ A gate row may be `N/A — <reason>` when:
   later discovered, the LEDGER is falsified per §2B and the falsified-ledger remediation
   below applies. "No plausible sister sites" is NOT acceptable; the query must be recorded
   so a reviewer can re-run it.
+- **pre-impl-trigger-detections** / **pre-impl-playbook-decisions** / **playbook-invocations**: NEVER `N/A` as a whole sub-block — these sub-blocks are mandatory on every commit-bound `POST-CODE-CHANGE LEDGER` and mirror the pre-impl G6 outputs per `pre-implementation.md`. Individual entries within `playbook-invocations` may be `N/A — <reason>` (e.g., `implementation-planning: N/A — playbook-decision was not-required-trigger-not-detected`). Individual entries within `pre-impl-playbook-decisions` MUST use one of the valid decision values for the playbook's class (REQUIRED-class accepts `invoked` / `required-but-skipped` / `not-required-trigger-not-detected`; OFFERED-class accepts the 4 base values per Phase 2 schema). Catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13 fire on bypass values.
 
 ### Why this exists
 

@@ -25,6 +25,12 @@ Used standalone OR called by `implementation-planning.md` when no vocab doc exis
 - **Evidence-gate output**: vocabulary scan reported as structured chat output before the chat-rendered draft (see *Procedure* step 3).
 - **Source-grounded entries**: every proposed term entry cites the codebase site(s) where the term appears (`file:line`) — no invented terms.
 
+## Phase enforcement
+
+OFFERED class. Detected at `pre-implementation.md` G6 step when the plan introduces ≥3 new domain terms (types / methods / concepts) NOT in `project-vocabulary.md`. Enforced by ONE catalog rule:
+
+- `pre-impl-skipped-project-vocabulary-when-new-terms` (LOW, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.project-vocabulary` is missing OR `not-applicable` (silent-downgrade bypass). Valid values when detected: `invoked` / `offered-and-declined: "<user-quoted justification>"` / `required-but-skipped: "<reason>"`.
+
 ## Intake questions
 
 Bundle in one `ask_user` prompt:

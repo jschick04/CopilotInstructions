@@ -27,6 +27,10 @@ This playbook fires three ways:
 2. **Phase trigger (branch-wide scope)** — invoked from `pre-pr-push.md` when the branch touches a project's public API surface across many files.
 3. **Strong trigger (on demand)** — user asks for *"API tightening"*, *"visibility audit"*, *"least-privilege sweep"*, *"access-modifier audit"*, *"surface area review"*. Agent offers via `ask_user`.
 
+## Phase enforcement
+
+NO cycle-3 catalog rule. Already enforced continuously by the cycle-2 catalog rule `least-privilege-audit-required-on-visibility-delta` (HIGH, post-code-change) — fires when the diff contains a visibility / export / mutability surface delta AND the POST-CODE-CHANGE LEDGER `gates.touched-file-LPA` field is absent OR has bare `N/A` without carve-out citation. The cycle-3 pre-implementation G6 step does NOT add a separate design-phase rule (per panel rubber-duck B3 — design-phase critique is panel-reviewer responsibility, not a separate catalog rule).
+
 ## Hard gates (also referenced in `AGENTS.md`)
 
 - **"Fresh grep" beats every cached classification.** *Fresh grep* = a fresh source search using the best tool for the language (`rg`, compiler index, language-server symbol search, package-export inspection) — not literally `grep(1)`. Survey documents and prior audit notes are HINTS only, never ground truth. Re-search at audit time; when you find a contradiction with a prior survey, record it explicitly so the survey can be corrected.

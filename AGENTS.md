@@ -382,6 +382,25 @@ When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<
 
 ### Per-phase additional fields
 
+**Pre-implementation phase additional fields** (cycle-3 G6 Playbook offer evaluation) — when running the pre-implementation phase per `pre-implementation.md`, record 14 additional lines per phase-state record mirroring the G6 chat output (7 `trigger-detected-<playbook>:` + 7 `playbook-decision-<playbook>:`). The keys mirror the POST-CODE-CHANGE LEDGER `gates.pre-impl-trigger-detections` + `gates.pre-impl-playbook-decisions` sub-blocks per `review-workflow-gates.md` §2B; both surfaces stay in sync (chat-visible LEDGER is the enforcement target; phase-state is the resumed-session continuity target). On G6 re-entry mid-implementation (when scope materially changes per the `pre-implementation.md` *G6 re-entry clause*), both surfaces are updated.
+
+- `trigger-detected-implementation-planning`: `yes` | `no`
+- `trigger-detected-library-restructure`: `yes` | `no`
+- `trigger-detected-design-exploration`: `yes` | `no`
+- `trigger-detected-performance-comparison`: `yes` | `no`
+- `trigger-detected-scope-planning`: `yes` | `no`
+- `trigger-detected-system-framing`: `yes` | `no`
+- `trigger-detected-project-vocabulary`: `yes` | `no`
+- `playbook-decision-implementation-planning`: REQUIRED-class — `invoked` | `required-but-skipped ("<re-confirmation>")` | `not-required-trigger-not-detected`. INVALID: `not-applicable` / `offered-and-declined`.
+- `playbook-decision-library-restructure`: REQUIRED-class — same valid values as implementation-planning.
+- `playbook-decision-design-exploration`: OFFERED-class — `invoked` | `offered-and-declined ("<quote>")` | `not-applicable` | `required-but-skipped ("<reason>")`. `not-applicable` is INVALID when the matching `trigger-detected-*` line is `yes`.
+- `playbook-decision-performance-comparison`: OFFERED-class — same valid values as design-exploration.
+- `playbook-decision-scope-planning`: OFFERED-class — same valid values.
+- `playbook-decision-system-framing`: OFFERED-class — same valid values.
+- `playbook-decision-project-vocabulary`: OFFERED-class — same valid values.
+
+`codebase-architecture-audit` is intentionally OMITTED (cycle-3 rule 9 was dropped because `session_files` detection was unreliable; the playbook may still be informally surfaced by G6 but is not catalog-enforced and not phase-state-tracked).
+
 **Pre-PR-push readiness state is a state predicate** (per §3.7) — every required field must be enumerated. Record the following keys in addition to the minimum canonical shape above when running the pre-PR-push phase:
 
 - `baseRef` — what the branch is being merged into (e.g. `origin/main`).
