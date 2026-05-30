@@ -26,6 +26,10 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | regex-validation | 5 | 1 (logic) |
 | razor-binding | 5 | 7 (UI / framework binding) |
 | null-handling | 5 | 1 (logic) |
+| aria-disabled-without-disabled | 4 | 7 (UI / framework binding) |
+| stale-comment-after-refactor | 3 | 11 (hygiene) |
+| n-squared-selection-scan | 2 | 5 (performance / O(N²) on UI thread) |
+| test-fake-stores-mutable-reference | 1 | 11 (test-infrastructure hygiene) |
 | js-interop-lifecycle | 4 | 11 (lifecycle) |
 | internals-visibility | 4 | 11 (hygiene / API surface) |
 | image-link-broken | 4 | 9 (docs) |
@@ -79,17 +83,19 @@ Missing `Dispose` / `using` / `await using`, undisposed `CancellationTokenSource
 
 Test files with PascalCase locals that match a type name; private fields without project's standard prefix; method names that don't follow project conventions.
 
-**Signatures** (almost always in tests):
+**Signatures** (almost always in tests, but the `Async`-suffix signature applies broadly):
 - `var Filter = new Filter(...)` — local PascalCase matches type name.
 - Test method names that don't match the project's `Method_Scenario_Expected` (or equivalent) shape.
 - Helper class without the project's standard test-utility suffix.
+- **`Async` suffix on a synchronous `void` method** — e.g., `private void HandleClickAsync(MouseEventArgs args) { /* no await, no Task return */ }`. Convention reserves `Async` for methods returning `Task` / `ValueTask`; sync methods with the suffix mislead readers and grep / refactoring tools.
 
 **Discovery query** (diff-scoped, NUL-safe):
 - `git diff --name-only -z <merge-base>..HEAD -- 'tests/**/*.cs' | xargs -0 -r rg --line-number --no-heading --color never "^\s+var [A-Z][a-z]"`. PowerShell: `git diff --name-only <merge-base>..HEAD -- 'tests/**/*.cs' | ForEach-Object { rg --line-number --no-heading --color never "^\s+var [A-Z][a-z]" -- $_ }`.
+- `Async`-suffix sweep (any source file): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never "(private|protected|public|internal)\s+void\s+\w+Async\s*\("` — every match is a candidate violation (sync `void` returning method with `Async` suffix).
 
-**Canonical fix**: rename local to camelCase OR use a domain-specific lower-cased noun (`result`, `subject`, etc.).
+**Canonical fix**: rename local to camelCase OR use a domain-specific lower-cased noun (`result`, `subject`, etc.). For `Async`-suffix on sync method: either drop the suffix (`HandleClick`) or make the method genuinely async (`async Task HandleClickAsync(...)` with at least one `await`) — pick based on whether the method should be async per its callers.
 
-**§2D preflight prompt**: "In tests touched by this diff, scan for local variables named with PascalCase that match a type name."
+**§2D preflight prompt**: "In tests touched by this diff, scan for local variables named with PascalCase that match a type name. In any source file touched by this diff, scan for methods declared `<modifier> void NameAsync(` — the `Async` suffix is reserved for Task/ValueTask returns."
 
 ### 4. async-correctness
 
@@ -212,6 +218,73 @@ User-facing string interpolation with a nullable value silently coerced to empty
 
 **§2D preflight prompt**: "For every user-facing string interpolation in the diff: is every interpolated value either non-null at the call site or null-coalesced?"
 
+### 11. aria-disabled-without-disabled
+
+A `<button>` carries `aria-disabled="true"` or a Razor binding equivalent, but lacks the real `disabled` HTML attribute. The control therefore APPEARS disabled to assistive tech but remains focusable + clickable, so keyboard users can tab to it and a click handler still runs (or an inline guard early-returns silently). Affects any component with a "blocked while operation in flight" gate.
+
+**Signatures**:
+- `<button aria-disabled="@(IsBlocked ? "true" : "false")" @onclick="@(async () => { if (!IsBlocked) await OnX.InvokeAsync(); })">` — guard duplicated in handler; nothing prevents the click from reaching the handler.
+- A single bot finding about a "bulk" button typically masks N additional copies on per-row variants of the same action (Upgrade / Retry / Restore / etc.) — sweep ALL action-button sites that share the same `IsBlocked` gate.
+
+**Discovery query** (diff-scoped + tree-scoped sweep):
+- Diff: `git diff --name-only -z <merge-base>..HEAD -- '*.razor' | xargs -0 -r rg --line-number --no-heading --color never 'aria-disabled='`. PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.razor' | ForEach-Object { rg --line-number --no-heading --color never 'aria-disabled=' -- $_ }`.
+- Tree (verify no sibling instances of the same gate in untouched files): `rg --line-number --no-heading --color never 'aria-disabled=' <razor-source-tree>`.
+- For each match: verify a real `disabled="@<boolField>"` attribute is also present. If not → finding.
+
+**Canonical fix**: replace `aria-disabled="@(... ? "true" : "false")"` with `disabled="@<boolField>"`. Keep the handler-side `if (!gate)` early-return as defense-in-depth (bUnit's `ClickAsync` does not always respect `disabled`, so handler-side guards still matter for unit-test stability). Drop `aria-disabled` once `disabled` is set — they're redundant and `disabled` carries the AT semantics implicitly.
+
+**§2D preflight prompt**: "For every `aria-disabled=` binding on a `<button>` in the diff: is there also a real `disabled=` attribute bound to the same gate? If not, raise a finding. When raising one, sweep the rest of the file (and adjacent component files implementing per-row variants of the same action) for sibling instances."
+
+### 12. stale-comment-after-refactor
+
+Comments that referenced removed behavior get left behind as orphan blank `//` lines, dangling sentence fragments, or `// Arrange — <reason that no longer applies>` headers. Recurs when a refactor deletes implementation but the explanatory comment(s) above survive. Single occurrence often hides 2-3 more in the same file (same refactor touched several tests).
+
+**Signatures**:
+- Blank single-`//` lines with only whitespace after the comment marker: `\s*//\s*$`.
+- A test body that opens with `// Arrange — <X coordinates ... >` followed by a blank `//` line, then code that no longer references X.
+- An orphan sentence fragment as the only line in an `// Act` / `// Assert` block (e.g., `// before being able to remove the entry.` with no preceding sentence).
+
+**Discovery query** (diff-scoped + tree-scoped, NUL-safe):
+- Tree-scoped (catches survivors across whole project, not just diff): `rg --line-number --no-heading --color never '^\s*//\s*$' <source-tree>` — every blank-`//` line is a candidate.
+- Diff-scoped (per-PR enforcement): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' | xargs -0 -r rg --line-number --no-heading --color never '^\s*//\s*$'`. PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' | ForEach-Object { rg --line-number --no-heading --color never '^\s*//\s*$' -- $_ }`.
+
+**Canonical fix**: per the `AGENTS.md` §3.1 rename-first protocol, default DELETE for stale comments. Only rewrite when the comment captures a non-obvious invariant that no rename / refactor can carry.
+
+**§2D preflight prompt**: "For every `*.cs` file in the diff: scan for blank-`//` lines (`^\s*//\s*$`) and short orphan `//` sentence fragments. Stale comments left over from removed code are a recurring bot finding."
+
+### 13. test-fake-stores-mutable-reference
+
+A test fake's "recorded calls" list `Add(arg)`s the CALLER'S list reference (typically an `IReadOnlyList<T>`). If the caller mutates the same list later, the recorded call history changes retroactively, producing flaky assertions that depend on test execution order or post-call cleanup.
+
+**Signatures**:
+- `RecordedCalls.Add(fileNames)` where `fileNames` is a method parameter of type `IReadOnlyList<T>` / `List<T>` / `IEnumerable<T>`.
+- A field declared `IList<IReadOnlyList<string>> Calls { get; } = []` populated by `Calls.Add(arg)` directly.
+
+**Discovery query** (diff-scoped + tree-scoped):
+- Tree-scoped (one-time baseline): `rg --line-number --no-heading --color never -g '*Fake*.cs' -g '*Stub*.cs' -g 'Test*.cs' '\.Add\(\s*[a-z][a-zA-Z]*\s*\)' <tests-tree>` — manual review of each: does the `Add` argument come from a method parameter (vs a local-built value)?
+- Diff-scoped (per-PR enforcement, NUL-safe): `git diff --name-only -z <merge-base>..HEAD -- 'tests/**/*.cs' | xargs -0 -r rg --line-number --no-heading --color never '\.Add\(\s*[a-z][a-zA-Z]*\s*\)'`.
+
+**Canonical fix**: store a snapshot copy — `RecordedCalls.Add(fileNames.ToList())` or `RecordedCalls.Add([.. fileNames])`. For value types or immutable types (`string`, `ImmutableList<T>`), no copy needed. Document the choice with a one-line type assertion if the type isn't obvious from context (e.g., `RecordedCalls.Add(args.Snapshot)` when `Snapshot` already returns an immutable copy).
+
+**§2D preflight prompt**: "For every test fake `Add(...)` call in the diff where the argument is a method parameter of a mutable reference type (`List<T>`, `IList<T>`, mutable record): is the argument copied via `.ToList()` / `[..]` / `.ToImmutableArray()` before storage?"
+
+### 14. n-squared-selection-scan
+
+A handler iterates a "selected" set and for EACH element scans an "all entries" collection with `FirstOrDefault` / `Single` / nested `Where(...)`. With N selected × M total entries, the cost is O(N×M). On a UI thread (Blazor `@onclick`, MAUI tap handler) this manifests as visible lag when the user has many selections. Often paired with `Recompute*` helpers that re-run on every state change, multiplying the cost.
+
+**Signatures**:
+- `foreach (var x in _selectedSet) { var entry = collection.FirstOrDefault(e => string.Equals(e.Key, x, ...)); ... }`.
+- A helper `IsEligibleFor(string key) { return collection.FirstOrDefault(...) is { ... }; }` called from a `foreach` over a selection.
+- Same scan repeated in BOTH the handler that runs on click AND a `RecomputeCount`-style helper that runs on every state event.
+
+**Discovery query** (diff-scoped + tree-scoped):
+- Tree-scoped: `rg --line-number --no-heading --color never -A 5 'foreach\s*\(\s*var\s+\w+\s+in\s+_?selected' <source-tree>` — for each match, check the next 5 lines for `.FirstOrDefault(` / `.Single(` / `.Where(` on a different collection.
+- Diff-scoped (NUL-safe): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never -A 5 'foreach\s*\(\s*var\s+\w+\s+in\s+_?selected'`.
+
+**Canonical fix**: snapshot the "all entries" collection into a `Dictionary<TKey, TValue>` (with the correct comparer) ONCE at the top of the handler; use `TryGetValue` for O(1) lookups inside the loop. Extract a small `SnapshotByKey()` helper if the snapshot is needed in multiple sites. For computations that need a "is eligible + reason" answer, return a tuple `(bool IsEligible, ReasonEnum Reason)` from a per-entry helper so callers don't recompute internals.
+
+**§2D preflight prompt**: "For every `foreach` over a selection set / change set / batch in the diff: is the loop body scanning a separate collection with `FirstOrDefault` / `Single` / `Where`? If yes, snapshot the scanned collection to a dictionary outside the loop. Sweep `Recompute*` and `Refresh*` helpers in the same file for the same pattern."
+
 ---
 
 ## Lower-frequency patterns
@@ -222,6 +295,8 @@ These appear 1-4 times in the seed corpus. Treat as "possible to catch on §2D h
 - **js-interop-lifecycle** (4): firstRender JS import without `JSDisconnectedException` + `JSException` catch; component closes mid-import. Discovery: `rg "JSRuntime.InvokeAsync<IJSObjectReference>"` — verify both catches present.
 - **image-link-broken** (4): docs reference an asset path that doesn't exist. Discovery: `rg "!\[.*\]\("` against `docs/` + `Test-Path` each path.
 - **partial-file-cleanup** (3): partial output file left after Create/Diff/etc. failure. Discovery: search for new-context construction paired with `File.Delete` in cancel/error arms.
+- **css-isolation-cross-component-class** (Blazor-specific; 1 hit in seed): a Razor component uses CSS class names defined in ANOTHER component's `.razor.css` file. Blazor CSS isolation rewrites scoped class selectors (`<class>[b-<scope-id>]`) per component, so styles defined in `ComponentA.razor.css` do NOT apply when the same class name is referenced from `ComponentB.razor`. Symptom: visual misalignment / missing borders / collapsed widths only in the second component, even though devtools shows the class is present. Discovery: when adding a class name to a `.razor` file, verify it's defined in the SAME component's `.razor.css` (not a different component's). Canonical fix: define the styles locally in the consuming component's `.razor.css` — duplication across components is acceptable per CSS-isolation design.
+- **modal-cancel-nested-mode-conflict** (Blazor-specific; 1 hit in seed): a `<dialog>` modal has both a native `@oncancel` handler (Esc-closes-dialog) AND a content-level `@onkeydown` handler that treats Esc as "exit nested mode" (selection mode, edit mode, etc.). Both fire on a single Esc press → modal closes AND nested mode exits simultaneously. Discovery: any `<dialog>` modal whose content has `@onkeydown` handling `args.Key == "Escape"`. Canonical fix: route Esc through the modal's close pipeline (e.g., override the modal-base's `OnRequestCloseAsync` to early-return when the active inner surface is in nested mode + call the surface's `ExitNestedModeAsync()`; remove the in-content `@onkeydown` handler). Single source of truth for Esc avoids the double-handling.
 - **logic-inversion**, **dropped-input**, **perf-batching**, **dead-code**, **state-machine-race**, **xmldoc-cref**, **hardcoded-path** (each 1-2 hits): catalogued in the §2D 11-category checklist OR Delta-style sweeps (B for dropped-input, C for bounds, D for dead-storage, F for self-similarity, G for cumulative branch sweep, K for §2B-LEDGER-enforced sweep).
 
 ---
