@@ -52,6 +52,9 @@ CopilotInstructions/
 │       │   ├── lens-recurring-smells.md
 │       │   ├── lens-project-layout.md
 │       │   └── lens-vertical-slice-clean-arch.md
+│       ├── cross-file-bug-investigation.md             # panel-driven cross-file bug hunt on UNCHANGED code (index)
+│       ├── cross-file-bug-investigation/               # lane catalog sub-file (9 lanes per M17 schema)
+│       │   └── lanes-catalog.md
 │       ├── design-exploration.md                       # throwaway prototype (design alternatives / UI variations)
 │       ├── performance-comparison.md                   # throwaway benchmark prototype + mandatory software-install.md handoff
 │       ├── multi-model-review.md                       # panel-of-reviewers convergence (index) — domain trigger + utility-called by post-code-change
@@ -181,6 +184,29 @@ Cycle-3 expanded catalog enforcement to 7 cycle-3-scope playbooks at the pre-imp
 
 **G6 re-entry on mid-implementation scope change**: when scope materially changes during implementation (e.g., the diff grows beyond the closed-enumeration triviality set after G6 originally said the change was trivial), the agent MUST re-enter G6 per `pre-implementation.md` *G6 re-entry clause* and UPDATE the LEDGER decision lines. The LEDGER reflects the FINAL G6 state, not the initial G6 snapshot. Post-impl rules 12 + 13 catch missed-re-entry cases.
 
+## Investigative workflows (NOT phase playbooks)
+
+Cycle 4 added `cross-file-bug-investigation.md` — a domain-trigger playbook that runs the multi-model panel against **UNCHANGED user-pointed code** for cross-file bug hunting (vs the existing change-implementation pipeline). It's NOT a phase playbook and does NOT add to the POST-CODE-CHANGE LEDGER. Phase enforcement is via the playbook's own orchestrator hard gates at runtime.
+
+| Investigative playbook | Engine | Output | Handoff |
+|---|---|---|---|
+| `cross-file-bug-investigation.md` + `cross-file-bug-investigation/lanes-catalog.md` | `multi-model-review.md` with `target-type=bug-investigation` (lane-specialized prompts; 7-field finding schema; target-type-specific VERDICT-emission rule) | Citation-verified findings (≤1 rework cap; severity `blocking`/`major`/`minor` + `is_blocking` boolean); per-finding C2 disposition (Step 11A — always) | Optional fix-transition picker (Step 11B — only when intake Q8 ≠ `none`); selected findings persisted to `<session-state>/files/bug-investigation-<ts>.md` (`schema_version: 1`); pre-impl reads via its "Entry points" subsection |
+| `codebase-architecture-audit.md` + 5 lens sub-files | single-orchestrator pass over fixed lenses | Ranked debt list with file:line citations | Each picked proposal becomes a normal change through phase playbook chain |
+| `least-privilege-audit.md` + 6 axis sub-files | single-orchestrator 6-axis visibility sweep | Per-type matrix with consumer evidence | Picked tightenings become normal changes |
+
+**Discriminator between investigative + audit playbooks** — canonical 6-line block (also in `cross-file-bug-investigation.md` Purpose section; single source of truth):
+
+```
+cross-file-bug-investigation = multi-model PANEL with intake-selected LANES on USER-POINTED unchanged code.
+codebase-architecture-audit  = single-orchestrator pass over 5 FIXED LENSES for ranked architectural debt.
+least-privilege-audit        = 6-AXIS visibility/mutability sweep producing per-type matrix.
+code-review (sub-agent)      = single sub-agent reviewing STAGED/UNSTAGED diff (recent changes).
+multi-model-review diff      = panel reviewing a DIFF (change).
+system-framing               = layered map for ORIENTATION (not bug-hunt).
+```
+
+Bare unpaired *"review"* / *"audit"* / *"trace this through the code"* are ambiguous-clarify per AGENTS — these playbooks fire only on artifact-shaped phrases (e.g., cross-file qualifier required for `cross-file-bug-investigation`'s review/audit forms).
+
 ## Workflows at a glance
 
 Quick reference for what's in `.github/playbooks/`. Each file is loaded only when its phase fires or its strong-trigger intent is detected and confirmed.
@@ -208,6 +234,7 @@ Quick reference for what's in `.github/playbooks/`. Each file is loaded only whe
 | `system-framing.md` | Strong trigger — explain code in context | Layered map (symbol → module → assembly → product surface) + narrative |
 | `intent-driven-testing.md` | Phase-sub-step — auto-fires when `behaviors_to_cover` non-empty OR diff has test / SUT delta | Prospective one-test-then-implement loop OR retrospective gap audit; inherits §3.4 checklist |
 | `codebase-architecture-audit.md` + `codebase-architecture-audit/` | Strong trigger — read-only audit | Ranked findings list across 5 lenses (§3.7 / §3.8 / §3.10 / §3.11 / §3.12); each picked proposal becomes a normal change through phase playbooks |
+| `cross-file-bug-investigation.md` + `cross-file-bug-investigation/` | Strong trigger — panel-driven cross-file bug hunt on UNCHANGED code | Lane-specialized panel report (9 lanes via `multi-model-review.md` target-type `bug-investigation`); citation-verified findings (≤1 rework cap); C2 routing per finding (always) + optional fix-transition picker (when Q8 ≠ none) handing selected findings to `pre-implementation.md` via persisted YAML file (`schema_version: 1`) |
 | `design-exploration.md` | Strong trigger — throwaway design prototype | Working variants + decision log; throwaway-hardening (folder + header + build-isolation + 0 production imports + cleanup gate) |
 | `performance-comparison.md` | Strong trigger — throwaway benchmark prototype | Variants + benchmark metric + delta + decision log; mandatory `software-install.md` handoff when tooling needs install |
 | `multi-model-review.md` + `multi-model-review/` | Strong trigger (panel review) + utility-called by `post-code-change.md` panel hard gate | ≥3 reviewers across model families with mandatory `VERDICT:` per reviewer; 3 convergence models (unanimous / threshold ≥75% / confidence ≥80%); max-loop escalation; C2 status enum for findings dispositions |

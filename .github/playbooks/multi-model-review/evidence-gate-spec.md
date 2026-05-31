@@ -31,6 +31,12 @@ Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence
 - `subagent_ask_user_calls=0` — orchestrator-only routing proof per AGENTS.md cross-cutting rule (sub-agents must NEVER prompt the user).
 - `Next` directive — explicit outcome for the next step.
 
+**Additional fields for `target-type=bug-investigation` rounds**:
+
+- `slot=<reviewer slot>: lane=<lane slug(s)>` — one line per reviewer slot recording the lane(s) assigned for the round (round-robin mapping per `procedure.md`'s `bug-investigation` template). Required for `bug-investigation`; absent for other target-types.
+- `citation-verification: <V verified, D verification-failed-dropped, I verification-invalid-dropped, R rework-1, T verification-twice-ambiguous-dropped, N no-citation-dropped>` — synthesis-time outcomes per finding from the orchestrator's citation-verification sub-step (`cross-file-bug-investigation.md` hard gate 9). Required for `bug-investigation`; absent for other target-types.
+- `C2 dispositions this round: deferred-to-caller-step-11A` — for `target-type=bug-investigation`, C2 routing is DEFERRED to the caller's Step 11A (which happens after user report approval per the caller's fix-transition protocol). The standard C2 dispositions row carries this sentinel value instead of resolving individual finding statuses. See `procedure.md` step 11 target-type variation.
+
 ## C2 findings audit format (cross-cutting hard rule)
 
 The C2 status enum is used both inside this playbook (per-round disposition) AND by AGENTS.md cross-cutting findings audit (whenever any sub-agent surfaces a finding the orchestrator must dispose of). Format:

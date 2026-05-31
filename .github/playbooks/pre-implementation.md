@@ -18,7 +18,7 @@ Run diagnosis verification + approach-selection gate + safety-critical-skip eval
 
 Bundle in one prompt:
 
-1. What's the diagnosis you're acting on, and where did it come from? (your hypothesis / prior agent / bug report / user prompt)
+1. What's the diagnosis you're acting on, and where did it come from? (your hypothesis / prior agent / bug report / user prompt / **previous bug-investigation report file** — when the change is a fix-transition handoff from `cross-file-bug-investigation.md`, supply the path to the persisted findings file at `<session-state>/files/bug-investigation-<ts>.md`)
 2. Do you have a reproduction (functional bug) or benchmark (perf regression) already, or do I need to build one?
 3. **Reproduction artifact type** (when building a repro): (a) **throwaway diagnosis harness** — removed before completion per existing cleanup rule; (b) **durable regression test** — locked in; survives as a permanent test; (c) **decide later** — defer the choice until reproduction is achieved (default behavior: treat as throwaway unless promoted before completion).
 4. **Default to running the multi-model panel.** Skipping is the exception, not the default. If you believe a change is trivial enough to skip (single-line typo, single-property rename with no semantic change, single config-key value tweak), call that out explicitly. Triviality is overridden by G5 safety-critical triggers (see *Procedure* step 2 entry).
@@ -26,6 +26,24 @@ Bundle in one prompt:
 6. **Bug fix only:** can the bug be reproduced reliably? (If not, the bug isn't understood yet — re-investigate before designing a fix.)
 
 ## Procedure
+
+### Entry points
+
+The pre-implementation phase has two documented entry paths. Both run the full Procedure below (Steps 1 → 3). Hard gates (G3 / G5 / G6) and the multi-model panel apply to BOTH paths.
+
+1. **Normal user-requested code change** — the user asks for a code change directly. Diagnose-step input comes from the user's prompt and intake Q1 (hypothesis / prior agent / bug report). Default entry.
+
+2. **Fix-transition handoff from `cross-file-bug-investigation.md`** — when the user picks fix in step 11B of the investigation playbook, the orchestrator persists selected findings to `<session-state>/files/bug-investigation-<ts>.md` and enters this phase with that path supplied as the Q1 diagnosis source. Pre-impl then:
+   - Reads the YAML frontmatter (`schema_version: 1` is pinned; both writer and reader agree on this version).
+   - Iterates each `findings:` entry as a separate diagnose-loop hypothesis in Step 1 (per-finding reproduce → minimise → hypothesise → instrument → reproduction-locked).
+   - Runs ONE aggregate G3 approach-selection covering all selected findings.
+   - Runs ONE plan; ONE multi-model panel (reviewers emit ONE verdict per plan-as-whole — consistent with single-fix plan behavior).
+   - Produces ONE commit (`single_commit=true` invariant preserved).
+   - When findings are independent AND approaches diverge: `ask_user` to split into N pre-impl cycles (each its own commit).
+
+   **Fallback behavior on missing or unparseable persistence file:**
+   - File missing → `ask_user` to re-supply the path OR abandon the fix-transition handoff and re-run `cross-file-bug-investigation.md`.
+   - YAML parse fail OR `schema_version > 1` (forward-compat) → warn in chat; fall back to free-form-text reading of the file body; treat each `## F-NNNN:` heading block as ONE diagnosis hypothesis (matches the writer's H2-per-finding output in `cross-file-bug-investigation.md` persistence schema). `schema_version` mismatches are non-blocking but degrade structured parsing.
 
 ### Step 1 — Verify the diagnosis (deepened procedure)
 

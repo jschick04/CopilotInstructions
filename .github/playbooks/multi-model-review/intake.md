@@ -9,6 +9,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
    - `design` — design doc, current-state survey, architecture proposal.
    - `spec` — interface spec, schema spec, contract spec.
    - `diff` — a code diff (staged, branch-vs-base, or a specific commit range). Default when called by `post-code-change.md` as the panel hard gate.
+   - `bug-investigation` — cross-file bug hunt on user-pointed unchanged code via lane-specialized reviewers. Called by `cross-file-bug-investigation.md`. When this target-type is selected, intake passes additional fields: `lanes` (the selected lane slugs from `cross-file-bug-investigation/lanes-catalog.md`), `slot_to_lane_mapping` (round-robin assignment per `procedure.md`), and `scope_file_list`. Lane-specific critique-focus paragraphs are inserted into each reviewer's sub-agent prompt via `procedure.md`'s `bug-investigation` template branch.
    - `custom` — user-supplied target; the user provides the focus / scope.
 
 2. **Review-target location** — a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).

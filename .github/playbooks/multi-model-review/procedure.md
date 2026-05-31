@@ -34,6 +34,64 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 
 3. **Differentiate reviewer slots** by varying the critique-focus angle per intake (cross-family fresh eyes / technical-design depth / coding-discipline / rubber-duck design critique). Each reviewer gets one differentiated focus emphasis on top of the shared focus areas.
 
+### Target-type variation: `bug-investigation`
+
+When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), the sub-agent prompt template extends the base structure with:
+
+- **Lane-to-slot mapping**: round-robin lane-to-slot assignment until every selected lane has ≥1 reviewer; when `lanes_selected > reviewers`, double-up per-slot per M8 default and add a per-reviewer lane-budget hint ("Focus first on your primary lane; expand to secondary lanes only as evidence requires. Document which lane each finding belongs to.").
+- **Lane-specific critique-focus paragraphs** injected from `cross-file-bug-investigation/lanes-catalog.md` — for each lane assigned to the slot, the lane's "Reviewer prompt clause" (≤200 words per lane) is inserted into the prompt under the per-slot Critique focus section.
+- **Required 7-field finding schema** — every finding the reviewer reports MUST include:
+  1. `id`: `F-XXXX` placeholder (orchestrator assigns the final `F-NNNN`).
+  2. `severity`: `blocking | major | minor`.
+  3. `is_blocking`: `true | false` (mirrors `severity == 'blocking'` for greppability in the persistence schema).
+  4. `lane`: one of the assigned lane slugs.
+  5. `title`: one-line summary.
+  6. `citations`: ≥1 `file:line` citation per participating file. For cross-file claims, EACH implicated file must be cited independently (e.g., a finding about field-X-missing-in-producer-2 needs citations to producer-1 setting it AND producer-2 not setting it AND the consumer branching on it).
+  7. `body`: `{ description, why_bug, reproduction (or "Observational"), suggested_fix_class (advisory), confidence (high|medium|low) }`.
+- **VERDICT-emission rule** (target-type-specific):
+  - Emit `VERDICT: READY_TO_IMPLEMENT` when you have NO BLOCKING-severity findings remaining. Non-blocking findings (major / minor) are acceptable; they will be recorded as advisory C2 dispositions and do NOT require another round.
+  - Emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING-severity finding requires another iteration.
+  - This rule is target-type-specific reviewer behavior; the orchestrator's convergence check (Model A unanimous: ALL reviewers READY + `unaddressed_blocking=0`) is UNCHANGED.
+- **Tooling discipline** (re-emphasized): read-only inspection only (`view` / `grep` / `glob` / read-only git). NO `ask_user`. NO file modifications. NO sub-agent launches.
+
+Full prompt template (added to the base prompt at step 2):
+
+```
+**Target-type: bug-investigation**
+
+You are reviewing CROSS-FILE BEHAVIOR / BUGS on UNCHANGED code (NOT a diff).
+The user has identified these files: <scope_file_list>.
+You have been assigned lane(s): <slot_to_lane_mapping[your_slot]>.
+
+**Lane-specific critique focus** (one paragraph per assigned lane, copied verbatim from
+`cross-file-bug-investigation/lanes-catalog.md` "Reviewer prompt clause" sections):
+
+<lane 1 prompt clause>
+
+<lane 2 prompt clause, if doubled-up>
+
+...
+
+**Required 7-field finding schema** (per finding):
+1. id: F-XXXX (orchestrator assigns final F-NNNN)
+2. severity: blocking | major | minor
+3. is_blocking: true | false (mirrors severity == 'blocking')
+4. lane: <one of your assigned lanes>
+5. title: <one line>
+6. citations: ≥1 file:line per participating file (cross-file claims MUST cite each implicated file)
+7. body: { description, why_bug, reproduction (or "Observational"), suggested_fix_class (advisory), confidence (high|medium|low) }
+
+**VERDICT emission rule (TARGET-TYPE-SPECIFIC)**:
+- Emit `VERDICT: READY_TO_IMPLEMENT` when you have NO BLOCKING-severity findings remaining.
+  Non-blocking findings (major/minor) are acceptable and recorded as advisory.
+- Emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration.
+
+**Tooling discipline**:
+- Read-only inspection (view / grep / glob / read-only git). NO ask_user. NO file modifications. NO sub-agent launches.
+
+Return findings + VERDICT line only.
+```
+
 ## Completion-wait
 
 4. **Wait for runtime notifications** ("Agent finished") rather than polling. The orchestrator should NOT call `read_agent` in a tight loop. When all N notifications arrive (or a timeout fires for missing ones), proceed to synthesis.
@@ -62,9 +120,11 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
     - `dismissed-source-grounded` — refuted by explicit source citation.
     Default to `ask_user` for ambiguous routing. Converged rounds with 0 unaddressed blocking but ≥1 non-blocking finding still need C2 routing of those findings.
 
+    **Target-type variation: `bug-investigation` — C2 routing DEFERRED to caller.** When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), step 11 C2 routing is DEFERRED to the caller's Step 11A (which happens AFTER user report approval per the caller's fix-transition protocol). The engine here records `C2 dispositions this round: deferred-to-caller-step-11A` in step 12's evidence emission instead of resolving individual finding statuses. The caller owns C2 resolution end-to-end for bug-investigation rounds; the engine's responsibility narrows to citation-verification + VERDICT collection + per-round agreement counting. Asymptotic-convergence auto-routing is DISABLED for this target-type (the caller handles all finding dispositions including precise polish).
+
 ## Per-round evidence emission (ALWAYS — converged OR not, with complete fields populated)
 
-12. **Emit per-round evidence-gate output** per `evidence-gate-spec.md` AFTER convergence check + C2 routing — by this point all template fields (verdicts, findings, agreement counts, **Convergence outcome**, **C2 dispositions this round**, **Next directive**) are knowable. This output is the canonical per-round audit trail; skipping emission on any round (converged or not) is a workflow violation.
+12. **Emit per-round evidence-gate output** per `evidence-gate-spec.md` AFTER convergence check + C2 routing — by this point all template fields (verdicts, findings, agreement counts, **Convergence outcome**, **C2 dispositions this round**, **Next directive**) are knowable. This output is the canonical per-round audit trail; skipping emission on any round (converged or not) is a workflow violation. **For `target-type=bug-investigation`**, the `C2 dispositions this round` field carries the sentinel value `deferred-to-caller-step-11A` (per step 11's target-type variation above); all other fields are populated normally.
 
 ## Loop-vs-escalate decision
 
