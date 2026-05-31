@@ -1,6 +1,6 @@
 # CopilotInstructions
 
-Personal Copilot CLI custom instructions, split into a slim always-loaded core (`AGENTS.md`), conditionally-loaded topic files (one per language), and **on-demand playbook files** that the agent fetches when entering a workflow phase or when a strong-trigger intent is detected and the user confirms via `ask_user`. Optimized for context-window usage — language-specific style guidance only loads when the working set contains that language, and heavy multi-step procedural detail (post-code-change reviewer panel, pre-PR-push comment sweep, design-spec generation, ADO planning, etc.) only loads when the agent reaches the relevant phase.
+Personal Copilot CLI custom instructions, split into a slim always-loaded core (`AGENTS.md`), conditionally-loaded topic files (one per language), and **on-demand playbook files** that the agent fetches when entering a workflow phase or when a strong-trigger intent is detected and the user confirms via `ask_user`. The system serves two primary use cases — (1) the **change-implementation pipeline** (pre-implementation → post-code-change → pre-commit → pre-PR-push → post-PR-review) shipping code changes through a multi-model reviewer panel, and (2) **investigative workflows on unchanged code** (cross-file bug hunting, architectural debt audits, visibility audits) — plus various other strong-trigger playbooks for design specs, ADO planning, worktree setup, library restructure, and similar tasks (see the *Workflows at a glance* table below for the full catalogue). Optimized for context-window usage — language-specific style guidance only loads when the working set contains that language, and heavy multi-step procedural detail only loads when the agent reaches the relevant phase or playbook.
 
 ## Layout
 
@@ -58,17 +58,22 @@ CopilotInstructions/
 │       ├── design-exploration.md                       # throwaway prototype (design alternatives / UI variations)
 │       ├── performance-comparison.md                   # throwaway benchmark prototype + mandatory software-install.md handoff
 │       ├── multi-model-review.md                       # panel-of-reviewers convergence (index) — domain trigger + utility-called by post-code-change
-│       ├── multi-model-review/                         # intake / procedure / convergence-models / evidence-gate-spec (incl. C2 status enum)
-│       │   ├── intake.md
-│       │   ├── procedure.md
-│       │   ├── convergence-models.md
-│       │   └── evidence-gate-spec.md
+│       ├── multi-model-review/                         # 9 panel support files (intake + procedure + convergence-models + evidence-gate-spec + 5 catalog/registry files)
+│       │   ├── intake.md                              # 10 intake questions + model defaults
+│       │   ├── procedure.md                           # parallel-launch + sub-agent prompt template (incl. bug-investigation target-type)
+│       │   ├── convergence-models.md                  # unanimous / threshold ≥75% / confidence-weighted ≥80% + asymptotic-convergence pattern
+│       │   ├── evidence-gate-spec.md                  # per-round log + C2 audit + bug-investigation extensions
+│       │   ├── current-model-registry.md              # tier → model name mapping (decouples playbooks from model deprecations)
+│       │   ├── known-false-positives.md               # dismissed-source-grounded patterns reviewers should NOT re-flag
+│       │   ├── pr-creation-mirror-prompt.md           # 11-category Copilot-mirror prompt template for §2D pre-pr-creation panel
+│       │   ├── pr-review-findings-schema.md           # schema for PR-bot findings → pattern-catalog
+│       │   └── pr-review-pattern-catalog.md           # PR-review-derived pattern catalog (input to pattern-catalog.md)
 │       └── templates/                                  # skeleton / example reference files
 │           ├── current-state-survey.md
 │           ├── design-change-request.md
 │           └── dev-design-spec.md
 ├── pr-quality-gate/                                    # catalog + ack-gate + drift safeguard (rule enforcement during code review)
-│   ├── pattern-catalog.md                              # canonical rule catalog (~100 rows; HIGH/MEDIUM/LOW tier)
+│   ├── pattern-catalog.md                              # canonical rule catalog (116 data rows; 47 HIGH-tier slugs requiring per-commit ack)
 │   ├── HIGH-TIER-SLUGS.md                              # GENERATED — derived from pattern-catalog.md; ack-required slug list
 │   ├── panel-policy.md                                 # convergence model + per-rule ack schema + catalog-edit invariant
 │   ├── gate-runner.ps1 / .sh                           # rg battery runner (cross-platform; pwsh + bash twins, parity-checked)
@@ -117,7 +122,7 @@ Razor markup files (`*.razor`, `*.cshtml`) intentionally match both the C# file 
 
 Beyond the playbooks (which are procedural), this repo provides a **rule enforcement gate** that runs during code review. The gate has four layers (defense in depth):
 
-1. **Catalog of rules** — `.github/pr-quality-gate/pattern-catalog.md` lists ~100 patterns (HIGH/MEDIUM/LOW tier) the multi-model panel checks against every commit's diff. Rules are either **rg-detectable** (deterministic regex) or **review-pass-only** (panel reviewer reads the diff against an audit-method clause).
+1. **Catalog of rules** — `.github/pr-quality-gate/pattern-catalog.md` lists **116 patterns** (HIGH/MEDIUM/LOW tier; **47 HIGH-tier slugs require per-commit acknowledgement** in the `core_rules_acknowledged` block per `panel-policy.md` §Per-rule acknowledgement; cycles 1-4 raised HIGH slugs 24→47) the multi-model panel checks against every commit's diff. Rules are either **rg-detectable** (deterministic regex) or **review-pass-only** (panel reviewer reads the diff against an audit-method clause).
 2. **Per-rule acknowledgement** — for every HIGH-tier `review-pass-only` slug, every commit MUST emit a `core_rules_acknowledged` block enumerating each slug with per-site disposition (`applied` / `not-applicable` + rationale). The generated `HIGH-TIER-SLUGS.md` is the authoritative ack-required list; the panel and pre-commit gate cross-reference it.
 3. **Process-rule gates** — some catalog rules check process artifacts rather than code: e.g., `least-privilege-audit-required-on-visibility-delta` and `intent-driven-testing-required-on-test-or-SUT-delta` verify the POST-CODE-CHANGE LEDGER block has the matching playbook-evidence field. This is how the LPA and ITD playbooks fire automatically (not just on user strong-trigger).
 4. **Drift safeguard** — git pre-commit hook + CI workflow + gate-runner `-Verify` integration prevent `HIGH-TIER-SLUGS.md` from going stale relative to `pattern-catalog.md`. Mechanism uses `git hash-object` (canonical normalized blob SHA-1; cross-platform stable, immune to CRLF/LF drift).
@@ -150,7 +155,7 @@ To add a new rule: edit `pattern-catalog.md`, run `pwsh -File scripts/sync-criti
 
 ## Playbook integrations
 
-Four in-repo playbooks have catalog enforcement (so they fire automatically during commit / panel review, not just when explicitly user-triggered):
+The four initial cycle-1 / cycle-2 in-repo playbook integrations are shown below (cycle 3 expanded enforcement to 7 cycle-3-scope playbooks at the pre-implementation phase — including 2 of the four below that gained additional cycle-3 rules — see *Phase-by-phase playbook map* below for the complete current state). These four fire automatically during commit / panel review, not just when explicitly user-triggered:
 
 | Playbook | Enforcement engine | Catalog rule(s) |
 |---|---|---|
@@ -249,14 +254,15 @@ Cross-cutting (not playbooks — always-loaded in `AGENTS.md`):
 - **Git identity & push credentials** (`AGENTS.md` §4) — always-loaded. Commit attribution + `git push` authentication MUST belong to the human user, never a disallowed automation identity (case-insensitive match: `Copilot`, `copilot[bot]`, `github-actions[bot]`, `223556219+Copilot@users.noreply.github.com`, other `[bot]` accounts). §4.1: prompt user via `ask_user` when `user.name` / `user.email` missing (local scope by default; global opt-in); author-preservation check on `--amend` / `cherry-pick` / `rebase` / `am`; commit-ownership prompt displays resolved identity + uses explicit `the agent` / `you (the user)` actor labels. §4.2: mechanism-aware push verification (HTTPS+`gh`, system credential helper, SSH, ambient tokens) before EVERY push (incl. sandbox + `gh pr create`); recorded as `pushCredentialsVerified` in pre-PR-push state predicate; push-ownership prompt separate from commit-ownership.
 - **Output-write ordering** — documentation playbooks render the draft in chat first.
 
-## Manifest frontmatter, evidence gates, manifest.yaml, multi-model review loop, sharpened defaults
+## Manifest frontmatter, evidence gates, manifest.yaml, multi-model review loop, model registry, sharpened defaults
 
-This repo introduces five cross-cutting patterns layered on top of the existing phase + topic-file architecture. Each is detailed in `.github/playbooks/README.md` *Authoring conventions cross-reference*:
+This repo introduces six cross-cutting patterns layered on top of the existing phase + topic-file architecture. Each is detailed in `.github/playbooks/README.md` *Authoring conventions cross-reference*:
 
 - **Manifest frontmatter** on trigger-fired playbooks (`name` + `description` + optional `triggers`) — metadata only; does NOT drive trigger detection. AGENTS.md semantic discriminator stays canonical.
 - **Evidence gates** — structured chat-visible audit output (with scope + citations + zero-count justification) required before declaring a phase / task complete or producing an artifact. Applied to §3.1 comment audit, cross-cutting findings audit, pre-PR-push state read-back, post-pr-review per-finding, and every new domain playbook's procedure.
 - **`.github/playbooks/manifest.yaml`** — sibling-of-the-router discoverability index, generated / derived from playbook frontmatter. Consulted only AFTER AGENTS.md router has shortlisted; never drives initial detection. Carries optional `discrimination` prose for ambiguous trigger pairs.
 - **Multi-model review loop** (`multi-model-review.md`) — codifies the panel-of-reviewers convergence pattern. Trigger-fired domain + utility-called by `post-code-change.md`'s panel hard gate. Three convergence models; max-loop escalation; C2 status enum for findings dispositions.
+- **Model registry decoupling** (`.github/playbooks/multi-model-review/current-model-registry.md`) — capability tier → current model name mapping for multi-model-review panel slots. Playbooks reference abstract tiers (`heavy-claude-xhigh`, `heavy-gpt-premium`, `light-claude`, etc.) instead of literal model names, so model deprecations / renames update in ONE place. Representative current mappings: `heavy-claude-xhigh` = `claude-opus-4.7-xhigh`; `heavy-gpt-premium` = `gpt-5.5`; `light-gpt` = `gpt-5.4-mini`. See the registry for the full 9-tier table + runtime-fallback / substitution rules.
 - **Sharpened defaults** — §3.1 stale-comment-disposition (rename-first runs first; then default DELETE) + canonical THROWAWAY: header exception; §3.6 convention precedence (dominant or closest-in-purpose sibling first); pre-implementation G3 (in-scope-only approach-selection) + G5 (safety-critical-skip augmenting User-skip set); cleanup-commit-buckets default coarser grouping; G6 dead-code default-delete folded into LPA Axis 1; worktree-setup stacked-PR discipline.
 
 ## Setup (one-time)
@@ -369,3 +375,27 @@ The CLI picks it up on the next session start (no auto-load registration needed 
 - The slim `AGENTS.md` core stays in scope for every session — workflow phase index, hard gates, universal coding standards (`§3`), commit-message rules (`§2`), and the ask-first / user-skip / state-tracking conventions always apply.
 - Topic files only load when their `applyTo` glob matches the working set, keeping context-window usage low for non-matching languages.
 - Playbook files only load when the agent reaches the relevant phase or when a strong-trigger intent is detected and the user confirms the offer, keeping heavy procedural detail (multi-model reviewer panels, pre-PR-push comment sweeps, design-spec section lists, ADO field sets) out of always-loaded context.
+
+
+
+## Cycle history
+
+The branch `lightweight-gate-v5` was bootstrapped in commit `92f0622` ("Add lightweight-gate-v5: PR Quality Gate system (4/4 panel READY)") and has accumulated 53 commits as of cycle 5 (52 before this maintenance commit), including the original gate build + earlier PR-review pattern-catalog work (PR-558 cycles 1-10). The most recent 4 cycles documented below extend that foundation. Cycle 5 ran the full rubber-duck → 3-reviewer plan panel → unanimous READY → implement → post-impl panel → §0 git safety gates → commit + push workflow; earlier cycles ran similar processes captured in commit history.
+
+| Cycle | Commit      | HIGH slugs | Headline |
+|-------|-------------|------------|----------|
+| 1     | `12fddeb`   | 24 → 41    | 27 catalog rules + drift safeguard |
+| 2     | `577fac9`   | 41 → 43    | 6 rules integrating 4 playbooks at post-impl |
+| 3     | `83af4ce`   | 43 → 47    | G6 pre-impl playbook-offer step + 10 rules + 2 post-impl gap-fill |
+| 4     | `0ce6d0c`   | 47 → 47    | `cross-file-bug-investigation.md` playbook (NEW investigative use case) |
+
+Per-cycle detail:
+
+- **Cycle 1** (`12fddeb`) — added 27 PR-quality-gate catalog rules + drift safeguard (pre-commit hook + CI workflow + ack mechanism). Established catalog-enforcement-at-commit-time foundation.
+- **Cycle 2** (`577fac9`) — added 6 catalog rules integrating 4 in-repo playbooks (LPA, intent-driven-testing, design-exploration, performance-comparison) at POST-IMPLEMENTATION via POST-CODE-CHANGE LEDGER. Playbooks now fire automatically on commit.
+- **Cycle 3** (`83af4ce`) — added G6 pre-impl playbook-offer evaluation step + 10 catalog rules covering 7 playbooks at pre-implementation phase + 2 post-impl gap-fill rules. Enforcement extends UPSTREAM to design / implementation phases.
+- **Cycle 4** (`0ce6d0c`) — added `cross-file-bug-investigation.md` playbook (9 lanes; new `multi-model-review` target-type `bug-investigation` with target-type-specific 7-field finding schema + VERDICT-emission rule + C2 routing deferred to caller). NEW parallel use case: panel-driven cross-file bug hunting on UNCHANGED code (daily bug-finding work). No new catalog rules.
+
+Rule counts reflect commit-message claims; some commits may net-add fewer than claimed if they also remove rules in the same cycle.
+
+**Maintenance contract**: future cycles append a row to the table + a bullet to the per-cycle detail list in the same commit that introduces the cycle's work; update the bootstrap-paragraph cycle number (cycle 5 → cycle N) + documented-cycle count ("most recent 4 cycles" → "most recent N cycles") + commit count (53 → +M) so the section stays internally consistent.

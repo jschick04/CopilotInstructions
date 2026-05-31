@@ -34,7 +34,7 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 | `heavy-gpt-codex` | `gpt-5.3-codex` | — |
 | `heavy-gpt-cross-version` | `gpt-5.4` | Different reasoning profile from gpt-5.5. |
 | `light-claude` | `claude-haiku-4.5` | — |
-| `light-gpt` | `gpt-5-mini` | — |
+| `light-gpt` | `gpt-5.4-mini` | Updated cycle 5 to newer mini-tier version line. |
 | `light-claude-balanced` | `claude-sonnet-4.6` | — |
 
 ## Runtime fallback rule
