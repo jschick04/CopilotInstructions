@@ -146,6 +146,41 @@ recipe:
   await-inline shape; do NOT copy that shape into a fire-and-forget site
   without adding (iii).
 
+**Adversarial dispatch-ordering enumeration when reviewing async / queued /
+concurrent fixes**: when verifying a fix that involves async, queued, or
+otherwise concurrent operations (state-management dispatchers with queued
+reducers, message-queue handlers, multi-thread state updates, callback
+chains, awaited-then-mutated state, framework event-then-completion
+sequences, etc.), ADVERSARIALLY enumerate dispatch / arrival / commit
+orderings. If your verification argument hinges on the phrase "X may not
+have happened yet" / "Y is not yet committed" / "Z is in-flight but not
+landed", you MUST ALSO verify the case where X HAS already happened / Y HAS
+already committed / Z HAS already landed. Both orderings are typically
+reachable in real concurrent code; defaulting to the "has not yet"
+assumption hides real bugs that surface only when the reviewer-overlooked
+ordering arises in production.
+
+Escape hatch: a single-ordering analysis is sufficient ONLY when the
+impossibility of the other ordering is grounded in (a) framework source /
+documentation that the orderings are serialized at the framework level
+(cite the file + line / doc URL / version), (b) a project-defined
+synchronization invariant (cite the source where it's enforced — `lock`
+scope, single-threaded dispatcher contract, etc.), OR (c) a strict
+happens-before relationship the language model guarantees (e.g., `await`
+sequencing within a single async method body in C#, sequenced-before in
+C++). Mere assertion that "this shouldn't happen" or "the other case is
+unlikely" without one of those three groundings does NOT clear the bar.
+
+Mnemonic: **"enumerate both orderings, or cite why one is unreachable."**
+
+Mechanically distinct from cross-file sweep (which scans for the same
+pattern shape in unfixed code) and from self-similarity sweep (which
+checks fix-introduced code for the original pattern) — this catches the
+failure mode where the reviewer's verification argument only considers
+ONE possible interleaving and silently treats it as definitive. Common
+symptom: a panel finding is "verified clean" in iter N, then the bot
+reviewer flags the OTHER ordering as a real bug in the post-PR review.
+
 **Verify "pre-existing" claims before exempting from sweeps (Delta J)**:
 before dismissing a sister-site finding as "pre-existing pattern, not introduced
 by this PR" (and therefore exempt from the cumulative-branch remediation sweep

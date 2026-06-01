@@ -42,6 +42,18 @@ For each comment:
 
 Do NOT silently apply changes you cannot independently justify.
 
+#### 2.1. Doc-comment / XML-doc accuracy findings — comment-necessity audit first
+
+Before applying a bot's suggested doc-comment rewording or accuracy fix, run the comment-necessity audit per the `pattern-catalog.md` `comment-necessity` slug (and per `AGENTS.md` §3.1 comments policy). The audit short-circuits the most common bot-driven doc-iteration spiral (bot flags wording → reviewer rewords → bot flags the new wording → reviewer re-rewords) by deleting non-load-bearing comments outright rather than wordsmithing them.
+
+Decision tree:
+
+- **(a) Comment is NON-LOAD-BEARING** (narrates what the code does, restates type behavior, references panel artifacts / round numbers, duplicates an XML method summary with an inline comment, multi-line `<remarks>` on an internal type, or restates a contract that the method / test / type NAME already conveys): **delete the comment entirely**; `status=fixed` citing the comment-necessity audit. Do NOT wordsmith.
+- **(b) Comment IS LOAD-BEARING** (captures a genuinely non-obvious concurrency invariant, race-safety rationale, BCL quirk with version citation, FP-override citation, spec/standard reference, or other *why* the code cannot self-document via naming or extraction) AND the bot's accuracy concern is correct: apply minimal fix to bring the comment in line with the code; `status=fixed`.
+- **(c) Bot's accuracy concern is WRONG** (the comment IS accurate, the bot misread): `status=dismissed-source-grounded` citing the source contradicting the bot's claim.
+
+The mechanical default is **always run the audit first**, never "default to dismiss". The audit's outcome determines the disposition.
+
 ### 2.5. Self-similarity sweep BEFORE applying the fix (HARD GATE)
 
 Bot reviewers consistently flag only ONE instance of a recurring pattern in a diff, even when 2+ sister sites have the same shape. The catalog's `multi-model-review/pr-creation-mirror-prompt.md` already mandates a recurring-pattern sweep during the §2D panel, but bot findings on existing PRs bypass that gate: the fix iteration goes directly from "bot flagged site X" → "fix site X" → "amend" → "push", and the next round of bot review re-flags the pattern at site Y, then site Z, then site W.
