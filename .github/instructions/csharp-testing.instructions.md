@@ -143,6 +143,22 @@ public const string <Domain>DescriptionContainsXOic = "..."; // OrdinalIgnoreCas
 
 Single class, suffix-disambiguated. Apply the same convention whether the constant lives in a per-project `Constants` partial or a shared `<Domain>TestConstants` partial.
 
+### Constant naming — name must match the value's actual domain
+
+A test-constant's identifier must accurately describe what the value IS, not what the author once *intended* it to be. When the value-vs-name domain drifts — typically because a test was refactored from one scenario to a broader one but the constant name fossilized — readers misclassify the test, reviewers (human and Copilot bot) flag the mismatch on sight, and downstream tests inherit the misleading frame.
+
+The canonical violation: `public const string BadUncPath = @"E:\bad-unc-path";` — the name asserts UNC (`\\server\share\...`) but the value is a local-drive path. Tests using `BadUncPath` then talk about "simulated UNC timeout" while actually exercising "any path that throws during probe", which is broader. Two fixes:
+
+- **Rename the constant to match the value's actual domain** (preferred when the test's real intent is the broader scenario): `BadUncPath` → `ProbeFailurePath`. Update all references AND any exception messages / comments that referenced the old narrow scope.
+- **Change the value to match the name** (preferred when the test genuinely needs a UNC path): `BadUncPath = @"\\unreachable-server\share\path";`. Be aware that "looks like UNC" values can produce different runtime behavior than local-drive values (UNC resolution timeouts, different exception types, host-network-dependent timing) — verify the test still exercises the intended code path.
+
+**Audit lens** (apply during test refactors and during PR self-review):
+- For every test constant declared in `Constants.<Topic>.cs`, read the name aloud while looking at the value. Do they describe the same thing?
+- Domain keywords in constant names — `Unc`, `Http`, `File`, `Folder`, `Json`, `Xml`, `Base64`, `Guid`, `Email`, `Uri` — each carries a structural commitment. The value MUST satisfy that structure. `EmailAddress = "not-an-email"` is the same class of bug.
+- Negative-scenario prefixes — `Bad`, `Invalid`, `Malformed`, `Nonexistent`, `Unreadable`, `ProbeFailure` — describe the FAILURE the test exercises, not the value's surface format. Pick the prefix that matches what the test is actually verifying. "`Bad`" alone is too vague; "`BadFormat`", "`BadAuth`", "`ProbeFailure`" each communicate something specific.
+
+When you refactor a test from a narrow scenario (UNC timeout) to a broader one (any probe failure), this rule fires the same way as the user-facing-text re-audit in `AGENTS.md §3.9`: scope-widening leaves stale narrow-scope language in names, comments, and exception messages — sweep all three.
+
 ### Extracting duplicated test values
 
 - Same non-trivial literal in **≥2 tests within ONE test project** → add to project-local `TestUtils/Constants/Constants.<Topic>.cs`.

@@ -69,3 +69,48 @@ Build evidence: if `await using var x = ...` compiles, the type implements `IAsy
 **Mitigation candidates**:
 - None worth pursuing. The fix is on Copilot's side (knowledge base update). The cost of changing the code to use `using var` instead of `await using` would lose async-context benefits (some IAsyncDisposable implementations have legitimately-different async vs sync teardown).
 - Alternative: explicit type annotation at the use site (`await using ServiceProvider sp = ...`) makes the interface implementation more obvious to Copilot's matcher. Minor readability cost; may reduce FP recurrence. Optional per-project.
+
+---
+
+## FP-3: "C++ raw-string literal content includes the surrounding parens / starts with `(`"
+
+**Technical claim**: a `R"<delim>(...)<delim>"` (or `LR`/`u8R`/`uR`/`UR` wide/UTF prefixed variant) raw-string literal's *content* includes the `(` and `)` characters that bracket the content — typically rendered as "the string starts with `(` before the quoted exe path" or "wraps the command in parens (e.g., `(%s %s)`)".
+
+**Why it's a false positive**:
+Per the C++ standard (ISO/IEC 14882:2020 § 5.13.5 ¶ 4 "String literals", lex.string), a raw-string literal has the syntax `R"<d-char-sequence>(<r-char-sequence>)<d-char-sequence>"`, where:
+- `<d-char-sequence>` is a user-chosen delimiter (0–16 characters, excluding parens / backslash / whitespace), often a single hyphen `-` or empty.
+- `<r-char-sequence>` is the actual string content.
+- The flanking `(` and `)` are part of the SYNTAX, not the content.
+
+So `LR"-(%s %s)-"` produces a wide-string literal of exactly 5 characters (`%s`, space, `%s`) — NOT 7 characters (`(`, `%s`, space, `%s`, `)`). Same for `LR"-("%s")-"` which is 4 characters (`"`, `%s`, `"`), not 6.
+
+**Empirical verification** (compile-and-run):
+```cpp
+#include <iostream>
+int main() {
+    std::wcout << L"[" << LR"-("%s")-" << L"] len=" << wcslen(LR"-("%s")-") << std::endl;
+    std::wcout << L"[" << LR"-(%s %s)-" << L"] len=" << wcslen(LR"-(%s %s)-") << std::endl;
+}
+// Output:
+// ["%s"] len=4
+// [%s %s] len=5
+```
+
+Use this snippet (substituting the actual delimiters from the flagged code) when a similar claim recurs — runs in seconds and produces irrefutable evidence.
+
+**Illustrative phrasings** (Copilot variants observed):
+- "Because the string currently starts with `(` before the opening quote, paths with spaces will be parsed incorrectly and process creation can fail."
+- "These command-line concatenations wrap the whole command in parentheses (e.g., `(%s %s)`), which changes the first token and can break `CreateProcessW` parsing."
+- "Wrapping the entire command line in parentheses during argument append can change tokenization."
+
+**Recurrence pattern**: Copilot's pattern matcher appears to treat the raw-string delimiter syntax as literal characters, especially when the delimiter is a single non-alphanumeric (`-`, `=`, `*`) or when the content itself contains `%s` format specifiers (which may confuse the matcher's heuristics). Tends to recur in clusters when one file uses several raw-string literals with the same delimiter (the matcher applies the mis-parse to each).
+
+**Canonical dismissal template**:
+> "False positive — `(` and `)` are part of the C++ raw-string-literal delimiter syntax `R\"<delim>(...)<delim>\"` per ISO/IEC 14882:2020 § 5.13.5 ¶ 4, NOT part of the string content. The runtime string is `<actual-content>` (length N), not `<copilot-misread>` (length N+2). Verified by compile+run of `wcslen(<the-literal>)`. Recurring FP per `known-false-positives.md` FP-3."
+
+**Mitigation candidates**:
+- Switch the delimiter to a more distinctive sequence (e.g., `LR"==(...)=="` instead of `LR"-(...)-"`) — Copilot's matcher may handle longer delimiters more reliably. Untested across model versions; low confidence.
+- Switch from raw-string to escaped-string (`L"\"%s\""` instead of `LR"-("%s")-"`). Loses raw-string readability benefits; only worth it if the same file triggers the FP repeatedly across model updates.
+- Add a `// raw-string delimiter: -` comment above the literal — does NOT silence Copilot (the matcher doesn't read context comments) but helps human reviewers verify quickly.
+- Status: keep the raw-string syntax; dismiss the FP. The readability win of `LR"-("%s")-"` over `L"\"%s\""` is real and worth the FP cost.
+
