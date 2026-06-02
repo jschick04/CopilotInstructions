@@ -236,6 +236,26 @@ The universal test-specificity and negative-assertion rules in `AGENTS.md` apply
       Assert.DoesNotContain(forbidden, tokens);
   ```
   The intent is exclusion-of-specific-tokens (or inclusion-of-required-tokens), not exact-serialized-form. Assert the intent, not the implementation detail. **Audit lens**: any `Assert.Contains` / `Assert.Equal` / `Assert.Matches` on a value whose contract is "list-of-tokens", "set of attributes", or "headers-must-include" — replace with split + per-token presence/absence assertions. The same rule applies to JSON property arrays, XML attribute-value tokens, and HTTP header values that the spec defines as comma-separated lists.
+- **Brittle test path resolution — fixed-depth `..\..\..\` from `AppContext.BaseDirectory`.** When a test needs to read a file checked into the repo (source file for drift assertions, manifest XML for schema tests, fixture JSON / SQL / golden-output), do NOT compute the path with a hardcoded `Path.Combine(AppContext.BaseDirectory, @"..\..\..\..\..\..\src\<File>")` segment count. The depth from test-output directory to repo root depends on the TFM directory (`net10.0/` vs `net10.0-windows10.0.19041.0/`), configuration (`Debug/` vs `Release/`), publish vs build (`win-x64/` subfolder appears in publish output), and any future addition of a per-runner subdirectory (e.g., `dotnet test --results-directory`). A fixed `..\..\..` count works on the author's machine and silently breaks on a different runner / config — the test then fails with "file not found" pointing at a wrong path, which reviewers (human and Copilot bot) flag on sight. **Pattern to apply**: walk up from `AppContext.BaseDirectory` until you find a sentinel that anchors the repo root (typically the solution file `*.slnx` / `*.sln`, less commonly `.git/`), then `Path.Combine` the discovered root with the relative segments:
+  ```csharp
+  private static string ResolveRepoRelativePath(params string[] segments)
+  {
+      var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+      while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "<Solution>.slnx")))
+      {
+          directory = directory.Parent;
+      }
+
+      Assert.NotNull(directory);
+
+      var combined = Path.Combine([directory.FullName, .. segments]);
+      Assert.True(File.Exists(combined), $"Expected file at {combined} to exist.");
+
+      return combined;
+  }
+  ```
+  Use the project's own solution-file name as the sentinel (e.g., `EventLogExpert.slnx` in this repo). If multiple solutions live under one repo, prefer `.git/` (a directory check) or a repo-specific marker file. **Audit lens**: `rg -t cs "Path\.GetFullPath\(Path\.Combine\(AppContext\.BaseDirectory.*\\.\\.\\.\\.\\." tests/` over the test tree — every match with ≥3 `..` segments is a candidate for the walk-up pattern. Each test project's first such helper should be promoted to its `TestUtils/PathFixtures.cs` per the *Default — per-project `TestUtils/`* section above; subsequent test files in the same project use the helper.
 - **Slow tests masquerading as unit tests.** A "unit test" that opens a real SQLite database, hits the file system, or sleeps is an integration test. Move to the integration suite or replace the dependency with an in-memory fake. Unit tests should be < 100ms each.
 - **Tests that pass when the SUT is deleted.** Run the test mentally after `throw new NotImplementedException();` is the only thing in the SUT. If it still passes (e.g., it only verified mock setups, or it only asserted that an exception was thrown without checking which one), the test has no purpose.
 
