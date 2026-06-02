@@ -1,0 +1,38 @@
+name: pr-gate-check
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  comment-audit:
+    name: Per-commit comment-audit ledger verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: pwsh
+        run: |
+          git fetch origin "${{ github.base_ref }}" 2>$null
+          ./scripts/check-comment-audit.ps1 -BaseRef "origin/${{ github.base_ref }}"
+
+  playbook-ref-check:
+    name: Verify playbook path references resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/check-playbook-refs.ps1
+
+  script-tests:
+    name: comment-audit module unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-comment-audit.tests.ps1

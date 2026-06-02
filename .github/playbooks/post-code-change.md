@@ -108,20 +108,30 @@ Step 2.5 sweep: ran, <N> findings.
 
 ### 2.6 §3.1 Comment audit evidence gate
 
-Run the §3.1 comment-audit evidence gate before the multi-model panel kicks off (step 3). The audit happens BEFORE the diff is shown to the user, matching §3.1's "Mandatory self-review pass before showing diff" rule.
+Run the §3.1 comment-audit evidence gate before the multi-model panel kicks off (step 3). The audit happens BEFORE the diff is shown to the user, matching §3.1's "Mandatory self-review pass before showing diff" rule. The procedural detail of WHEN/HOW comments may be added lives in `comment-protocol.md` (the §3.1 three-step protocol); this step records the OUTCOME for every comment in the diff.
 
 **Note on scope**: this evidence gate is chat audit output — NOT §3.1-governed source-code comments. §3.1's hygiene rules apply to comments IN the source code; this audit produces a structured chat-visible report ABOUT those comments. The two never collide.
 
 **MANDATORY OUTPUT REQUIREMENT.** Same discipline as step 2.5: no silent skip. The agent MUST emit this output before showing the diff:
 
 ```
-Comment audit: scope=<files in diff>, <N> new comment lines in diff, <J> justified, <D> deleted.
-- <file:line>: <justification matching one of §3.1's 3 allowed cases ("non-obvious invariant" / "external constraint" / "deliberate trade-off")> OR "deleted"
-- (one bullet per new comment line in the diff)
-- Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD | grep '^+\s*\(//\|#\|/\*\)'`" (or equivalent language-specific pattern).
+parent_sha: <git rev-parse HEAD>
+commit_subject: <proposed commit subject; recommended ≤72 chars, not enforced by CI — see comment-protocol.md §Known limitations>
+Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment lines in diff, <J> approved, <E> exempt, <DG> degraded-mode-drop, <NR> no-response-drop, <D> deleted.
+- <file:line>: approval_turn: <ask_user turn/message ref> | allowed-case: <non-obvious invariant | external constraint | trade-off> | justification: <one-line text>
+- <file:line>: approval_turn: n/a — exempt: <category from comment-protocol.md canonical 6 (typo | deletion | stale-comment-fix-per-§3.9/§3.10 | generated | vendored | THROWAWAY-header)>
+- <file:line>: approval_turn: n/a — degraded-mode-drop
+- <file:line>: approval_turn: n/a — no-response-drop
+- <file:line>: deleted (per protocol step-3 rejection or rename-first resolution)
+- (one bullet per NEW or substantively-rewritten comment line in the diff)
+- Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD` filtered for added comment syntax (`//`, `#`, `/*`, `<!--`, `--`, `<#`, `;`, `///`, `"""`) by file extension (per `comment-protocol.md` §Scope)" (or equivalent language-specific pattern).
 ```
 
-**Throwaway-marker exception** (per `design-exploration.md` / `performance-comparison.md`): when a comment in the diff is the canonical `THROWAWAY: <prototype-name>` header on a comment-capable file under `prototypes/<name>/`, it is justified under the narrow §3.1 exception clause hosted by those two playbooks. Cite the playbook in the justification (e.g., `// THROWAWAY: lock-vs-lockfree-queue → justified per design-exploration.md narrow §3.1 exception (folder + file header marker; load-bearing, not narrative)`).
+**Fail-closed semantics.** Every bullet MUST have a valid `approval_turn:` value — one of: **(i)** a real `ask_user` turn/message ref with paired `allowed-case`, **(ii)** `n/a — exempt: <category>` where `<category>` is from `comment-protocol.md`'s canonical 6, **(iii)** `n/a — degraded-mode-drop`, **(iv)** `n/a — no-response-drop`, or **(v)** `deleted (per protocol step-3 rejection or rename-first resolution)`. Any bullet failing this — missing `approval_turn:`, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` — fails the gate and blocks `git add` per `review-workflow-gates.md` §2B (the `comment-audit-§3.1` ledger row emits `failed — <site list>`). The `parent_sha:` and `commit_subject:` header lines are REQUIRED — `pr-gate-check.yml` uses `parent_sha:` to detect stale audit files (audit written for commit X but commit Y was actually made).
+
+**Persisted audit file (HARD GATE).** The §2.6 audit block above MUST also be written verbatim to `.github/pr-quality-gate/audits/last.md` in the project repo root (per `comment-protocol.md` §Persisted audit file). The file is the PR-time enforcement surface — without it, the `pr-gate-check.yml` workflow fails the PR. Stage `.github/pr-quality-gate/audits/last.md` alongside the source change in every commit by enumerating it in the explicit staged-files list (`git add .github/pr-quality-gate/audits/last.md` — never `git add .` per AGENTS.md §0). The file MUST be present in every commit including no-comment / meta-change commits (use the zero-count template). Failure to stage the file = failure of this step, blocks `git add`.
+
+**Throwaway-marker exception** (per `design-exploration.md` / `performance-comparison.md`): when a comment in the diff is the canonical `THROWAWAY: <prototype-name>` header on a comment-capable file under `prototypes/<name>/`, record it as `approval_turn: n/a — exempt: THROWAWAY-header`.
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 

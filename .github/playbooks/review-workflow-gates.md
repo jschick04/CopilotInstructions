@@ -390,7 +390,7 @@ POST-CODE-CHANGE LEDGER
       library-restructure: <ran (artifact-path:line) | N/A — <reason>>
       design-exploration: <ran (prototypes/<name>/ citation) | N/A — <reason>>
       performance-comparison: <ran (benchmark citation) | N/A — <reason>>
-    comment-audit-§3.1: <ran | N/A — no comments touched>
+    comment-audit-§3.1: <ran | N/A — no comments touched | failed — <site list of file:line bullets with invalid/missing approval_turn>>
     build: <passed | failed: …>
     tests: <passed, N/total | failed: …>
     diff-shown: <yes (ask_user turn …) | user-waived — "<quote>">
@@ -441,7 +441,7 @@ A gate row may be `N/A — <reason>` when:
 - **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
 - **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A — pure re-commit of already-reviewed content, 0 behavioral delta`.
-- **comment-audit-§3.1**: no comments added, removed, or modified in the diff.
+- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed — <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger or a missing `.github/pr-quality-gate/audits/last.md` persisted-audit file produces `failed`, which hard-blocks `git add` per `comment-protocol.md` §Recording.
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root

@@ -132,6 +132,22 @@ Beyond the playbooks (which are procedural), this repo provides a **rule enforce
 - `review-workflow-gates.md` — POST-CODE-CHANGE LEDGER §2B canonical format
 - `pattern-catalog.md` — full rule definitions with audit methods
 
+## Consumer-repo adoption — comment-protocol persisted audit + CI gate
+
+When a downstream consumer repo adopts these instructions and wants the §3.1 comment-protocol's server-side enforcement (per `.github/playbooks/comment-protocol.md` §Persisted audit file), the consumer needs to copy the following into its own repo (one folder, one workflow file, and four script files — six file-level artifacts total grouped into three numbered items below):
+
+1. **`.github/pr-quality-gate/audits/` folder** — create the directory and add a `.gitkeep` (so the folder exists before the first commit writes `last.md`). Per-commit, the agent writes `last.md` here containing the §2.6 audit block + `parent_sha:` header.
+
+2. **`.github/workflows/pr-gate-check.yml`** — copy the workflow file from this instructions repo as-is. The workflow runs `./scripts/check-comment-audit.ps1` and `./scripts/check-playbook-refs.ps1` against PRs targeting `main` (rename `branches: [main]` if the consumer repo's default branch is different).
+
+3. **`scripts/check-comment-audit.ps1` + `scripts/check-playbook-refs.ps1` + `scripts/lib/comment-audit-helpers.psm1` + `scripts/tests/check-comment-audit.tests.ps1`** — copy all four artifacts from this instructions repo. The CLI wrapper `check-comment-audit.ps1` imports the module from `lib/comment-audit-helpers.psm1`; without the module file, the CLI exits `INVOCATION_FAILED` immediately. The workflow's `script-tests` job runs the test file unconditionally — without it, CI fails. The scripts have no instructions-repo-specific hardcoded paths; they work from any project root that has `.git`, a `.github/playbooks/` folder (for the ref-check job), and the `.github/pr-quality-gate/audits/last.md` convention. If you do NOT want the `script-tests` CI job, delete that job stanza from the copied workflow.
+
+**Default branch override** — if the consumer's default branch is not `main`, edit the workflow's `branches: [main]` filter. The `BaseRef` is derived dynamically from `${{ github.base_ref }}` inside the workflow's `run:` block — no separate argument edit is needed.
+
+**Bootstrap commit** — the FIRST commit in the adoption PR that adds `.github/pr-quality-gate/audits/last.md` is detected as the bootstrap commit (`scripts/check-comment-audit.ps1` skips ledger verification for that single commit only). **Best practice:** make this commit the very first commit in the adoption PR and ALSO commit an initial `audits/last.md` file with the bootstrap disposition (use this repo's `.github/pr-quality-gate/audits/last.md` as a template). Subsequent commits in the same PR are verified normally — they MUST stage an updated `last.md` per commit. (Without this practice, an adopter who only commits `.gitkeep` in PR 1 creates a 2-PR gap: PR 1 skips bootstrap, PR 2's first add of `last.md` is also detected as bootstrap, so enforcement starts on PR 3.)
+
+**No `.github/playbooks/` folder?** — `check-playbook-refs.ps1` exits with INVOCATION_FAILED if the folder is missing. Either create an empty `.github/playbooks/.gitkeep` to satisfy the precondition or remove the `playbook-ref-check` job from the workflow.
+
 ## Catalog rule lifecycle
 
 ```

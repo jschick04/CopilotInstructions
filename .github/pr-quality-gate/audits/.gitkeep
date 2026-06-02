@@ -1,0 +1,6 @@
+Placeholder so the audits/ folder exists in the repo even before the
+first comment-audit file is committed.
+
+Per `.github/playbooks/comment-protocol.md` §Persisted audit file:
+every commit stages `last.md` here (this file is overwritten per
+commit and reviewed at PR time by `.github/workflows/pr-gate-check.yml`).
