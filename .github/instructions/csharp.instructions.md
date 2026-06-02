@@ -68,6 +68,32 @@ These patterns recur in every Blazor + JS-interop PR review. Apply them whenever
 
 ---
 
+## Return-value contracts — `Try`-prefix and `bool`-returning APIs
+
+The .NET ecosystem uses `bool`-returning `Try*` methods (`Dictionary.TryAdd`, `Dictionary.TryGetValue`, `ChannelWriter.TryWrite`, `int.TryParse`, `ConcurrentQueue.TryDequeue`, etc.) to signal an operation outcome WITHOUT throwing. Ignoring the return value silently swallows the failure case — the most common bug class flagged by the Copilot reviewer in this category, distinct from the empty-`catch` smell because no exception is involved at all.
+
+- **Every `Try*` method's `bool` return MUST be observed.** Either branch on it explicitly (`if (!_channel.Writer.TryWrite(args)) { /* handle */ }`) OR assign and use it (`var added = dict.TryAdd(k, v); if (!added) { ... }`). A bare statement `_channel.Writer.TryWrite(args);` discards the outcome — readers cannot tell whether the failure is impossible-by-construction, intentionally ignored, or a bug. Same applies to: `ConcurrentDictionary.TryRemove` / `.TryAdd` / `.TryUpdate`, `ConcurrentBag.TryTake`, `ConcurrentQueue.TryDequeue`, `ConcurrentStack.TryPop`, `Channel.Writer.TryWrite` / `.TryComplete`, `Pipe.Writer.TryAdvance`, `SemaphoreSlim.Wait(0)` overload, every `<Type>.TryParse` family (`int`, `long`, `double`, `DateTime`, `DateTimeOffset`, `TimeSpan`, `Guid`, `Enum.TryParse<T>`, `IPAddress.TryParse`), `Span<T>.TryCopyTo`, `MemoryExtensions.TryWrite`, `IDictionary<,>.Remove` (bool overload). Same applies to YOUR OWN `Try*` methods — the convention is a public contract.
+- **Document why an ignored return is safe.** If you genuinely don't care about the outcome — e.g., a best-effort cleanup that runs during disposal where the resource is going away anyway — discard explicitly with `_` AND add a one-line comment: `_ = _channel.Writer.TryComplete(); // best-effort during dispose; further writes already racey`. The discard `_ = ...` plus the comment together signal "deliberate, here is why" to the next reader. Bare `TryComplete();` cannot do that.
+- **Channel-specific failure modes** (`ChannelWriter<T>.TryWrite`):
+  - Returns `false` on an unbounded channel ONLY when the writer has been completed (`Complete()` / `TryComplete()`).
+  - Returns `false` on a bounded channel when the channel is full AND `FullMode == DropWrite`/`DropOldest`/`DropNewest`, or when completed.
+  - Production code that calls a wrapper like `Enqueue(...)` from user-initiated paths (UI event handlers, activation callbacks, request handlers) MUST log at `Warning` level on `TryWrite` returning `false` so "the operation silently did nothing" failures are debuggable in the field. The cost is one log line; the benefit is a diagnostic clue when the user reports "I clicked the button and nothing happened". Pattern:
+    ```csharp
+    public void Enqueue(ActivationArgs args)
+    {
+        if (args.IsEmpty) { return; }
+
+        if (!_channel.Writer.TryWrite(args))
+        {
+            _logger.Warning($"Activation args dropped: channel write rejected (writer completed). Files={args.FilePaths.Count}, Folders={args.FolderPaths.Count}");
+        }
+    }
+    ```
+- **Companion smell — `Dictionary.Add` on a key that may exist.** `Add(k, v)` throws `ArgumentException` if `k` already exists; `TryAdd(k, v)` returns `false`. Choose based on whether duplicate is a programmer error (use `Add`, let it throw) or an expected concurrent / idempotent case (use `TryAdd`, observe the bool). Bare `dict.Add(k, v);` in a loop or callback where re-entry is possible is the same class of bug: ignoring the "duplicate" outcome via a different surfacing.
+- **`Try*` method audit lens**: `rg -t cs "\.(Try[A-Z]\w+)\(" --no-heading` over a diff — for every match, verify either (a) the call sits inside an `if (...)` / `while (...)` / `var x = ...` / `return ...` expression OR (b) the result is explicitly discarded (`_ = ...`) with an immediately-adjacent comment justifying it. Bare `Try*(...);` statements at statement position are the bug class to flag.
+
+---
+
 ## Access modifiers — least-permissive that still compiles
 
 Default to the most-restrictive access modifier at every level. Promoting later expands the API surface, ties the codebase to consumers you didn't intend to support, and makes future tightening a breaking change. Demoting later requires combing through every consumer site (markup, reflection, DI, attributes, friend assemblies). Start tight; widen only when a real consumer demands it.
