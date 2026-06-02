@@ -39,34 +39,43 @@ The `<Exec ConsoleToMSBuild="true">` task captures the called process's stdout (
 
 ## Locked-down build environments — no implicit internet fetch
 
-Many enterprise / pipeline environments (1ES, Azure DevOps managed agents, internal-mirror NuGet feeds, air-gapped builds) block direct egress to public CDNs (`dist.nuget.org`, `download.microsoft.com`, GitHub Releases, raw GitHub content URLs). Build scripts that fetch tooling at build time — `nuget.exe`, `dotnet-coverage`, `dotnet-format`, `cake`, custom CLI tools, vcpkg, etc. — MUST have a non-internet fallback or the pipeline silently breaks the first time it runs in the locked-down env. The breakage is invariably attributed to "flaky network" before someone finally checks the egress allowlist.
+Many enterprise / pipeline environments (1ES, Azure DevOps managed agents, internal-mirror NuGet feeds, air-gapped builds) block direct egress to public CDNs (`dist.nuget.org`, `download.microsoft.com`, GitHub Releases, raw GitHub content URLs). Beyond the egress concern, fetching tools from moving URLs like `.../latest/<tool>.exe` introduces a supply-chain risk (no integrity verification + non-reproducible builds) that applies to EVERY env, not just locked-down ones. The rule below addresses both.
 
-- **Pattern: discover-on-PATH first, fallback to download as last resort.** Wrap tool acquisition in conditional MSBuild logic so the same target works locally (dev box where `nuget.exe` may not be installed) AND in the locked-down pipeline (where the tool is installed system-wide by a previous pipeline step):
+- **Pattern: discover-on-PATH, fail-fast if not found. Do NOT auto-download.** Wrap tool acquisition in MSBuild logic that locates the binary via `where <tool>` (or platform equivalent) and emits an actionable `<Error>` if not found. The error message MUST name the canonical install commands for each consumer (dev, CI). This works locally (dev installs with `winget` / `scoop` / `choco`) AND in pipelines (the pipeline owner provisions the tool via the platform's installer task BEFORE the build target runs):
   ```xml
   <Target Name="EnsureNugetExe" Condition="'$(NugetExePath)' == ''">
-    <!-- Step 1: try PATH discovery (works in locked-down envs that install tools system-wide via a pipeline task) -->
     <Exec Command="where nuget.exe"
           ConsoleToMSBuild="true"
           ContinueOnError="true"
-          IgnoreStandardErrorWarningFormat="true">
+          IgnoreExitCode="true">
       <Output TaskParameter="ConsoleOutput" PropertyName="WhereOutput" />
       <Output TaskParameter="ExitCode" PropertyName="WhereExitCode" />
     </Exec>
     <PropertyGroup>
-    <!-- `where` prints one match per line (newline-separated, NOT semicolon-separated).
-         Use Regex.Match to extract the first line; never `Split(';')` — that returns the
-         entire multi-line blob unchanged when no `;` is present, and Exists() then fails. -->
-    <NugetExePath Condition="'$(WhereExitCode)' == '0'">$([System.Text.RegularExpressions.Regex]::Match($(WhereOutput), '^[^\r\n]+').Value)</NugetExePath>
-  </PropertyGroup>
-  <!-- Step 2: fallback download for dev convenience. Will fail in egress-blocked envs, which is correct: -->
-  <!-- the pipeline owner is responsible for provisioning nuget.exe via NuGetToolInstaller@1 or equivalent. -->
-  <DownloadFile Condition="'$(NugetExePath)' == ''"
-                SourceUrl="https://dist.nuget.org/win-x86-commandline/latest/nuget.exe"
-                DestinationFolder="$(IntermediateOutputPath)">
-    <Output TaskParameter="DownloadedFile" PropertyName="NugetExePath" />
-  </DownloadFile>
-</Target>
-```
+      <!-- `where` prints one match per line (newline-separated, NOT semicolon-separated).
+           Use Regex.Match to extract the first line; never `Split(';')` — that returns the
+           entire multi-line blob unchanged when no `;` is present, and Exists() then fails. -->
+      <NugetExePath Condition="'$(WhereExitCode)' == '0'">$([System.Text.RegularExpressions.Regex]::Match($(WhereOutput), '^[^\r\n]+').Value)</NugetExePath>
+    </PropertyGroup>
+    <Error Condition="'$(NugetExePath)' == '' OR !Exists('$(NugetExePath)')"
+           Text="nuget.exe not found on PATH. Install via `winget install Microsoft.NuGet` (dev), the NuGetToolInstaller@1 pipeline task (ADO), or `actions/setup-nuget@vN` (GitHub Actions). See &lt;repo-docs-link&gt; for prereqs." />
+  </Target>
+  ```
+- **Do NOT include an unconditional `<DownloadFile>` fallback.** The default MUST be discover-on-PATH + fail-fast. If — and only if — you have a concrete reason to keep an auto-download (e.g., a dev-onboarding script that genuinely justifies the convenience), it MUST meet ALL of these criteria:
+  1. **Pinned version URL**, not `latest` (e.g., `https://dist.nuget.org/win-x86-commandline/v7.6.0/nuget.exe`, not `.../latest/nuget.exe`). Pinning makes the build reproducible and gives a fixed target for the hash check.
+  2. **SHA256 verification step** AFTER download. PowerShell `Get-FileHash` or `certutil -hashfile <path> SHA256`; compare against a hardcoded expected hash. Fail the build (and delete the file) on mismatch:
+     ```xml
+     <DownloadFile Condition="!Exists('$(NugetExePath)')"
+                   SourceUrl="https://dist.nuget.org/win-x86-commandline/v7.6.0/nuget.exe"
+                   DestinationFolder="$(IntermediateOutputPath)" />
+     <Exec Command="powershell -NoProfile -Command &quot;$h = (Get-FileHash -Algorithm SHA256 -Path '$(NugetExePath)').Hash; if ($h -ne 'EXPECTED_HASH_UPPERCASE') { Remove-Item '$(NugetExePath)' -Force; Write-Error ('SHA256 mismatch: got ' + $h); exit 1 }&quot;" />
+     ```
+  3. **OR the source URL points at an internal mirror you control** (e.g., your org's internal CDN, `https://yourcorp.pkgs.visualstudio.com/...`), where the org's existing security review already covers the supply-chain question and the URL is not a moving `latest`. Internal mirrors are exempt from #1+#2 only because the trust boundary moves to the mirror's auth + retention guarantees.
+  4. **An XML comment immediately above the `<DownloadFile>` element** naming (a) which consumer needs the download (e.g., "first-time dev onboarding"), (b) which consumers do NOT need it (e.g., "CI never hits this path — pipeline provisions `nuget.exe` via NuGetToolInstaller@1"), and (c) the maintenance commitment (e.g., "version pin must be bumped quarterly when NuGet ships a security patch").
+
+  None of those 4 criteria is optional. Absent any one, the `<DownloadFile>` is a supply-chain risk + reproducibility hazard and the Copilot reviewer will flag it. **In practice, the cost of meeting #1+#2 is often higher than the convenience saved** — most projects find that requiring an explicit `winget install` (or pipeline installer task) is the cleaner answer. Choose deliberately, not by default.
+
+  > **Empirical evidence (PR-563 R5)**: this rule was originally drafted in `ce6bdb1` to recommend the `DownloadFile` fallback for "dev convenience" with no integrity controls. Copilot flagged that as a supply-chain risk on the very next PR review, and the consuming project removed the fallback entirely. The reversal is preserved here so future readers don't re-derive the same lesson.
 - **`where <tool>` output is newline-delimited, not semicolon-delimited.** Common bug pattern: `$(WhereOutput.Split(';')[0])` treats the multi-line output as if it were `PATH`-style. There are no semicolons in `where`'s output — the split is a no-op and `[0]` returns the entire multi-line blob, which then fails `Exists(...)` checks downstream. Use `[System.Text.RegularExpressions.Regex]::Match($(WhereOutput), '^[^\r\n]+').Value` to extract just the first line. (Confusingly, `where` exists to search `PATH`, but its OUTPUT is not `PATH`-shaped — easy to mix the two up.)
 - **Honor `$(RestoreConfigFile)`** — when callers pass `dotnet publish --configfile internal-mirror.config`, MSBuild propagates the path into `$(RestoreConfigFile)`. Custom restore targets that shell out to `nuget.exe` should forward the configfile:
   ```xml
@@ -76,8 +85,13 @@ Many enterprise / pipeline environments (1ES, Azure DevOps managed agents, inter
         Condition="'$(RestoreConfigFile)' == ''" />
   ```
   Without forwarding, restore falls back to the system-default NuGet config (typically `%APPDATA%\NuGet\NuGet.Config`) which references public `nuget.org` and fails in locked-down envs even though the parent `dotnet publish` was correctly configured.
-- **For NuGet tool acquisition in ADO pipelines specifically:** the `NuGetToolInstaller@1` task puts a current `nuget.exe` on PATH and is the canonical way to satisfy the discover-on-PATH branch above. Pair it with the discover-first pattern in MSBuild so the same csproj works locally (where dev may have nuget.exe on PATH or the fallback download runs) AND in ADO (where the installer task provisions it before the build target fires).
-- **Audit lens:** `rg "DownloadFile|Invoke-WebRequest|wget|curl" *.csproj *.targets *.props eng/*.ps1` — every match should be guarded by a PATH-discovery / cached-binary check first, OR have an immediately-preceding XML comment documenting why unconditional internet fetch is acceptable for this specific script (e.g., a developer-only `eng/install-x.ps1` that's never invoked from CI).
+- **Tool acquisition by platform — canonical install paths to cite in `<Error>` text:**
+  - **Local dev (Windows):** `winget install Microsoft.NuGet`, `scoop install nuget`, `choco install nuget.commandline`.
+  - **GitHub Actions (`windows-2022` / `windows-2025`):** nuget.exe is PRE-INSTALLED in the standard runner image (verify via the runner image readme at `https://github.com/actions/runner-images/blob/main/images/windows/<image>-Readme.md` — search for "NuGet"). No action needed.
+  - **GitHub Actions (linux/mac or non-pre-installed tools):** `nuget/setup-nuget@v2` or the language-specific setup action.
+  - **Azure DevOps:** `NuGetToolInstaller@1` task before the build step. Same pattern for other tools: `UseDotNet@2`, `JavaToolInstaller@0`, `NodeTool@0`, etc.
+  - **1ES / managed pipelines:** the platform's tool-installer task (often the same ADO tasks above). For tools without a first-party installer task, use a self-hosted-runner image that pre-installs the tool.
+- **Audit lens:** `rg "DownloadFile|Invoke-WebRequest|wget|curl" *.csproj *.targets *.props eng/*.ps1 eng/*.sh` — every match must EITHER (a) meet ALL FOUR criteria above (pinned URL + SHA256 verification + internal-mirror OR documented dev-only justification + maintenance comment) OR (b) be removed in favor of the fail-fast pattern. There is no third "convenience fallback" middle ground.
 
 ---
 
