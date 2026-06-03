@@ -178,9 +178,25 @@ For comments dropped via step-3 rejection or step-2 rename-first resolution (aud
 
 A bullet missing the `approval_turn:` field, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` value fails the step-2.6 gate and blocks `git add` per `review-workflow-gates.md` §2B (`comment-audit-§3.1: failed — <site list>`).
 
-## Persisted audit file — `.github/pr-quality-gate/audits/last.md`
+## Persisted audit file — `.github/pr-quality-gate/audits/last.md` (OPT-IN per consuming repo)
 
-Every commit MUST stage a file at `.github/pr-quality-gate/audits/last.md` (relative to the project repo root) containing the §2.6 comment-audit block verbatim plus a `parent_sha:` header line. The file is overwritten per commit and is the persistent artifact PR-time review (bot or human) reads to verify the comment audit.
+**Adoption gate (READ THIS FIRST).** The persisted audit file is OPT-IN per consuming repository — agents MUST NOT auto-create this file in repos that have not adopted the corresponding CI infrastructure. Before staging any `.github/pr-quality-gate/audits/last.md` content, the agent MUST verify the repo has adopted the audit-file workflow by checking that at least ONE of these holds in the project repo root:
+
+- A file named `.github/workflows/pr-gate-check.yml` exists (the CI workflow that consumes the audit file), OR
+- A file named `scripts/check-comment-audit.ps1` exists (the local script the workflow invokes), OR
+- A pre-existing `.github/pr-quality-gate/audits/last.md` already exists in the repo's main branch (adoption marker)
+
+If NONE of these are present, the consuming repo has not adopted this infrastructure. In that case:
+- DO NOT create `.github/pr-quality-gate/audits/last.md`. It is an instruction-set artifact that should not pollute the consuming project.
+- The §3.1 comment-protocol DISCIPLINE still applies — every NEW or substantively rewritten comment in the diff must still pass clarity-check → rename-check → step-3 `ask_user` approval (or fall under one of the canonical 6 exempt categories).
+- Comment-audit tracking happens INLINE via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (see `pre-commit.md` `comment_audit.audit_file_staged: no — repo has not adopted CI workflow`). The block records counts + per-comment dispositions via approval-turn citations from the session's `ask_user` history. No persistent file artifact is created.
+- The `staged_files` list MUST NOT include `.github/pr-quality-gate/audits/last.md` in any commit on this repo.
+
+Repos that HAVE adopted the workflow proceed with the per-commit audit-file requirement below.
+
+---
+
+Every commit on an ADOPTED repo MUST stage a file at `.github/pr-quality-gate/audits/last.md` (relative to the project repo root) containing the §2.6 comment-audit block verbatim plus a `parent_sha:` header line. The file is overwritten per commit and is the persistent artifact PR-time review (bot or human) reads to verify the comment audit.
 
 **Format** (literal text, with no leading prose):
 
