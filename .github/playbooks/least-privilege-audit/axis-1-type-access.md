@@ -21,14 +21,15 @@ Per the hard gate in the index — adding a NEW friend-grant exposes ALL current
 
 1. **SPLIT-MEMBER-VISIBILITY** — keep the type at the broader access level needed by the cross-asm consumer, but tighten individual members that have only same-asm callers. Best when the cross-asm consumer needs only a small subset of the type's surface. Language-specific: C# `public` class with mixed `public` / `internal` members; Kotlin `public` class with `internal` members; TypeScript `export class` with only the necessary methods exported / public; Rust `pub` struct with `pub(crate)` methods; Go capitalized type with lowercase methods; C++ `class` with `public` and `private` access labels; Swift `public class` with `internal` members. The cross-asm consumer sees only the subset it needs; same-asm callers retain access to everything else.
 2. **CO-LOCATION** — move the type into the consumer's asm so it becomes same-asm. Applies when the type has exactly one cross-asm consumer and no domain reason to live in the declaring asm.
-3. **KEEP-PUBLIC** — last resort when the type genuinely belongs in the declaring asm and split-visibility doesn't fit (e.g. record-style data carrier with no internal-only members to tighten).
-4. **INTERNAL+ADD-NEW-FRIEND-GRANT** — LAST resort. Only when (a) the cross-asm consumer needs broad surface that defeats split-visibility, AND (b) co-location is wrong domain-wise, AND (c) the public-surface delta from KEEP-PUBLIC would dwarf the friend-grant's coupling cost (e.g. dozens of types vs. one IVT line).
+3. **DI-SEAM-EXTRACTION** — when the type has multiple cross-asm consumers that all interact with it through a DI container (or one cross-asm consumer where CO-LOCATION is domain-wrong AND a domain-boundary citation can be articulated in the matrix entry; if the citation cannot be articulated, default to CO-LOCATION first), extract a public DI registration extension method on the owning assembly (e.g., C# `IServiceCollection.AddXxxServices()`) that registers the impl with the appropriate lifetime using an idempotent registrar where the ecosystem supports it (e.g., `services.TryAddSingleton<IXxx, XxxImpl>()` for stateless services; `TryAddScoped` / `TryAddTransient` as the lifetime warrants — beware captive-dependency hazard: do not inject scoped or transient deps into a singleton-registered impl). The internal sealed impl must retain a **public constructor** so the DI container's activator can construct it across the assembly boundary. Public surface becomes: (a) the interface, (b) the registration extension, (c) public request/response/options/contract types the interface exposes. Cross-asm consumers consume the extension once at composition root; DI-created consumers receive `IXxx` / `IXxxFactory` via constructor injection (NOT service-locator `sp.GetRequiredService<...>()` everywhere — that anti-pattern moves dependencies into method bodies). **Best when** (a) DI / composition roots are already part of the architecture (do NOT introduce DI solely to win accessibility — KEEP-PUBLIC is cheaper if no DI exists), (b) ALL cross-asm consumers are DI-amenable (if any consumer is non-DI-amenable — e.g., in a static initializer, in `Main` body before the host/container is built, or in code that runs before DI bootstrap — the rung does NOT apply; fall through to KEEP-PUBLIC or CO-LOCATION for that consumer's access path), (c) there are 2+ cross-asm consumers (CO-LOCATION cannot satisfy multiple receivers), OR (d) there is 1 cross-asm consumer but CO-LOCATION would violate slice ownership / domain boundaries and a DI seam is natural for the architecture. **Companion refactor**: if any consumer constructs the type via `new Xxx(runtimeArg, ...)`, switch to factory-via-DI — register an `IXxxFactory` alongside; consumers call `factory.Create(runtimeArg)` — the factory absorbs the runtime-parameter binding so the impl can stay internal. **Language-specific**: .NET MS.E.DI `IServiceCollection.AddXxx()` + `TryAddSingleton`/`TryAddScoped`/`TryAddTransient`; Spring `@Configuration` + `@Bean` (subject to JPMS visibility constraints); Guice `Module.configure()` + `bind(IX.class).to(XImpl.class)` (subject to Java module-export rules); Kotlin Koin `module { single { } }` / Dagger-Hilt `@Module`/`@Provides`; **frameworks where this rung is N/A or awkward**: Go Wire is compile-time DI (use compile-time provider sets, not runtime extension — usually N/A); Rust has no standard runtime DI container (apply only when the project already uses one — e.g., `shaku`); C++ has no DI convention in the standard library (project-specific framework required); Swift / Python have no standard runtime DI — apply only when the project already uses a container (e.g., Swift: Swinject; Python: dependency-injector / FastAPI Depends), otherwise N/A.
+4. **KEEP-PUBLIC** — last resort when the type genuinely belongs in the declaring asm and split-visibility doesn't fit (e.g. record-style data carrier with no internal-only members to tighten).
+5. **INTERNAL+ADD-NEW-FRIEND-GRANT** — LAST resort. Only when (a) the cross-asm consumer needs broad surface that defeats split-visibility, AND (b) co-location is wrong domain-wise, AND (c) DI-seam extraction does not apply (no DI in the architecture, or non-DI-amenable consumers), AND (d) the public-surface delta from KEEP-PUBLIC would dwarf the friend-grant's coupling cost (e.g. dozens of types vs. one IVT line).
 
 Existing friend-grants on the declaring asm are free to use — re-using an established `<InternalsVisibleTo>` / module export incurs no new proliferation cost.
 
 ## Recommendation values
 
-`INTERNAL` / `INTERNAL+REUSE-EXISTING-FRIEND-GRANT` / `SPLIT-MEMBER-VISIBILITY` / `CO-LOCATE-TO-<asm>` / `KEEP-PUBLIC` / `INTERNAL+ADD-NEW-FRIEND-GRANT` (last resort, justify in the matrix) / `DELETE` (per G6, see below) / `KEEP-PUBLIC + FLAG FOR USER APPROVAL` (per G6 conservative default).
+`INTERNAL` / `INTERNAL+REUSE-EXISTING-FRIEND-GRANT` / `SPLIT-MEMBER-VISIBILITY` / `CO-LOCATE-TO-<asm>` / `DI-SEAM-EXTRACTION` / `KEEP-PUBLIC` / `INTERNAL+ADD-NEW-FRIEND-GRANT` (last resort, justify in the matrix) / `DELETE` (per G6, see below) / `KEEP-PUBLIC + FLAG FOR USER APPROVAL` (per G6 conservative default).
 
 ## Polyglot examples
 
@@ -36,6 +37,54 @@ Existing friend-grants on the declaring asm are free to use — re-using an esta
 - A Java class `public` only for same-module callers can be package-private.
 - A Rust `pub` item with only same-crate consumers can be `pub(crate)`.
 - A Go uppercase identifier with only same-package consumers can be lowercased.
+
+## DI-SEAM-EXTRACTION worked example (C#)
+
+```csharp
+// Before — public impl forces the type's full surface to be cross-asm (wider than needed; no IVT involved)
+namespace MyProject.Foo
+{
+    public sealed record FooRequest(int Id);
+    public interface IFooOperation { /* members elided */ }
+    public interface IFooFactory { IFooOperation Create(FooRequest request); }
+    public sealed class FooFactory : IFooFactory { /* members elided */ }
+}
+
+// After — internal sealed impl + public DI seam (impl surface stays in-asm; only the interface + extension cross asm boundary)
+namespace MyProject.Foo
+{
+    public sealed record FooRequest(int Id);
+    public interface IFooOperation { /* members elided */ }
+    public interface IFooFactory { IFooOperation Create(FooRequest request); }
+
+    // Must retain a public ctor so MS.DI's ActivatorUtilities can construct it across the asm boundary.
+    internal sealed class FooFactory : IFooFactory
+    {
+        public FooFactory(/* DI-resolvable deps */) { /* ... */ }
+        public IFooOperation Create(FooRequest request) => throw null!;
+    }
+}
+
+namespace MyProject.Foo.DependencyInjection
+{
+    using Microsoft.Extensions.DependencyInjection;
+    using Microsoft.Extensions.DependencyInjection.Extensions;
+    using MyProject.Foo;  // resolves IFooFactory + FooFactory from the sibling namespace
+
+    public static class FooServiceCollectionExtensions
+    {
+        public static IServiceCollection AddFooServices(this IServiceCollection services)
+        {
+            ArgumentNullException.ThrowIfNull(services);
+            services.TryAddSingleton<IFooFactory, FooFactory>();
+            return services;
+        }
+    }
+}
+
+// Consumer (composition root, single call): services.AddFooServices();
+// Consumer (DI-created class, constructor injection): public sealed class FooConsumer(IFooFactory factory) { ... }
+```
 
 ## G6 — Dead-code default-delete (zero in-repo consumers)
 
