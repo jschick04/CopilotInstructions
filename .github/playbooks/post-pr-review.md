@@ -72,7 +72,7 @@ This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask
 
 ### 3. Run the multi-model reviewer panel in parallel — same parallel rule as `post-code-change.md`
 
-Same default panel (`claude-opus-4.7-xhigh` + `gpt-5.5` + `gpt-5.3-codex` + `gpt-5.4` + rubber-duck with `model: 'claude-opus-4.8'`), same parallel-launch rule, same anti-anchoring rules.
+Same default panel (the `post-code-change.md` §3 default 6-reviewer slate: `heavy-claude-xhigh` + `heavy-gpt-premium` + `heavy-gpt-codex` + `heavy-gpt-cross-version` + `heavy-gemini-premium` + rubber-duck at `heavy-claude-standard`; tier → model via `current-model-registry.md`), same parallel-launch rule, same anti-anchoring rules.
 
 For PR-review work specifically, instruct the panel to:
 

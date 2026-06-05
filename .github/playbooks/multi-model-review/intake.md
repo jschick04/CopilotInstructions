@@ -14,14 +14,15 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 2. **Review-target location** — a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).
 
-3. **Reviewer count** — number of reviewers. Default **5** (one rubber-duck-style critique + two GPT-family models for cross-version diversity + one Claude-family flagship + one code-specialized variant). Minimum **3** per hard gate.
+3. **Reviewer count** — number of reviewers. Default **6** (one Claude-family flagship + three GPT-family models for premium / codex / cross-version diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique). Minimum **3** per hard gate.
 
-4. **Model selection** — defaults maximize cross-family diversity and reasoning depth:
-   - `claude-opus-4.7-xhigh` — Claude family, extra-high reasoning. `code-review` slot.
-   - `gpt-5.5` — OpenAI family, premium reasoning. `code-review` slot.
-   - `gpt-5.3-codex` — OpenAI family, code-specialized. `code-review` slot (different perspective from gpt-5.5 via codex tuning).
-   - `gpt-5.4` — OpenAI family, cross-version. `code-review` slot (different reasoning profile from gpt-5.5).
-   - **rubber-duck** agent with `model: 'claude-opus-4.8'` — independent design / blind-spot critique (Opus-level reasoning per AGENTS.md sub-agent model selection defaults).
+4. **Model selection** — defaults maximize cross-family diversity and reasoning depth. Tier → current model via `current-model-registry.md`:
+   - `heavy-claude-xhigh` — Claude family, extra-high reasoning. `code-review` slot.
+   - `heavy-gpt-premium` — GPT family, premium reasoning. `code-review` slot.
+   - `heavy-gpt-codex` — GPT family, code-specialized. `code-review` slot (different perspective via codex tuning).
+   - `heavy-gpt-cross-version` — GPT family, cross-version. `code-review` slot (different reasoning profile from premium).
+   - `heavy-gemini-premium` — Gemini family, premium reasoning. `code-review` slot (third-vendor cross-family diversity).
+   - **rubber-duck** agent at `heavy-claude-standard` tier — independent design / blind-spot critique (per AGENTS.md sub-agent model selection defaults).
 
    The user can override individual slots, swap families, or add a 6th+ model when convergence is critical.
 

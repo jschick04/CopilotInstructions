@@ -17,7 +17,7 @@ Skipping pre-implementation panel for non-trivial work is a process violation. T
 
 | mode | reviewers | output cap | rg battery | `§1A` slate carve-out | Activation |
 |---|---|---|---|---|---|
-| `full` | 4-5 (slate-floor below) | none | yes | none — full slate-floor applies | default; no `ask_user` receipt required |
+| `full` | 4-6 (slate-floor below) | none | yes | none — full slate-floor applies | default; no `ask_user` receipt required |
 | `triage` | 1 code-review-role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review`; `convergence_model: single-reviewer` MANDATORY | `invoke-panel.ps1 -Mode triage`; same-turn `ask_user` receipt with `triage-acknowledged` token required per PR |
 | `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | `invoke-panel.ps1 -Mode lint-only` (effectively skips panel); same-turn `ask_user` receipt with `lint-only-acknowledged` token required per PR |
 
@@ -26,9 +26,9 @@ CLI flag is the ONLY robust activation mechanism. Env vars and `plan.md` flags a
 ## Slate composition floor (`full` mode)
 
 - ≥ 4 reviewers
-- ≥ 1 Claude family AND ≥ 2 GPT family
+- ≥ 1 Claude family AND ≥ 2 GPT family AND ≥ 1 Gemini family
 - ≥ 1 `rubber-duck` role AND ≥ 2 `code-review` role
-- ≥ 1 heavy-tier model (claude-opus-*-xhigh, claude-opus-4.8, gpt-5.5, gpt-5.4, or equivalent per `multi-model-review/current-model-registry.md` heavy-* tiers)
+- ≥ 1 heavy-tier model (claude-opus-*-xhigh, claude-opus-4.8, gpt-5.5, gpt-5.4, gemini-3.1-pro-preview, or equivalent per `multi-model-review/current-model-registry.md` heavy-* tiers)
 - Slot composition is recorded in the `PANEL CONVERGED` block's `slate` field for audit
 
 Floor is verifiable from the slate enumeration. Substitutions are allowed mid-launch ONLY if the substitute matches the same family + role + tier; documented in the `slate_substitutions` field of the `PANEL CONVERGED` block.

@@ -39,7 +39,7 @@ CopilotInstructions/.github/pr-quality-gate/
 
 | Mode | Reviewers | Output cap | rg battery | `§1A` slate carve-out | Use |
 |---|---|---|---|---|---|
-| `full` (default) | 4-5 (Claude family + GPT family; rubber-duck + code-review; ≥1 heavy-tier) | none | yes | none — full slate-floor applies | normal PRs |
+| `full` (default) | 4-6 (Claude + GPT + Gemini family; rubber-duck + code-review; ≥1 heavy-tier) | none | yes | none — full slate-floor applies | normal PRs |
 | `triage` | 1 code-review role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review` | mid-cost PRs where full panel is overkill |
 | `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | token-constrained users; PRs touching trivial scope |
 
@@ -296,7 +296,7 @@ Auto-retry is bounded to ONE attempt to prevent infinite re-run loops on a runaw
 Single file; orchestrator reads it before invoking `invoke-panel.ps1`. Contents (one-sentence summary per section; full prose in the actual file):
 
 1. **Slate composition floor** by mode:
-   - `full`: ≥4 reviewers; ≥1 Claude family + ≥2 GPT family; ≥1 rubber-duck + ≥2 code-review; ≥1 heavy-tier
+   - `full`: ≥4 reviewers; ≥1 Claude family + ≥2 GPT family + ≥1 Gemini family; ≥1 rubber-duck + ≥2 code-review; ≥1 heavy-tier
    - `triage`: 1 code-review reviewer, any model; `convergence_model: single-reviewer` (not `unanimous`); fresh `ask_user` mode-receipt required per PR
    - `lint-only`: no panel; `ask_user` mode-receipt required per PR
 2. **Convergence model**: default `unanimous` for `full`. Waive floor: `threshold ≥75%` or `confidence-weighted ≥80%`. `triage` MUST use `single-reviewer`.

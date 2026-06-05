@@ -51,7 +51,7 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 **Intake-time:**
 
 1. **Lane-symptom matching** — auto-selected lanes for the user's symptom (per `lanes-catalog.md` truth table) MUST be a subset of the user's final lane selection. User can ack-override explicitly (recorded in domain-state record).
-2. **Reviewer count ≥ 3** (matches `multi-model-review.md` minimum). Default 4: `claude-opus-4.7-xhigh` + `gpt-5.5` + `gpt-5.3-codex` + `gpt-5.4`.
+2. **Reviewer count ≥ 3** (matches `multi-model-review.md` minimum). Default 4: `heavy-claude-xhigh` + `heavy-gpt-premium` + `heavy-gpt-codex` + `heavy-gemini-premium` (tier → model via `current-model-registry.md`).
 3. **Scope-size ceiling** — scope ≥ 500 files requires explicit user override recorded as safety-critical-skip-equivalent per AGENTS *User-skip policy*.
 4. **Single-file gate** — 1-file scope surfaces `ask_user` with options: expand-scope / route-to-code-review / override-and-proceed (recorded).
 5. **Recent-changes gate** — pre-flight runs `git status --porcelain` AND `git diff --name-only <merge-base>...HEAD`. When matches exist, `ask_user` (route to `post-code-change` / continue investigation). **Default to continue** when scope is named in cross-file form (Bundle-A Q1 lists ≥2 files OR contains an interaction/flow noun like `between` / `flow` / `interaction`) — computable from intake without trigger-phrase memory.

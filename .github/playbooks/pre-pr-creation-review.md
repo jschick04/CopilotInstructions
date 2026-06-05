@@ -82,20 +82,23 @@ PRs that modify, tighten, loosen, or refactor an existing gate are NOT bootstrap
 | G6 (forbidden tools) | NO | — |
 | G7 conditions | NO | Either all 3 conditions met or exemption doesn't apply. |
 | Convergence model (default `unanimous`) | YES | Floor: `threshold ≥75%` or `confidence-weighted ≥80%`. Recorded under `convergence-waive`. Must-fix=0 still applies. |
-| Slate composition | YES | Floor: ≥4 reviewers; ≥1 Claude family + ≥2 GPT family (one premium + one cross-version-or-codex); ≥1 `rubber-duck` role + ≥2 `code-review` role; ≥1 heavy-tier. Recorded under `slate-waive`. Re-checked after every drop/replacement. |
+| Slate composition | YES | Floor: ≥4 reviewers; ≥1 Claude family + ≥2 GPT family (one premium + one cross-version-or-codex) + ≥1 Gemini family; ≥1 `rubber-duck` role + ≥2 `code-review` role; ≥1 heavy-tier. Recorded under `slate-waive`. Re-checked after every drop/replacement. |
 | Individual finding via G4 routed-deferred | YES (with G4) | External tracker URL + same-turn `ask_user` approval. |
 
 Items not in the matrix are NOT waivable.
 
 ## Reviewer slate (default heavy)
 
-| Slot | Model | Family | Role |
+Tier → current model via `multi-model-review/current-model-registry.md`.
+
+| Slot | Tier id | Family | Role |
 | --- | --- | --- | --- |
-| 1 | `claude-opus-4.7-xhigh` | Claude | `code-review` |
-| 2 | `gpt-5.5` | GPT | `code-review` |
-| 3 | `gpt-5.3-codex` | GPT | `code-review` |
-| 4 | `gpt-5.4` | GPT | `code-review` |
-| 5 | `claude-opus-4.8` | Claude | `rubber-duck` |
+| 1 | `heavy-claude-xhigh` | Claude | `code-review` |
+| 2 | `heavy-gpt-premium` | GPT | `code-review` |
+| 3 | `heavy-gpt-codex` | GPT | `code-review` |
+| 4 | `heavy-gpt-cross-version` | GPT | `code-review` |
+| 5 | `heavy-gemini-premium` | Gemini | `code-review` |
+| 6 | `heavy-claude-standard` | Claude | `rubber-duck` |
 
 **Substitution rule**: if a model is unavailable (deprecated, API down, removed from runtime), substitute the highest-capability successor from the same family. Record under `slate-substitutions: [{slot, requested, substituted, reason}]`. Slate-floor (from waive matrix) re-checked after every substitution.
 

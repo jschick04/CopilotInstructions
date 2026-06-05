@@ -130,7 +130,7 @@ Explicit matrix to defeat "well, the user said proceed" rationalization:
 | Forbidden-tool list (G6) | **NO** | — |
 | Bootstrap exemption (G7) | **NO** | The G7 conditions themselves are non-waivable; the exemption EITHER applies (all 3 conditions met) or doesn't. |
 | Convergence model (default: `unanimous`) | **YES** | Floor: `threshold ≥75%`. `confidence-weighted ≥80%` also allowed. User quote recorded under `convergence-waive`. Must-fix=0 still applies regardless. |
-| Reviewer slate composition | **YES** | Floor (all must hold simultaneously): ≥4 reviewers total; ≥1 Claude family + ≥2 GPT family (at least one premium-tier + at least one cross-version-or-codex tier); ≥1 `rubber-duck` role + ≥2 `code-review` role; ≥1 heavy-tier (per `current-model-registry.md`). User quote recorded under `slate-waive`. The floor is re-checked after every drop/replacement; an in-flight slate that falls below floor escalates per Step 7. |
+| Reviewer slate composition | **YES** | Floor (all must hold simultaneously): ≥4 reviewers total; ≥1 Claude family + ≥2 GPT family (at least one premium-tier + at least one cross-version-or-codex tier) + ≥1 Gemini family; ≥1 `rubber-duck` role + ≥2 `code-review` role; ≥1 heavy-tier (per `current-model-registry.md`). User quote recorded under `slate-waive`. The floor is re-checked after every drop/replacement; an in-flight slate that falls below floor escalates per Step 7. |
 | `routed-deferred-with-tracker-and-ask_user` per individual finding | **YES with G4 conditions** | External tracker URL + same-turn `ask_user` approval naming the URL. |
 
 Items NOT in the matrix are NOT waivable. If the agent is uncertain whether an item is waivable, treat as NOT waivable and escalate via `ask_user`.
@@ -148,7 +148,7 @@ Bundle in one prompt before launching the panel:
 
 The slate is defined by capability tier + family + role, NOT by hardcoded model name. Tier → current model mapping lives in `multi-model-review/current-model-registry.md` (sibling file). When the registry is missing or a tier has no mapping, the orchestrator falls back to its runtime catalog and selects the highest-capability successor from the requested family; log the fallback under `slate-substitutions` per the registry's fallback rule.
 
-**Default heavy slate (5 reviewers, ≥2 families, satisfies slate-floor including ≥2 code-review + ≥1 rubber-duck and within-family GPT triangulation)**:
+**Default heavy slate (6 reviewers, ≥3 families, satisfies slate-floor including ≥2 code-review + ≥1 rubber-duck and within-family GPT triangulation)**:
 
 | Slot | Tier id (from registry) | Family | Role | Purpose |
 | --- | --- | --- | --- | --- |
@@ -156,7 +156,8 @@ The slate is defined by capability tier + family + role, NOT by hardcoded model 
 | 2 | `heavy-gpt-premium` | GPT | `code-review` | Cross-family fresh eyes. |
 | 3 | `heavy-gpt-codex` | GPT | `code-review` | Code-specialized angle (different reasoning angle within GPT family). |
 | 4 | `heavy-gpt-cross-version` | GPT | `code-review` | Within-family version triangulation. |
-| 5 | `heavy-claude-standard` | Claude | `rubber-duck` | Design / blind-spot critique angle. |
+| 5 | `heavy-gemini-premium` | Gemini | `code-review` | Third-vendor cross-family diversity (non-Claude, non-GPT). |
+| 6 | `heavy-claude-standard` | Claude | `rubber-duck` | Design / blind-spot critique angle. |
 
 **Substitution rule**: if a named tier's current model is unavailable (API down, deprecated, removed from runtime catalog), substitute the highest-capability successor from the same family per the registry's substitution rule. Record under `slate-substitutions: [{slot, requested-tier, requested-model, substituted-model, reason}]` in the LEDGER.
 

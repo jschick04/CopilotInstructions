@@ -18,7 +18,7 @@ After implementation, run the import / using hygiene pass, the touched-file recu
 
 Bundle these in one prompt:
 
-1. Should I run the **default 5-reviewer panel**, or add reviewers? (Default panel below. Add reviewers liberally for risky / cross-cutting / unfamiliar-area changes — there's no "too many reviewers".)
+1. Should I run the **default 6-reviewer panel**, or add reviewers? (Default panel below. Add reviewers liberally for risky / cross-cutting / unfamiliar-area changes — there's no "too many reviewers".)
 2. Any specific blind spots you want the reviewers to focus on? (e.g. concurrency safety, allocation hot paths, naming consistency across an interface chain)
 3. **Perf work only:** confirm the benchmark from the pre-implementation phase is still the one I should re-run.
 
@@ -167,12 +167,13 @@ Run the panel via `multi-model-review.md` with the following post-code-change in
 - **convergence-model**: `unanimous` (default for post-code-change — do not relax for code review without explicit user direction).
 - **max-loop**: 5.
 - **prior-round-findings sharing**: enabled (each iteration shares prior round's findings with the panel so it can verify amendments were applied).
-- **reviewer count + model selection**: default 5-reviewer slate from `multi-model-review/intake.md`. For this phase, launch the standard panel with four `code-review` agents (cross-family + cross-version diversity) plus one `rubber-duck` agent:
-  - `claude-opus-4.7-xhigh` (Claude family, extra-high reasoning) — `code-review`.
-  - `gpt-5.5` (OpenAI family, premium reasoning) — `code-review`.
-  - `gpt-5.3-codex` (OpenAI family, codex-tuned — code-specialized perspective) — `code-review`.
-  - `gpt-5.4` (OpenAI family, cross-version — different reasoning profile from gpt-5.5) — `code-review`.
-  - **rubber-duck** agent with `model: 'claude-opus-4.8'` (independent critique angle — Opus-level reasoning for design / blind-spot feedback complementing line-level review).
+- **reviewer count + model selection**: default 6-reviewer slate from `multi-model-review/intake.md` (tier → model via `current-model-registry.md`). For this phase, launch the standard panel with five `code-review` agents (cross-family + cross-version diversity) plus one `rubber-duck` agent:
+  - `heavy-claude-xhigh` (Claude family, extra-high reasoning) — `code-review`.
+  - `heavy-gpt-premium` (GPT family, premium reasoning) — `code-review`.
+  - `heavy-gpt-codex` (GPT family, codex-tuned — code-specialized perspective) — `code-review`.
+  - `heavy-gpt-cross-version` (GPT family, cross-version — different reasoning profile from premium) — `code-review`.
+  - `heavy-gemini-premium` (Gemini family, premium reasoning — third-vendor cross-family diversity) — `code-review`.
+  - **rubber-duck** agent at `heavy-claude-standard` tier (independent critique angle — design / blind-spot feedback complementing line-level review).
   Add reviewers liberally for risky / cross-cutting / unfamiliar-area changes — there's no "too many reviewers".
 - **critique focus areas** — pass these in addition to the panel's default critique focus (see *Anti-anchoring focus areas to pass to the panel* below for the full list of diff-review-specific focus areas).
 

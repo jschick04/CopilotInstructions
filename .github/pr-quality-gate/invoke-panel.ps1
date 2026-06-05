@@ -198,10 +198,11 @@ PANEL LAUNCH CONTRACT (full)
   pr_ref: $PrRef
   required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
-    reviewer_count: 4-5
+    reviewer_count: 4-6
     family_floor:
       claude_family: ">=1"
       gpt_family: ">=2"
+      gemini_family: ">=1"
     role_floor:
       rubber_duck: ">=1"
       code_review: ">=2"
@@ -228,7 +229,7 @@ foreach ($l in $systemPromptPreambleLines) { "      $l" }
   base_sha: $BaseSha
   head_sha: $HeadSha
   ORCHESTRATOR_ACTIONS_REQUIRED:
-    1. Launch reviewer agents via the task tool satisfying the slate_floor (typically 4-5 agents in parallel)
+    1. Launch reviewer agents via the task tool satisfying the slate_floor (typically 4-6 agents in parallel)
     2. Forward all review_pass_only_prompts to each reviewer
     3. Forward the anti_recidivism_preamble to each reviewer (if present) — each reviewer MUST emit verified-no-recurrence per slug
     4. Forward the same_state_recheck_preamble to each reviewer

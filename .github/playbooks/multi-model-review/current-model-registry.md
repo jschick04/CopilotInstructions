@@ -22,6 +22,9 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 | `light-claude` | Lighter / faster Claude model (Haiku-tier or similar). Used for per-commit panels where context budget matters. |
 | `light-gpt` | Lighter / faster GPT model (mini-tier or similar). Used for per-commit panels. |
 | `light-claude-balanced` | Mid-size Claude (Sonnet-tier) between heavy and light. Used for per-commit panels needing more depth than light-claude. |
+| `heavy-gemini-premium` | Top-of-line Gemini model with premium reasoning. Provides third-vendor (non-Claude, non-GPT) cross-family diversity; the required Gemini-family slot in panel slate floors. |
+| `light-gemini` | Lighter / faster Gemini model (flash-tier). Used for per-commit panels where context budget matters. |
+| `light-mai-code` | Code-specialized lightweight model (MAI-Code family). Optional fast code-focused perspective for per-commit / cost-sensitive panels. |
 
 ## Current mapping (illustrative; update per the contract above)
 
@@ -36,6 +39,9 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 | `light-claude` | `claude-haiku-4.5` | — |
 | `light-gpt` | `gpt-5.4-mini` | Updated cycle 5 to newer mini-tier version line. |
 | `light-claude-balanced` | `claude-sonnet-4.6` | — |
+| `heavy-gemini-premium` | `gemini-3.1-pro-preview` | Third-vendor family; required slate-floor slot. |
+| `light-gemini` | `gemini-3.5-flash` | — |
+| `light-mai-code` | `mai-code-1-flash-internal` | Internal MAI-Code family; code-specialized light tier. |
 
 ## Runtime fallback rule
 
