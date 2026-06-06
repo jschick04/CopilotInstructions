@@ -78,7 +78,12 @@ method signature: for each declared parameter, confirm the body actually reads
 or forwards it (silently-dropped parameters are a recurring bot finding that
 no category-based scan catches reactively). Bot reviewers consistently surface
 every instance of a recurring pattern; finding only the first instance leaves
-duplicates for the post-creation review to catch.
+duplicates for the post-creation review to catch. On large diffs do NOT sample
+representative files: enumerate EACH new interactive control for Category 6,
+EACH new indexed / bulk-copy access for Category 3, EACH new per-render /
+per-loop data scan for Category 8, and EACH sibling / copied path for
+Categories 1/11 — the per-instance tail (one missing guard / label per site) is
+the highest-volume post-§2D bot-finding cluster; holistic sampling misses it.
 
 **Self-similarity sweep (fix-of-fix protection)**: when a fix-iteration adds
 new helper functions, refactored methods, or any other newly-authored code in
@@ -320,6 +325,35 @@ of language or framework):
    (the *dropped-input bug* — silently ignores caller intent, escapes
    type-checking, especially common in interface implementations / wrapper /
    adapter methods that forward to a lower layer and forget one argument).
+   Additional correctness patterns (including test-correctness patterns) that
+   recur in post-§2D bot review:
+   - **Cross-path invariant divergence** — sibling code paths on one concept
+     (create vs update vs rename vs delete; validate-on-add vs validate-on-edit)
+     enforce DIFFERENT invariants (e.g. a name-collision check that is cross-kind
+     in one path and same-kind in another). Trigger when the diff modifies a
+     member of an operation family (create / update / rename / delete / add /
+     edit / validate / import / export); grep the entity noun + sibling verbs
+     before declaring N/A. A divergence is a bug or a missing shared helper —
+     state which path is authoritative. Do not flag divergence backed by a
+     documented distinct contract.
+   - **Library symbol/glyph absent at the pinned dependency version** — an icon
+     class, glyph name, font symbol, or library asset that exists in some version
+     or docs but NOT the project's pinned package/CDN version (illustrative: a
+     `bi-*` Bootstrap-Icons class against imported `bootstrap-icons@X.Y.Z`)
+     renders blank/missing. Verify the name exists in the declared version
+     (checked-in lockfile / installed package / generated manifest / versioned
+     upstream docs); if unverifiable locally, mark "needs version confirmation"
+     rather than assume latest docs apply.
+   - **Test asserts a compile-time proxy instead of the runtime value** — a test
+     asserting on `nameof(X)` / a constant / a hand-built string where the SUT
+     consumes `X.ToString()` / the runtime projection does not validate the
+     claimed behavior and passes if the runtime form drifts. Assert the EXACT
+     expression the SUT uses.
+   - **Source-scanning invariant test with an over-narrow regex** — when a test
+     claims a repo-wide / framework-wide invariant by scanning source, verify its
+     regex covers the idiomatic forms the codebase permits (`@`-prefix,
+     whitespace, alternate quoting); a single-form scan claiming broad coverage
+     misses violating sites.
 
 2. **Security vulnerabilities** — injection (SQL / command / template), insecure
    deserialization, path traversal, secrets in code, weak crypto, missing auth
@@ -359,6 +393,32 @@ of language or framework):
    equivalent) on an interactive element; missing focus management after
    dynamic content change; missing `aria-label` / `aria-labelledby` on a
    control with no visible label.
+   Additional a11y patterns that recur in post-§2D bot review:
+   - **Dangling `aria-controls` / `aria-activedescendant`** — references an
+     element id rendered only inside a conditional block (`@if` / `v-if` /
+     `{cond && ...}`), so it dangles whenever the target is not in the DOM. Gate
+     the attribute on the SAME condition that renders the target, or keep a
+     stable element with that id in the DOM (hidden when collapsed).
+   - **`aria-expanded` not matching the rendered popup (APG combobox /
+     disclosure)** — `aria-expanded` bound to a state flag while the controlled
+     listbox/region renders only under a stricter predicate (e.g. `count > 0`),
+     so the control advertises `expanded="true"` with no popup. Drive
+     `aria-expanded`, the popup render condition, and `aria-controls` from ONE
+     predicate.
+   - **Invalid `role="list"` / `role="listitem"` structure** — a direct child of
+     a `role="list"` container that is not itself a `listitem`. Fix by splitting
+     non-list content OUT of the container, or — only when the child is genuinely
+     a list item — giving it `role="listitem"` (`display:contents` preserves
+     layout). Do not paper over with a role that misdescribes the content.
+   - **Motion not gated on `prefers-reduced-motion`** — NEW smooth scrolling or
+     non-essential motion involving spatial movement, transform/position change,
+     or repeated/auto-play animation, with no reduce-mode fallback. Do NOT flag
+     simple color/focus transitions or instantaneous state changes.
+   On a diff that adds multiple interactive controls, enumerate EACH new control
+   (button / input / listbox / combobox / dialog / disclosure) and apply this
+   category per-element — the per-element a11y tail (one missing `aria-label` or
+   one dangling `aria-controls` per control) is the highest-volume post-§2D
+   bot-finding cluster; a holistic "a11y looks fine" pass misses it.
 
 7. **UI framework binding pitfalls** — UI-framework-specific anti-patterns
    where the framework's binding semantics produce surprising behavior. Apply
@@ -411,6 +471,14 @@ of language or framework):
     `LibraryImport` source-generated P/Invoke over `DllImport` (.NET 7+),
     `record` over class for immutable data (C# 9+), `sealed` by default when
     extension is not intended.
+    - **Hard-coded theme value where a matching design token exists** — a color /
+      elevation / shadow literal in COMPONENT CSS that duplicates an existing
+      semantic design token (`var(--<semantic-color-token>)`) for the same role;
+      drifts from the palette and breaks light/dark variants. Prefer the token
+      (`var(--<token>)`, `color-mix(in srgb, var(--<token>) N%, transparent)`).
+      Do NOT flag token definitions, `0`, `1px` hairlines, local geometry/layout
+      constants, framework-required values, or neutral fallbacks inside
+      `var(--<token>, ...)`.
 
 11. **Copy-paste / refactor artifacts** — stale variable / type / method names
     that didn't get updated after a rename; duplicated logic that should be
