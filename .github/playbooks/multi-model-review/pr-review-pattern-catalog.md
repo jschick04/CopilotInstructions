@@ -29,6 +29,7 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 | aria-disabled-without-disabled | 4 | 7 (UI / framework binding) |
 | stale-comment-after-refactor | 3 | 11 (hygiene) |
 | n-squared-selection-scan | 2 | 5 (performance / O(N²) on UI thread) |
+| loop-invariant-call-in-linq-lambda | 1 | 5 (performance / O(N²) on UI thread) |
 | aria-live-on-describedby-target | 2 | 7 (UI / a11y) |
 | hashset-iteration-leaks-nondeterministic-order | 2 | 1 (logic / UX) |
 | state-mutation-bypasses-canonical-cleanup-helper | 1 | 11 (lifecycle / consistency) |
@@ -414,6 +415,30 @@ catch (JSException) { }
 When introducing a new focus helper or JS-interop wrapper, copy-paste the full triplet template from a sibling helper rather than authoring a fresh catch chain — drift originates in fresh-authoring.
 
 **§2D preflight prompt**: "For every `await *.FocusAsync(...)` / `await JSRuntime.InvokeVoidAsync(...)` / `await JSRuntime.InvokeAsync<...>(...)` in the diff: does the surrounding try-block catch `JSDisconnectedException` (or document why the omission is intentional)? Other focus helpers in the same file are the reference template — drift from the project pattern is the finding."
+
+### 21. loop-invariant-call-in-linq-lambda
+
+A LINQ predicate/projection lambda (`.Where(e => ...)`, `.Any(e => ...)`, `.Count(e => ...)`, `.First(e => ...)`, etc.) calls a helper that **builds or fetches a collection** and does **not** depend on the lambda parameter — so the call is loop-invariant, yet it is re-evaluated once per element. With N elements and an inner build of size M (or an inner scan), the cost is O(N×M), often O(N²) when the inner call itself scans the same N. The give-away shape is a **nested call**: `Outer(e, Inner(set))` — the *outer* call legitimately uses the lambda parameter `e`, which camouflages the *inner* `Inner(set)` that is constant across the iteration. This is the LINQ-lambda surface of the same O(N²) family as #14 (`n-squared-selection-scan`, the `foreach`-loop surface); the remedy is the same idea (hoist the invariant work out of the per-element path), but the discovery shape differs, so it gets its own query + prompt.
+
+**Signatures**:
+- `entries.Where(e => MatchesFilter(e, SelectedKeys(tab)))` — `SelectedKeys(tab)` allocates a list each element; `tab` is loop-invariant.
+- `items.Count(x => Lookup(scope).Contains(x.Id))` — `Lookup(scope)` rebuilds a set per element (the method-chain-on-invariant-call variant; caught by the §2D prompt, not the discovery regex).
+- The same invariant call appears in 2+ sibling LINQ properties/expressions in one file (e.g. three filtered-view properties on a component), so a single hoist site is rarely the whole fix — sweep the file.
+
+**Discovery query** (diff-scoped) — a *candidate* gate only; every hit requires the mandatory manual triage below (a regex cannot decide loop-invariance):
+- Diff (NUL-safe): `git diff --name-only -z <merge-base>..HEAD -- '*.cs' '*.razor.cs' | xargs -0 -r rg --line-number --no-heading --color never '\.(Where|Select|SelectMany|Any|All|First(OrDefault)?|Last(OrDefault)?|Single(OrDefault)?|Count|TakeWhile|SkipWhile)\(.*?=>[^;]*[A-Z]\w*\([^()]*[A-Z]\w*\('`
+- PowerShell: `git diff --name-only <merge-base>..HEAD -- '*.cs' '*.razor.cs' | ForEach-Object { rg --line-number --no-heading --color never -H '\.(Where|Select|SelectMany|Any|All|First(OrDefault)?|Last(OrDefault)?|Single(OrDefault)?|Count|TakeWhile|SkipWhile)\(.*?=>[^;]*[A-Z]\w*\([^()]*[A-Z]\w*\(' -- $_ }`
+- The query targets the `Outer(... Inner(...))` nested-call shape (a method call appearing as an argument to another method call inside the lambda); on an idiomatic C# tree this is a small candidate set, NOT a per-element fire. **Manual triage per hit (mandatory — the finding is the INNER call, not the outer):** list *every* method invocation in the lambda, including ones nested as arguments to other calls. For each, open the invoked method and judge by code properties, never by guessed cost: (i) does the call's **full invocation expression — receiver/qualifier plus argument list** — reference the lambda parameter? If yes, that call is loop-variant — not this finding (`e.Inner(tab)`, `e.Tags.ToList()`, and `Get(e.Id)` are all variant, via receiver or args). (ii) If it does NOT reference the lambda parameter anywhere (receiver or args) AND its body allocates/returns a collection (or otherwise does non-trivial work), it is the loop-invariant culprit → finding. An enclosing or sibling call that uses the lambda parameter does NOT exempt a nested invariant call (`Outer(e, Inner(tab))`: `Outer` uses `e`, but `Inner(tab)` is recomputed N times).
+- **Known regex gaps (rely on the prose §2D prompt as backstop):** multi-line lambdas (rg `.` does not cross newlines); the bare method-chain shape `Build(set).Contains(e.X)` where the invariant call is not nested as an argument; lambdas whose invariant call is the *only* call (no outer wrapper). These are caught by the prompt's read-the-lambda instruction, not by this regex.
+
+**Canonical fix**: hoist the loop-invariant call to a local immediately before the LINQ expression and close over the local in the lambda:
+```csharp
+var selected = SelectedKeys(tab);              // computed once
+var view = entries.Where(e => MatchesFilter(e, selected));
+```
+For a property whose body is a single `return entries.Where(...)`, switch to a block body to introduce the local. Sweep sibling properties/expressions in the same file for the same invariant call and hoist each (the recompute usually appears at every filtered-view site, not just the flagged one). Severity is highest when the LINQ runs on a UI thread / hot path and M is non-trivial; off the hot path the hoist is still correct but the win is small — prioritize by the inner call's allocation, but do NOT *dismiss* a true invariant-recompute on a cost guess (dismissal must cite a code property per the triage step).
+
+**§2D preflight prompt**: "For every LINQ lambda in the diff (`.Where`/`.Select`/`.SelectMany`/`.Any`/`.All`/`.Count`/`.First*`/`.Single*`/`.Last*`/`TakeWhile`/`SkipWhile`), read the WHOLE lambda body and list every method call in it, including calls nested as arguments to other calls. For each call, does its **full invocation expression — receiver/qualifier plus arguments** — reference the lambda parameter? A call that does NOT (e.g. `Inner(tab)` in `Outer(e, Inner(tab))`) and that builds/returns a collection is loop-invariant and is being recomputed once per element — hoist it to a local before the LINQ expression. A call that references the parameter via its receiver OR its args (`e.Inner(tab)`, `e.Tags.ToList()`, `Get(e.Id)`) is loop-variant — leave it. Judge invariance from the invocation expression and the invoked method's body (a code property), never from a guess about element counts. A sibling/enclosing call that uses the parameter does NOT make a nested invariant call variant."
 
 ---
 
