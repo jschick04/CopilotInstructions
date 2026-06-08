@@ -39,6 +39,22 @@ Bundle in one `ask_user` prompt:
 3. **Risk tolerance**: surface-all (every finding ranked, including style-adjacent) OR substantive-only (default — bugs, leaks, intent-obscuring naming, structural debt).
 4. **Output destination**: chat-only (default) or save to a doc (ask for destination if save).
 
+## Scoped invocation as a commit gate (the `vsa-audit` ledger row)
+
+The post-code-change and pre-pr-push phases (AGENTS.md) invoke this audit in a NARROWED, non-interactive form as the `vsa-audit` hard gate. There is NO intake prompt: the scope is fixed by the diff and the lens is fixed to `vertical-slice-clean-arch` only.
+
+- **Touched-file scope** (post-code-change): run the vertical-slice lens over the files the diff ADDS / MOVES / RENAMES, plus any EXISTING file the diff modifies to add a top-level type, become multi-type, or change a root-level placement, plus the assembly each lands in. Fire only when the diff adds a new type or file, moves or renames a file, adds a root-level file to a folder-organized assembly, adds a new top-level type to an existing file, or introduces a multi-type file.
+- **Branch-wide scope** (pre-pr-push): run the lens over every file added / moved / renamed across `git diff <base>..HEAD`, plus any existing file the branch modifies to add a top-level type, become multi-type, or change a root-level placement, re-grepped against the final branch state.
+
+Checks (the lens criteria, applied to the scoped files):
+
+1. Each new / moved type lands in the correct slice (feature / domain folder), or in `Common/<Domain>/` only for a genuine cross-slice / cross-asm type (never flat `Common/`, never a KIND-bucket `Models/` / `Helpers/` / `Utils/`).
+2. One top-level type per file; split multi-type files.
+3. No root-level outlier in an assembly that otherwise organizes by feature folders.
+4. A uniformly-flat small assembly with NO existing folders is NOT an outlier; do NOT folderize it just to add structure (gold-plating per §3.13). Uniformly-flat means no production source subfolders (generated / `bin` / `obj` excluded) AND you cannot name 2+ coherent future slices or domains for it per §3.13; the carve-out expires once a second slice or domain clearly emerges, after which the normal slice-placement rule applies. A documented prior CLEAN verdict for such an assembly stands unless the user explicitly overrides it.
+
+Output is the `vsa-audit` ledger row (review-workflow-gates §2B): `ran (N placements checked, K misplaced)` or `N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change`. Fresh grep beats any cached survey or prior audit verdict; when a scoped finding contradicts a prior audit, record the contradiction so the prior audit can be corrected.
+
 ## Procedure
 
 1. **Greenfield pre-check** — `grep` / `view` to confirm in-scope code exists. If empty, surface and stop.

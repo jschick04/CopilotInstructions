@@ -133,7 +133,7 @@ If the agent has:
 - received a "proceed with implementation" directive from the runtime, OR
 - had its `exit_plan_mode` accepted with `autopilot` / `autopilot_fleet`
 
-…but has NOT run the panel and emitted `PANEL CONVERGED` in the current turn — implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
+...but has NOT run the panel and emitted `PANEL CONVERGED` in the current turn, implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
 
 The skip-escalation in §1 (the "user explicitly directed immediate implementation" justification) requires both (a) an explicit `ask_user` whose body contains the phrase "skip the panel" or equivalent unambiguous skip-the-review directive, AND (b) recording the skip in the session state per the §1 skip-escalation rule. A generic "approved" / "proceed" / "exit plan mode" response is NOT a panel-skip directive — it's scope approval.
 
@@ -146,7 +146,7 @@ Meta-changes to the instruction set carry **higher** long-term risk than code ch
 When the panel reviews an instruction-set change, its prompt MUST include explicit focus on:
 
 1. **Self-consistency** — does the new rule conflict with existing rules? Overlap in enforcement domains?
-2. **Escape-hatch analysis** — what could a future agent do to skip the rule? Vague language, optional conditional skips, ambiguous "N/A — reason" clauses are red flags.
+2. **Escape-hatch analysis**: what could a future agent do to skip the rule? Vague language, optional conditional skips, ambiguous "N/A: reason" clauses are red flags.
 3. **Enforcement mechanism** — is the rule self-policing (a literal block emission that §1B can hard-stop on)? Or norm-based and easily forgotten?
 4. **Reviewer slate / model / path stability** — do specific model names, tool names, or external system references have a deprecation story?
 5. **Project-agnosticism** — does the rule leak project-specific names, paths, or domain concepts that would be wrong in other consuming repos?
@@ -303,34 +303,36 @@ POST-CODE-CHANGE LEDGER
   commit-subject: <one-line subject the agent will use for git commit>
   files-touched: <count + brief shape, e.g. "21 (370+/0-)">
   gates:
-    hygiene-cleanup: <ran | N/A — reason>
-    touched-file-LPA: <ran (N findings, K unjustified) | N/A — reason>
+    hygiene-cleanup: <ran | N/A: reason>
+    touched-file-LPA: <ran (N findings, K unjustified) | N/A: reason>
+    vsa-audit: <ran (N placements checked, K misplaced) | N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change>
+    emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>
     recurring-pattern-sweep: <ran, N findings>
       - <pattern>: <N matches | no matches>
       - ...
-    prior-PR-review-sweep: <ran, M patterns checked, N findings | N/A — no prior merged PRs / no production-code edits>
+    prior-PR-review-sweep: <ran, M patterns checked, N findings | N/A: no prior merged PRs / no production-code edits>
       - <pattern from PR #X>: <matches | no matches>
       - ...
-    dry-audit: <ran, N duplications, K refactored, J waived | N/A — reason>
+    dry-audit: <ran, N duplications, K refactored, J waived | N/A: reason>
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
-    post-code-change-panel: <ran, unanimous | N/A — reason | user-waived — "<quote>">
-    intent-driven-testing-audit: <ran — prospective | ran — retrospective | N/A — <reason>>
+    post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "<quote>">
+    intent-driven-testing-audit: <ran: prospective | ran: retrospective | N/A: <reason>>
       # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
       # Fires when diff contains EITHER (a) NEW or modified test files OR (b) ANY production-source
-      # modification that changes the SUT surface — new exported member, signature change, NEW
+      # modification that changes the SUT surface: new exported member, signature change, NEW
       # conditional branch (if/switch/?:/when), new state-mutating statement, new method declaration
       # (public OR private), new error-handling branch (try/catch/throw), or new state-transition.
       # `N/A` reason MUST cite a specific carve-out from `intent-driven-testing.md`: rename-only
       # delta (test body byte-equivalent before/after), mechanical-port commit per §3.4, auto-generated
       # test files, pure whitespace/comment/formatting change, pure deletion. Bare `N/A` or
-      # `N/A — private-only SUT delta` is NOT a valid carve-out (private branches still need test
+      # `N/A: private-only SUT delta` is NOT a valid carve-out (private branches still need test
       # coverage per §3.4 Direction B).
-    delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A — reason>
+    delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A: reason>
       # Format and semantics defined in `multi-model-review/pr-creation-mirror-prompt.md` Delta K
       # (status enum, evidence/rationale rules, branch_new_files_verified format, falsifiability).
       # Unlike other §2B rows (single-line sub-bullets), `delta-g-sweeps:` uses a richer nested
-      # sub-block per pattern. Future grammar-tightening passes must preserve this nesting —
+      # sub-block per pattern. Future grammar-tightening passes must preserve this nesting;
       # falsifiability depends on it.
       - pattern: <slug; lowercase-hyphenated; e.g. "js-import-jsexception-wrap">
         discovery_query: <exact command the agent ran; reviewer can re-run and diff>
@@ -341,7 +343,7 @@ POST-CODE-CHANGE LEDGER
                                              #   the exact line range where P is present at HEAD
             rationale: <one line>            # REQUIRED for not-applicable; (a) code property
                                              #   verifiable from the cited file OR (b) repo invariant
-        branch_new_files_verified: yes — merge-base <SHA8>
+        branch_new_files_verified: yes: merge-base <SHA8>
     pre-impl-trigger-detections:
       # Cycle-3 (`pre-implementation.md` G6). Mirrors G6 chat-visible `trigger-detected-<playbook>:`
       # lines into the LEDGER. Each cycle-3-scope playbook gets one line; this is the audit anchor
@@ -361,7 +363,7 @@ POST-CODE-CHANGE LEDGER
       # **Allowed decision values per playbook class:**
       # - REQUIRED-decision-recorded class (implementation-planning, library-restructure):
       #   VALID = {invoked | required-but-skipped: "<safety-critical re-confirmation per User-skip policy>" | not-required-trigger-not-detected}
-      #   INVALID = {offered-and-declined, not-applicable} — these silently bypass the required gate
+      #   INVALID = {offered-and-declined, not-applicable}: these silently bypass the required gate
       #   The `not-required-trigger-not-detected` sentinel is the canonical value when G6 emitted
       #   `trigger-detected: no` (preserves fixed cardinality without omission contradiction).
       # - OFFERED class (design-exploration, performance-comparison, scope-planning, system-framing, project-vocabulary):
@@ -384,20 +386,20 @@ POST-CODE-CHANGE LEDGER
       # implementation-phase artifacts. intent-driven-testing-prospective is enforced separately
       # by cycle-2 rule `intent-driven-testing-required-on-test-or-SUT-delta` and is NOT in
       # cycle-3 scope. The 3 decision-only playbooks (scope-planning, system-framing,
-      # project-vocabulary) have NO implementation evidence — their decision-line IS the evidence
+      # project-vocabulary) have NO implementation evidence: their decision-line IS the evidence
       # (rules 8/10/11 check the decision sub-block directly).
-      implementation-planning: <ran (artifact-path:line) | N/A — <reason>>
-      library-restructure: <ran (artifact-path:line) | N/A — <reason>>
-      design-exploration: <ran (prototypes/<name>/ citation) | N/A — <reason>>
-      performance-comparison: <ran (benchmark citation) | N/A — <reason>>
-    comment-audit-§3.1: <ran | N/A — no comments touched | failed — <site list of file:line bullets with invalid/missing approval_turn>>
-    build: <passed | failed: …>
-    tests: <passed, N/total | failed: …>
-    diff-shown: <yes (ask_user turn …) | user-waived — "<quote>">
-    commit-message-approved: <PENDING | yes (ask_user turn …)>
+      implementation-planning: <ran (artifact-path:line) | N/A: <reason>>
+      library-restructure: <ran (artifact-path:line) | N/A: <reason>>
+      design-exploration: <ran (prototypes/<name>/ citation) | N/A: <reason>>
+      performance-comparison: <ran (benchmark citation) | N/A: <reason>>
+    comment-audit-§3.1: <ran | N/A: no comments touched | failed: <site list of file:line bullets with invalid/missing approval_turn>>
+    build: <passed | failed: ...>
+    tests: <passed, N/total | failed: ...>
+    diff-shown: <yes (ask_user turn ...) | user-waived: "<quote>">
+    commit-message-approved: <PENDING | yes (ask_user turn ...)>
 ```
 
-Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A — <reason>` — not blank, not omitted, not "skipped".
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped".
 
 ### Waiver semantics
 
@@ -405,12 +407,12 @@ A `user-waived` value MUST quote the user's waiver from the **current turn**. Wa
 
 Example valid waiver:
 ```
-diff-shown: user-waived — "go ahead and ammend these changes into that commit and pop the stash"
+diff-shown: user-waived: "go ahead and ammend these changes into that commit and pop the stash"
 ```
 
 Example invalid waiver (previous-turn quote, current-turn approval missing):
 ```
-diff-shown: user-waived — "staged means I reviewed it" [turn 47]
+diff-shown: user-waived: "staged means I reviewed it" [turn 47]
 ```
 
 ### Required outputs per gate
@@ -434,14 +436,14 @@ Every `git add` of files staged for a commit. Specifically:
 
 ### Skip conditions
 
-A gate row may be `N/A — <reason>` when:
+A gate row may be `N/A: <reason>` when:
 
 - **hygiene-cleanup**: the diff contains no consumer files with stale usings or qualifiers that the change could have affected (e.g. the diff only adds new files in new directories).
 - **touched-file-LPA**: the diff contains no visibility / export / sealing / mutability surface deltas (per `AGENTS.md` Post-code-change phase). Body-only edits to already-public types do NOT trigger LPA.
 - **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
-- **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A — pure re-commit of already-reviewed content, 0 behavioral delta`.
-- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed — <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which hard-blocks `git add` per `comment-protocol.md` §Recording. On **adopted repos** (per `comment-protocol.md` §Persisted audit file — adoption gate), missing `.github/pr-quality-gate/audits/last.md` ALSO produces `failed`. On **non-adopted repos**, the audit file is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block — missing-file is NOT a failure in that mode.
+- **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A: pure re-commit of already-reviewed content, 0 behavioral delta`.
+- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which hard-blocks `git add` per `comment-protocol.md` §Recording. On **adopted repos** (per `comment-protocol.md` §Persisted audit file, adoption gate), missing `.github/pr-quality-gate/audits/last.md` ALSO produces `failed`. On **non-adopted repos**, the audit file is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block, missing-file is NOT a failure in that mode.
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root
@@ -452,7 +454,7 @@ A gate row may be `N/A — <reason>` when:
   later discovered, the LEDGER is falsified per §2B and the falsified-ledger remediation
   below applies. "No plausible sister sites" is NOT acceptable; the query must be recorded
   so a reviewer can re-run it.
-- **pre-impl-trigger-detections** / **pre-impl-playbook-decisions** / **playbook-invocations**: NEVER `N/A` as a whole sub-block — these sub-blocks are mandatory on every commit-bound `POST-CODE-CHANGE LEDGER` and mirror the pre-impl G6 outputs per `pre-implementation.md`. Individual entries within `playbook-invocations` may be `N/A — <reason>` (e.g., `implementation-planning: N/A — playbook-decision was not-required-trigger-not-detected`). Individual entries within `pre-impl-playbook-decisions` MUST use one of the valid decision values for the playbook's class (REQUIRED-class accepts `invoked` / `required-but-skipped` / `not-required-trigger-not-detected`; OFFERED-class accepts the 4 base values per Phase 2 schema). Catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13 fire on bypass values.
+- **pre-impl-trigger-detections** / **pre-impl-playbook-decisions** / **playbook-invocations**: NEVER `N/A` as a whole sub-block; these sub-blocks are mandatory on every commit-bound `POST-CODE-CHANGE LEDGER` and mirror the pre-impl G6 outputs per `pre-implementation.md`. Individual entries within `playbook-invocations` may be `N/A: <reason>` (e.g., `implementation-planning: N/A: playbook-decision was not-required-trigger-not-detected`). Individual entries within `pre-impl-playbook-decisions` MUST use one of the valid decision values for the playbook's class (REQUIRED-class accepts `invoked` / `required-but-skipped` / `not-required-trigger-not-detected`; OFFERED-class accepts the 4 base values per Phase 2 schema). Catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13 fire on bypass values.
 
 ### Why this exists
 
