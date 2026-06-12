@@ -5,6 +5,7 @@ triggers: []
 ---
 
 # Comment-protocol playbook
+<!-- read-receipt-token: 09c08387 -->
 
 ## When this fires (no user invocation needed)
 

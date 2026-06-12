@@ -1,0 +1,36 @@
+name: catalog-generator-check
+
+# Verify that the committed pattern-catalog.md matches the output of the
+# generator pipeline (scripts/generate-pattern-catalog.ps1). Catches manual
+# edits to the flat file that bypass the source -> generate -> commit flow.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/pr-quality-gate/pattern-catalog.md'
+      - '.github/pr-quality-gate/pattern-catalog.sources/**'
+      - 'scripts/generate-pattern-catalog.ps1'
+      - 'scripts/verify-pattern-catalog.ps1'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/pr-quality-gate/pattern-catalog.md'
+      - '.github/pr-quality-gate/pattern-catalog.sources/**'
+      - 'scripts/generate-pattern-catalog.ps1'
+      - 'scripts/verify-pattern-catalog.ps1'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify pattern-catalog.md matches generated output
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Run verify (pwsh)
+        shell: pwsh
+        run: |
+          ./scripts/verify-pattern-catalog.ps1

@@ -1,0 +1,13 @@
+file
+.github/instructions/coding-standards.instructions.md
+.github/instructions/coding-standards-code.instructions.md
+.github/playbooks/phase-state-convention.md
+.github/playbooks/workflow-conventions.md
+.github/playbooks/pre-commit.md
+.github/playbooks/post-code-change.md
+.github/playbooks/pre-pr-creation-review.md
+.github/playbooks/pre-pr-push.md
+.github/playbooks/comment-protocol.md
+.github/playbooks/pre-implementation.md
+.github/playbooks/post-pr-review.md
+.github/playbooks/multi-model-review.md

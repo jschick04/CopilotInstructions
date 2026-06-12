@@ -1,4 +1,5 @@
 # Playbook: Pre-PR-push phase (INDEX)
+<!-- read-receipt-token: d7154b3e -->
 
 ## Purpose
 

@@ -1,4 +1,5 @@
 # Playbook: Pre-PR-creation review (§2D)
+<!-- read-receipt-token: b339bc16 -->
 
 ## Purpose
 

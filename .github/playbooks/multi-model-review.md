@@ -11,6 +11,7 @@ triggers:
 ---
 
 # Multi-model review loop
+<!-- read-receipt-token: a0ae506f -->
 
 ## Purpose
 

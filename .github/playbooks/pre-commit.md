@@ -1,4 +1,5 @@
 # Playbook: Pre-commit phase
+<!-- read-receipt-token: a57a7dff -->
 
 ## Purpose
 

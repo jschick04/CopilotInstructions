@@ -1,4 +1,5 @@
 # Playbook: Pre-implementation phase
+<!-- read-receipt-token: 06e31523 -->
 
 ## Purpose
 

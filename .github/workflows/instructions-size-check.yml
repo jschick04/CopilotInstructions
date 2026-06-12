@@ -1,0 +1,89 @@
+name: instructions-size-check
+
+# Enforce file-size budgets on always-loaded and on-demand instruction files.
+# AGENTS.md (always-loaded core) must stay <= 25KB.
+# All other .github/**/*.md files must stay <= 30KB, EXCEPT files on the
+# known-oversized allowlist (to be split in P3).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - '.github/**/*.md'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'AGENTS.md'
+      - '.github/**/*.md'
+
+permissions:
+  contents: read
+
+jobs:
+  size-check:
+    name: Instruction file size limits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Check AGENTS.md <= 28KB
+        shell: pwsh
+        run: |
+          $size = (Get-Item 'AGENTS.md').Length
+          Write-Host "AGENTS.md size: $size bytes"
+          if ($size -gt 28672) {
+            Write-Error "AGENTS.md exceeds 28KB limit ($size bytes). Restructure to move content to on-demand files."
+            exit 1
+          }
+          Write-Host "OK: AGENTS.md is within budget."
+
+      - name: Check .github/**/*.md <= 30KB (with allowlist)
+        shell: pwsh
+        run: |
+          # P3 will split these; until then they are exempt from the 30KB hard-fail.
+          $allowlist = @(
+            '.github/pr-quality-gate/pattern-catalog.md',
+            '.github/instructions/csharp.instructions.md',
+            '.github/playbooks/multi-model-review/pr-review-pattern-catalog.md',
+            '.github/instructions/csharp-testing.instructions.md',
+            '.github/playbooks/review-workflow-gates.md',
+            '.github/playbooks/pre-pr-creation-review/implementation-roadmap.md',
+            '.github/playbooks/pre-pr-creation-review.md',
+            '.github/playbooks/post-code-change.md',
+            '.github/playbooks/pre-commit.md',
+            '.github/playbooks/multi-model-review/pr-creation-mirror-prompt.md',
+            '.github/pr-quality-gate/README.md'
+          )
+
+          $failures = @()
+          $warnings = @()
+          $limit = 30720  # 30KB
+
+          $files = Get-ChildItem -Recurse -Path '.github' -Filter '*.md'
+          foreach ($f in $files) {
+            $relPath = $f.FullName -replace [regex]::Escape((Get-Location).Path + [IO.Path]::DirectorySeparatorChar), '' -replace '\\', '/'
+            # Skip generator source directory (holds generator inputs, not instruction files)
+            if ($relPath -like '.github/pr-quality-gate/pattern-catalog.sources/*') { continue }
+            $size = $f.Length
+            if ($size -gt $limit) {
+              if ($allowlist -contains $relPath) {
+                $warnings += "$relPath ($size bytes) - EXEMPT (P3 split target)"
+              } else {
+                $failures += "$relPath ($size bytes) exceeds 30KB limit"
+              }
+            }
+          }
+
+          if ($warnings.Count -gt 0) {
+            Write-Host "WARNINGS (exempt, P3 will split):"
+            $warnings | ForEach-Object { Write-Host "  $_" }
+          }
+
+          if ($failures.Count -gt 0) {
+            Write-Host "FAILURES:"
+            $failures | ForEach-Object { Write-Error "  $_" }
+            exit 1
+          }
+
+          Write-Host "OK: All non-exempt .github/**/*.md files are within 30KB budget."
