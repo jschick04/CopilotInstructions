@@ -29,6 +29,7 @@ Before any `git commit` (including `git commit --amend`, `git cherry-pick`, `git
 PRE-COMMIT GATE PASSED
   diff_shown: yes (turn <N>)
   diff_approved: yes (turn <N+M> user response: "<verbatim approval phrase>")
+  profile: <full|lite|full-default>
   author_identity: <name> <<email>> (scope: <local | global | env-override>)
   commit_ownership: agent | user
   proposed_subject: "<single-line subject - exact string the agent will pass to git commit -m>"

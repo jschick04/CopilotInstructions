@@ -37,7 +37,7 @@ A rubber-duck critique is cheap (one agent, fast turnaround) and catches blind s
 ### When to apply
 
 - **Always apply** for non-trivial changes: multiple files, architectural decisions, unfamiliar codebases, complex logic, new patterns, restructuring work, decomposition, DI changes, dependency graph changes.
-- **May skip Stage 1 (rubber-duck) only** for genuinely trivial changes: single-file rename, typo fix, version bump, comment update. Even then, Stage 2 (panel) is still mandatory per the pre-implementation hard gate.
+- **May skip Stage 1 (rubber-duck) only** for genuinely trivial changes: single-file rename, typo fix, version bump, comment update. Even then, Stage 2 (panel) is still mandatory per the pre-implementation hard gate - except under the lite profile's trivial fast-path (below), where a single-reviewer `triage` pass substitutes.
 
 ### Skip escalation
 
@@ -46,6 +46,10 @@ Skipping either stage requires **all three**:
 1. Explicit user approval via `ask_user` — not implicit silence.
 2. A documented justification stronger than "low risk" or "simple change." Acceptable justifications: "user explicitly directed immediate implementation," "change is a mechanical rename with no behavioral delta and automated refactoring tool output."
 3. The skip recorded in the session state so future review can audit the decision.
+
+### Profile-aware fast-path (lite profile)
+
+When the active profile is `lite` (per the loaded `active-profile.instructions.md`; if none is loaded -> full-default and this fast-path is UNAVAILABLE), a quantified-trivial change MAY use `triage` mode (single reviewer + `triage-acknowledged` receipt) in place of the full two-stage review, ONLY when ALL hold: (a) the change is NOT a governance/instruction artifact in any repo (see AGENTS.md cross-cutting rules); (b) it is NOT safety-critical (`workflow-conventions.md` §5); (c) it touches only docs/`.md` OR has `changed_lines_total` < 10 (added+removed non-blank, non-rename-only, across the whole diff) with no control-flow / public-API / concurrency change. Any miss or any uncertainty -> escalate to the lite 3-reviewer panel (or full). The single reviewer's result is certified per §1A's lite trivial fast-path cert. On the full profile this fast-path is unavailable; `triage` then requires explicit justification per `panel-policy.md`.
 
 ---
 
@@ -78,6 +82,8 @@ The certification block:
 1. Is emitted ONCE per artifact version, after Round N convergence.
 2. Is invalid if the artifact changes after emission — agent must re-panel on the changed artifact and emit a new certification.
 3. Sub-decision panels (single library placement, single naming choice, etc.) do NOT satisfy a plan-level gate. They certify ONLY the sub-decision; the plan-level gate is separate and requires its own certification.
+
+**Lite trivial fast-path cert.** When the lite profile's trivial fast-path applies (§1 Profile-aware fast-path), the single `triage` reviewer's result IS the artifact-binding certification: emit the `PANEL CONVERGED` block with `convergence_model: single-reviewer` and `unanimous: yes` (1 of 1 reviewer SOUND is structurally unanimous), bound to the artifact hash + base/head SHA, citing the `triage-acknowledged` receipt. It satisfies §1A/§1B for THAT change only, and never for safety-critical or governance/instruction artifacts (those always take the full slate on both profiles).
 
 ### Sub-decision vs full-plan distinction
 
@@ -167,7 +173,7 @@ Editing the session plan file (`plan.md` in the session-state folder) BEFORE the
 
 After a `PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But before any `git add` to a project repository, the user MUST see the actual working-tree diff (or a faithful summary of it) and explicitly approve.**
 
-This gate is asymmetric with the instruction repo (e.g. `CopilotInstructions`): instruction-repo changes can proceed from `edit` → `git add` → `git commit` → `git push` without an additional user approval gate (the panel certification covers them). Project-repo changes require the user to gate the change at the **working-tree boundary BEFORE it enters the staging area**.
+This gate is asymmetric between repo types, but ONLY for the working-tree-diff review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git add` / `git commit` / `git push`) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA pre-`git add` working-tree-diff-review step below (the panel already reviewed the change); it does NOT waive §0. Project-repo changes additionally require the user to review the working-tree diff at the staging boundary (the rest of this section).
 
 **Why pre-`git add` and not pre-`git push`?**
 
@@ -179,7 +185,7 @@ Earlier is better. A pre-push gate means the change is already staged, committed
 2. Call `ask_user` with the diff summary, asking for one of: approve / amend / discard.
 3. Wait for the user response BEFORE running `git add`.
 
-Once the user approves, the orchestrator may then chain `git add` → `git commit` → `git push` without further user approval for that specific change.
+Once the user approves the diff, the orchestrator may run `git add` for that change without re-showing the diff. The §0 per-operation gates on `git commit` (message approval) and `git push` are independent and still apply - diff-approval is not a blanket waiver of §0.
 
 **Skip conditions (none apply unless explicitly documented this session):**
 
@@ -189,7 +195,7 @@ Once the user approves, the orchestrator may then chain `git add` → `git commi
 
 **What about instruction-repo pushes?**
 
-Pushes to instruction repositories (e.g. `CopilotInstructions/main`) do NOT require this pre-`git add` gate. The panel certification on the instruction-repo edit is sufficient. The asymmetry exists because:
+Pushes to the instruction-set repo do NOT require this pre-`git add` working-tree-diff-review gate - the panel certification covers the technical review. The §0 per-operation `ask_user` gates (stage / commit / push) still apply. The diff-review asymmetry exists because:
 
 - The user's plan-stage approval covers the instruction strategy.
 - Instruction edits are typically narrow and structural (delta proposals).

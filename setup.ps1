@@ -23,9 +23,15 @@
 #>
 
 [CmdletBinding()]
-param()
+param(
+    [ValidateSet('full', 'lite')] [string] $Profile
+)
 
 $ErrorActionPreference = 'Stop'
+
+if (-not $Profile) {
+    throw "Required parameter -Profile <full|lite> was not supplied. Re-run, e.g.: .\setup.ps1 -Profile full"
+}
 
 function Write-Heading {
     param([string]$Text)
@@ -257,6 +263,34 @@ Write-Host @"
 6. Once verified, remove the legacy file (if it existed):
        Remove-Item '$homeFile'
 "@
+
+# --- Configure active profile (full | lite) -----------------------------------
+
+Write-Heading "Configuring active profile: $Profile"
+
+$profileTemplate  = Join-Path $repoRoot "profiles\$Profile\profile.instructions.md"
+$activeProfileFile = Join-Path $repoRoot '.github\instructions\active-profile.instructions.md'
+
+if (-not (Test-Path $profileTemplate)) {
+    throw "Profile template not found: '$profileTemplate'. Expected profiles\full\ and profiles\lite\ in the repo."
+}
+
+if (Test-Path $activeProfileFile) {
+    $sameContent = (Get-FileHash -Path $activeProfileFile -Algorithm SHA256).Hash -eq (Get-FileHash -Path $profileTemplate -Algorithm SHA256).Hash
+    if ($sameContent) {
+        Write-Host "Active profile already '$Profile' and current. No change." -ForegroundColor Green
+    } else {
+        Copy-Item -Path $profileTemplate -Destination $activeProfileFile -Force
+        Write-Host "Refreshed active profile to '$Profile' (was a different or stale profile)." -ForegroundColor Green
+    }
+} else {
+    Copy-Item -Path $profileTemplate -Destination $activeProfileFile -Force
+    Write-Host "Active profile set to '$Profile'." -ForegroundColor Green
+}
+
+Write-Host "  Wrote $activeProfileFile (gitignored; per-machine; never committed)."
+Write-Host "  After 'git pull', re-run this script to refresh the active file if the template changed." -ForegroundColor Yellow
+Write-Host "  To revert to full-default behavior, delete it: Remove-Item '$activeProfileFile'" -ForegroundColor Yellow
 
 # --- 7. Configure git hook path (catalog-sync drift safeguard) ----------------
 

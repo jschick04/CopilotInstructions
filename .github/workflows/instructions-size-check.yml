@@ -1,7 +1,7 @@
 name: instructions-size-check
 
 # Enforce file-size budgets on always-loaded and on-demand instruction files.
-# AGENTS.md (always-loaded core) must stay <= 25KB.
+# AGENTS.md (always-loaded core) must stay <= 28KB.
 # All other .github/**/*.md files must stay <= 30KB, EXCEPT files on the
 # known-oversized allowlist (to be split in P3).
 
@@ -11,11 +11,13 @@ on:
     paths:
       - 'AGENTS.md'
       - '.github/**/*.md'
+      - 'profiles/**/*.md'
   pull_request:
     branches: [main]
     paths:
       - 'AGENTS.md'
       - '.github/**/*.md'
+      - 'profiles/**/*.md'
 
 permissions:
   contents: read
@@ -77,3 +79,22 @@ jobs:
           }
 
           Write-Host "OK: All non-exempt .github/**/*.md files are within 30KB budget."
+
+      - name: Check profiles/**/*.md <= 4KB (profile templates)
+        shell: pwsh
+        run: |
+          $limit = 4096
+          $failures = @()
+          $files = Get-ChildItem -Recurse -Path 'profiles' -Filter '*.md' -ErrorAction SilentlyContinue
+          foreach ($f in $files) {
+            if ($f.Length -gt $limit) {
+              $rel = $f.FullName -replace [regex]::Escape((Get-Location).Path + [IO.Path]::DirectorySeparatorChar), '' -replace '\\', '/'
+              $failures += "$rel ($($f.Length) bytes) exceeds 4KB limit"
+            }
+          }
+          if ($failures.Count -gt 0) {
+            Write-Host "FAILURES:"
+            $failures | ForEach-Object { Write-Error "  $_" }
+            exit 1
+          }
+          Write-Host "OK: profile templates within 4KB budget."

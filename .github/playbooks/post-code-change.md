@@ -19,7 +19,7 @@ After implementation, run the import/using hygiene pass, the touched-file recurr
 
 Bundle these in one prompt:
 
-1. Should I run the **default 6-reviewer panel**, or add reviewers? (Default panel below. Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.)
+1. Should I run the **active profile's default panel** (full = 6 reviewers; lite = 3 cross-family light-tier; per the loaded `active-profile.instructions.md`, none loaded -> full), or add reviewers? (Default panel below. Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.)
 2. Any specific blind spots you want the reviewers to focus on? (e.g. concurrency safety, allocation hot paths, naming consistency across an interface chain)
 3. **Perf work only:** confirm the benchmark from the pre-implementation phase is still the one I should re-run.
 
@@ -190,7 +190,7 @@ Run the panel via `multi-model-review.md` with these invocation parameters:
 - **convergence-model**: `unanimous` (default for post-code-change; do not relax without explicit user direction).
 - **max-loop**: 5.
 - **prior-round-findings sharing**: enabled.
-- **reviewer count + model selection**: default 6-reviewer slate from `multi-model-review/intake.md` (tier -> model via `current-model-registry.md`):
+- **reviewer count + model selection**: default per the active profile (full = 6-reviewer slate; lite = 3 cross-family light-tier) from `multi-model-review/intake.md` (tier -> model via `current-model-registry.md`):
   - `heavy-claude-xhigh` (Claude, extra-high reasoning) - `code-review`.
   - `heavy-gpt-premium` (GPT, premium reasoning) - `code-review`.
   - `heavy-gpt-codex` (GPT, codex-tuned) - `code-review`.

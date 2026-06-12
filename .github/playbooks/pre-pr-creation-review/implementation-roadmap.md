@@ -121,14 +121,14 @@ Bundle in one prompt before launching:
 
 1. **Confirm base ref.** Default `origin/main` (or parent for stacked PRs). Resolve to SHA; record as `panelBaseSha`.
 2. **Convergence model.** Default `unanimous`. User MAY downgrade per waive matrix.
-3. **Reviewer slate confirmation.** Default heavy slate (below). User MAY adjust within floor.
+3. **Reviewer slate confirmation.** Default = the active profile's slate (full = heavy slate below; lite = 3 cross-family light-tier per `active-profile.instructions.md`). User MAY adjust within floor.
 4. **Pre-existing-issue context** (CONTEXT-ONLY, does NOT preempt findings). User may surface branch context notes. Reviewers receive as CONTEXT NOTES; prompt instructs: "if you still find the pattern, raise it; orchestrator routes via G5 flow." Prevents user-muting failure mode.
 
 ## Reviewer slate - capability-tier definition
 
 Slate defined by capability tier + family + role, NOT hardcoded model name. Tier -> model mapping in `multi-model-review/current-model-registry.md`. Missing tier: fall back to highest-capability successor from same family; log under `slate-substitutions`.
 
-**Default heavy slate (6 reviewers, >= 3 families, satisfies floor)**:
+**Default heavy slate (full profile: 6 reviewers, >= 3 families, satisfies floor; lite profile uses 3 cross-family light-tier instead)**:
 
 | Slot | Tier id | Family | Role | Purpose |
 | --- | --- | --- | --- | --- |

@@ -14,7 +14,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 2. **Review-target location** — a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).
 
-3. **Reviewer count** — number of reviewers. Default **6** (one Claude-family flagship + three GPT-family models for premium / codex / cross-version diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique). Minimum **3** per hard gate.
+3. **Reviewer count** - number of reviewers. Default = the active profile's panel mode (full = **6**: one Claude-family flagship + three GPT-family models for premium / codex / cross-version diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique; lite = **3** cross-family light-tier, >=1 each Claude/GPT/Gemini); if no profile is loaded, default **6** (full-default). Minimum **3** per hard gate (both profiles). Hard-gate convergence stays unanimous on both.
 
 4. **Model selection** — defaults maximize cross-family diversity and reasoning depth. Tier → current model via `current-model-registry.md`:
    - `heavy-claude-xhigh` — Claude family, extra-high reasoning. `code-review` slot.
@@ -24,7 +24,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
    - `heavy-gemini-premium` — Gemini family, premium reasoning. `code-review` slot (third-vendor cross-family diversity).
    - **rubber-duck** agent at `heavy-claude-standard` tier — independent design / blind-spot critique (per AGENTS.md sub-agent model selection defaults).
 
-   The user can override individual slots, swap families, or add a 6th+ model when convergence is critical.
+   The user can override individual slots, swap families, or add an additional model when convergence is critical.
 
 5. **Convergence model** — `unanimous` (default; all reviewers verdict READY) / `threshold` (≥75% READY + 0 unaddressed blocking) / `confidence-weighted` (≥80% avg confidence + 0 unaddressed blocking). See `convergence-models.md` for details and selection guidance.
 

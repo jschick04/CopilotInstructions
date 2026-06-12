@@ -18,6 +18,7 @@ Skipping pre-implementation panel for non-trivial work is a process violation. T
 | mode | reviewers | output cap | rg battery | `§1A` slate carve-out | Activation |
 |---|---|---|---|---|---|
 | `full` | 4-6 (slate-floor below) | none | yes | none — full slate-floor applies | default; no `ask_user` receipt required |
+| `lite` | 3 (lite slate-floor below) | none | yes | `slate-mode: lite; slate-size=3; convergence_model: unanimous` | default WHEN the active profile is lite; `invoke-panel.ps1 -Mode lite` derives the floor from the on-disk active profile; running `lite` below a `full` floor needs a same-turn `ask_user` `lite-acknowledged` receipt |
 | `triage` | 1 code-review-role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review`; `convergence_model: single-reviewer` MANDATORY | `invoke-panel.ps1 -Mode triage`; same-turn `ask_user` receipt with `triage-acknowledged` token required per PR |
 | `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | `invoke-panel.ps1 -Mode lint-only` (effectively skips panel); same-turn `ask_user` receipt with `lint-only-acknowledged` token required per PR |
 
@@ -32,6 +33,16 @@ CLI flag is the ONLY robust activation mechanism. Env vars and `plan.md` flags a
 - Slot composition is recorded in the `PANEL CONVERGED` block's `slate` field for audit
 
 Floor is verifiable from the slate enumeration. Substitutions are allowed mid-launch ONLY if the substitute matches the same family + role + tier; documented in the `slate_substitutions` field of the `PANEL CONVERGED` block.
+
+## Slate composition floor (`lite` mode) + profile floor
+
+`lite` floor (active when the loaded profile is `lite`, or when `-Mode lite` runs below a full floor with a `lite-acknowledged` receipt):
+
+- 3 reviewers (odd); >= 1 Claude family AND >= 1 GPT family AND >= 1 Gemini family; >= 1 `rubber-duck` role AND >= 2 `code-review` role
+- light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per `multi-model-review/current-model-registry.md`); heavy-tier NOT required
+- `convergence_model: unanimous` (lite cuts reviewer COUNT + tier, NOT the convergence bar); slate recorded in the `PANEL CONVERGED` `slate` + `profile` fields
+
+**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips a panel. `invoke-panel.ps1` derives the active profile by reading the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / more than one id) - this on-disk read, NOT an agent-supplied `-Profile`, is the floor authority (`-Profile`, if passed, is only a cross-checked hint; mismatch aborts). Running a mode below the active floor (`lite` / `triage` / `lint-only` under a `full` profile) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; a mode at or above the floor (`lite` under `lite`, `full` under any) needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles.
 
 ## Convergence model
 
@@ -115,7 +126,7 @@ The agent MAY:
 - Surface panel READY to the user as informational status (e.g., "4/4 panel READY; ready to show diff for your approval").
 - Show the diff via `git --no-pager diff` (or equivalent) immediately after panel convergence to enable the user-review step.
 
-**Instruction-repo scope**: this rule does not modify the existing `review-workflow-gates.md` §"Pushing changes to project (non-instruction) repos requires explicit user diff approval BEFORE staging" asymmetry. Edits to instruction repositories (e.g., `CopilotInstructions/main`, the lightweight-gate-v5 branch) continue to follow the existing instruction-repo rules in `review-workflow-gates.md` §1B — the project-repo prohibitions above do not extend to them. Any tension between that asymmetry and `pre-commit.md`'s universal hard-gate language is a pre-existing scope question outside the scope of this rule.
+**Instruction-repo scope**: §0 git safety gates (`ask_user` before every `git add` / `git commit` / `git push`) apply in ALL repos. The panel certification waives ONLY the EXTRA §1B working-tree-diff-review step for instruction-repo edits (see `review-workflow-gates.md` §1B), never §0.
 
 **How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) — regardless of how many panels converged READY beforehand — the diff-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
 
@@ -250,6 +261,7 @@ These print on EVERY invocation regardless of session-compaction state — the a
 ```
 panel:
   invoked: <true|false>                     # false only for lint-only
+  profile: <full|lite|full-default>         # from on-disk active-profile.instructions.md (full-default if absent); must agree with the LEDGER + PRE-COMMIT GATE PASSED copies
   slate_floor_passed: <bool>
   reviewers: [<slot>: <model> <family> <role>, ...]
   convergence_model: <enum>

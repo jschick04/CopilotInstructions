@@ -132,7 +132,7 @@ All playbook paths are under `.github/playbooks/`. Domain triggers always confir
 
 **Always-loaded invariants:**
 - Ask-first principle: every playbook's Intake Questions run FIRST before any output. Phase triggers are mandatory; domain triggers are offered via `ask_user`.
-- User-skip policy: safety-critical skips (multi-model panel on non-trivial changes, branch-wide sweep for review pushes, verification-of-fix, pre-impl panel on concurrency/security/crypto/native-interop/payment/auth/shared-state) require explicit user RE-CONFIRMATION before proceeding. All skips are recorded in session todos with warning. When in doubt whether a skip is safety-critical, default to "yes - re-confirm".
+- User-skip policy: safety-critical skips (multi-model panel on non-trivial changes, branch-wide sweep for review pushes, verification-of-fix, pre-impl panel on any safety-critical class) require explicit user RE-CONFIRMATION before proceeding. Safety-critical includes at minimum: concurrency, security, crypto, native-interop, payment, auth, shared-state, data-integrity/schema/migration, destructive/irreversible ops, permissions/ACL, secrets/credentials, privacy/PII, release/deploy/CI, governance/instruction artifacts (canonical list in `workflow-conventions.md` §5; if uncertain, treat as safety-critical). All skips are recorded in session todos with warning. When in doubt whether a skip is safety-critical, default to "yes - re-confirm".
 - Record phase entry/exit in session todos per the phase-state convention.
 
 > **STOP.** For the full ask-first procedure, intake pre-fill rules, strong-vs-weak trigger detection, user-skip recording mechanics, and phase-state tracking convention, view `.github/playbooks/workflow-conventions.md` and `.github/playbooks/phase-state-convention.md`.
@@ -143,8 +143,8 @@ Hard gates (always apply, even if playbook unfetched):
 
 - Diagnosis verified (reproduce, minimise, hypothesise, instrument, reproduction-locked).
 - Reproduction (bug fix) or benchmark (perf work) exists.
-- Multi-model panel (target-type: `plan`), unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`.
-- **Rubber-duck-then-panel mandatory.** Skipping either requires explicit user approval (§1 in `review-workflow-gates.md`).
+- Multi-model panel (target-type: `plan`), unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`. **Profile-aware:** the active profile (`active-profile.instructions.md`; none loaded -> full-default) sets the default panel mode + slate floor (full = 4-6; lite = 3 cross-family light-tier); both keep unanimous convergence. Lite trivial fast-path = `triage` (single-reviewer) ONLY when all active-profile LITE-FAST-PATH predicates hold + a `triage-acknowledged` receipt; safety-critical OR governance/instruction artifacts -> full slate on both profiles. Emit `profile=<full|lite|full-default>`.
+- **Rubber-duck-then-panel mandatory.** Skipping either requires explicit user approval (§1 in `review-workflow-gates.md`); the lite-profile trivial fast-path (`triage`) is the sole sanctioned exception.
 - **Panel binds to a specific artifact.** Revised plan -> new panel. Emit `PANEL CONVERGED` block before implementation tool calls (§1A in `review-workflow-gates.md`).
 - **Hard-stop tool list.** Until certification present: no `create`/`edit`/file-write shell/`git add`/impl sub-agents. Read tools OK. Instruction-repo edits are §1B tool calls (§1B in `review-workflow-gates.md`).
 - **Pre-PR-creation review (§2D).** >=4 reviewer panel on full branch diff before PR-creation tools. Full procedure in `pre-pr-creation-review.md`.
@@ -228,7 +228,7 @@ Hard gates:
 
 ### Fail-closed rule for on-demand playbook fetch
 
-If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `ask_user` how to proceed; (3) if user authorizes skip, record per User-skip policy; (4) if `ask_user` unavailable (headless), halt and do NOT certify readiness. Do not proceed using only the hard-gate checklist as the procedure - the playbook teaches the procedure.
+If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `ask_user` how to proceed; (3) if user authorizes skip, record per User-skip policy; (4) if `ask_user` unavailable (headless), halt and do NOT certify readiness. Do not proceed using only the hard-gate checklist as the procedure - the playbook teaches the procedure. Playbook paths are relative to the instruction-set repo root (the `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` entry containing this `AGENTS.md`), not cwd; if not found there, retry against that root before failing closed.
 
 ### Cross-cutting rules (always apply, no fetch needed)
 
@@ -240,6 +240,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Unintended reverts:** ASK before reverting code that was previously removed/refactored/renamed.
 - **Do NOT report ready** until every phase completed or explicitly skipped with recorded warning.
 - **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md`: rubber-duck=`heavy-claude-standard`, code-review=`heavy-claude-xhigh`, explore=`light-claude-balanced`, general-purpose=`heavy-claude-standard`, security=`heavy-claude-xhigh`, panels=per `intake.md` item 4.
+- **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always uses full review rigor on both profiles.
 - **Instruction-set maintenance - mind context cost.** Principle (1-3 sentences) -> AGENTS.md; procedural detail -> playbook with STOP pointer. >10 lines / >1.5KB -> split to playbook.
 
 ---
@@ -351,6 +352,7 @@ Files under `.github/instructions/` load automatically when matching files are i
 | `csharp-testing-quality.instructions.md` | (same test glob) | Test purpose, audit-and-delete framework |
 | `csharp-testing-sync.instructions.md` | (same test glob) | Alternative test patterns, test synchronization |
 | `coding-standards.instructions.md` | `**/*` | §3.2, §3.3, §3.3.1, §3.6, §3.9: naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text |
+| `active-profile.instructions.md` (generated by setup; gitignored) | `**/*` | Active profile (full/lite) parameters; none present -> full-default. Templates in `profiles/`; see `README.md`. |
 | `coding-standards-code.instructions.md` | `**/*.{cs,csx,razor,cshtml,cpp,h,hpp,cc,cxx,c,ts,tsx,mts,cts,js,jsx,mjs,cjs,py,go,rs,java,kt}` | §3.4-§3.5, §3.7-§3.8, §3.10-§3.13: tests, perf, state predicates, deferred mutations, recurring smells, structure |
 | `cpp.instructions.md` | `**/*.cpp`, `**/*.h`, `**/*.hpp`, `**/*.cc`, `**/*.cxx`, `**/*.c` | C++ naming, formatting, COM patterns, vcxproj |
 | `msbuild.instructions.md` | `**/*.csproj`, `**/*.props`, `**/*.targets`, `**/*.vcxproj` variants | MSBuild escaping, Exec trim, tool acquisition |

@@ -103,6 +103,7 @@ Before ANY `git add` (or `git commit --amend` that re-stages files, or `git stas
 POST-CODE-CHANGE LEDGER
   commit-subject: <one-line subject the agent will use for git commit>
   files-touched: <count + brief shape, e.g. "21 (370+/0-)">
+  profile: <full|lite|full-default>
   gates:
     hygiene-cleanup: <ran | N/A: reason>
     touched-file-LPA: <ran (N findings, K unjustified) | N/A: reason>
@@ -200,7 +201,7 @@ POST-CODE-CHANGE LEDGER
     commit-message-approved: <PENDING | yes (ask_user turn ...)>
 ```
 
-Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped".
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `PANEL CONVERGED` copies.
 
 ### Chat-emission form (compressed KV v1)
 
@@ -208,7 +209,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
-core|commit=<json-string>|files=<N>(+<added>/-<removed>)
+core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
 gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 

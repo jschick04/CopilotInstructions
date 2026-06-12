@@ -118,6 +118,23 @@ Pointing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` at this cloned repo makes every edit
 
 Razor markup files (`*.razor`, `*.cshtml`) intentionally match both the C# file (for codebehind / `@code` blocks) and the HTML file (for markup syntax).
 
+## Profiles (full / lite)
+
+This instruction set ships two **profiles** that trade review thoroughness against token cost. Both keep the full file-split + enforcement core; they differ only in panel slate size, an optional trivial fast-path, and output verbosity.
+
+- **full** (default): pre-implementation / pre-PR panels use 4-6 reviewers (>=1 Claude + >=2 GPT + >=1 Gemini family, >=1 heavy-tier). No trivial fast-path. For work where token cost is not the constraint but context limits + loading-failure avoidance still matter.
+- **lite**: panels use 3 cross-family **light-tier** reviewers (>=1 each Claude / GPT / Gemini, e.g. Sonnet / GPT-mini / Gemini-flash). Quantified-trivial, non-safety-critical, non-governance changes may use a single-reviewer `triage` pass (with a `triage-acknowledged` receipt) instead of the full panel. For personal / paid-token work.
+
+**Safety-critical and governance/instruction edits always use the full slate on both profiles** (see `AGENTS.md` + `.github/playbooks/workflow-conventions.md` §5). The lite `triage` fast-path saves reviewer COUNT only - it still performs the full per-rule acknowledgement and does NOT skip rule coverage.
+
+**How selection works (per-machine, never committed):**
+
+- The install script copies the chosen profile's template (`profiles/full/profile.instructions.md` or `profiles/lite/profile.instructions.md`) to `.github/instructions/active-profile.instructions.md`, which is **gitignored**. That generated file is the runtime authority (its `profile-id` header). If it is absent, behavior is `full-default` (identical to full).
+- The two templates are version-controlled and shared by everyone; the *selection* (which one is active here) lives only in the gitignored generated file, so a profile choice never lands in a commit that would change other users' behavior.
+- `invoke-panel.ps1` reads the on-disk active-profile file directly to enforce the panel floor: running a mode below the active profile's floor (e.g. `lite` while `full` is active) requires an explicit `<mode>-acknowledged` `ask_user` receipt. (The "same file the harness loaded" guarantee assumes a single instruction-set clone - `COPILOT_INSTRUCTIONS_CLONE` points at the repo root carrying `.github/instructions/`.)
+
+Select or switch with the setup script (below): `.\setup.ps1 -Profile lite` (Windows) or `bash ./setup.sh --profile lite` (macOS/Linux). Re-run after `git pull` to refresh the active file if the template changed. To revert to full-default, delete `.github/instructions/active-profile.instructions.md`.
+
 ## PR quality gate (catalog + ack + drift safeguard)
 
 Beyond the playbooks (which are procedural), this repo provides a **rule enforcement gate** that runs during code review. The gate has four layers (defense in depth):
@@ -287,10 +304,10 @@ This repo introduces six cross-cutting patterns layered on top of the existing p
 
 ```powershell
 cd <path-to-this-repo>
-.\setup.ps1
+.\setup.ps1 -Profile full   # or: -Profile lite
 ```
 
-The script is idempotent: it reads the existing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` value, asks before overwriting other entries, and backs up `~/.copilot/copilot-instructions.md` (without deleting it) so you can validate the new layout before removing the old monolith.
+The script is idempotent: it reads the existing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` value, asks before overwriting other entries, and backs up `~/.copilot/copilot-instructions.md` (without deleting it) so you can validate the new layout before removing the old monolith. `-Profile <full|lite>` is **required** - it writes the gitignored active-profile file (see [Profiles](#profiles-full--lite)).
 
 ### Manual setup (Windows)
 
@@ -308,7 +325,7 @@ The env var works identically. Run:
 
 ```bash
 cd <path-to-this-repo>
-bash ./setup.sh
+bash ./setup.sh --profile full   # or: --profile lite
 ```
 
 Or manually add to your shell rc file (`~/.bashrc`, `~/.zshrc`, etc.):
@@ -339,6 +356,7 @@ CI (`.github/workflows/catalog-sync-check.yml`) is the backstop — even without
 2. Inside the session, run the `/instructions` slash command. Confirm:
    - The repo's `AGENTS.md` is listed every session.
    - The matching topic file appears when the working directory contains files of that type. For example, `cd` into a folder with `*.cs` files and `csharp.instructions.md` should be listed.
+   - **The active profile is loaded:** exactly one `active-profile.instructions.md` appears and its `profile-id` matches the profile you selected (none from the other profile). Confirm the profile is actually honored in a review-only turn (e.g. the agent reports `profile=lite` when it runs a panel), not merely that the file is listed.
 3. **After successful validation, remove the legacy file** so the context-reduction actually takes effect:
    ```powershell
    Remove-Item "$HOME\.copilot\copilot-instructions.md"

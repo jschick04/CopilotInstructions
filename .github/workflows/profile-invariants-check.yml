@@ -1,0 +1,71 @@
+name: profile-invariants-check
+
+# Enforce the profile-overlay invariants: exactly one always-loaded core, valid profile
+# templates, the per-machine active file stays gitignored + uncommitted, and the two
+# install scripts agree on the profile flag.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/**'
+      - '.gitignore'
+      - 'setup.ps1'
+      - 'setup.sh'
+      - '.github/instructions/**'
+      - '.github/workflows/profile-invariants-check.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'profiles/**'
+      - '.gitignore'
+      - 'setup.ps1'
+      - 'setup.sh'
+      - '.github/instructions/**'
+      - '.github/workflows/profile-invariants-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  profile-invariants:
+    name: Profile overlay invariants
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Check invariants
+        shell: bash
+        run: |
+          set -u
+          fail=0
+
+          if find profiles -name 'AGENTS.md' 2>/dev/null | grep -q .; then
+            echo "FAIL: AGENTS.md found under profiles/ (the repo must have exactly one always-loaded core AGENTS.md, at the root)."
+            fail=1
+          fi
+
+          for p in full lite; do
+            t="profiles/$p/profile.instructions.md"
+            if [ ! -f "$t" ]; then echo "FAIL: missing profile template $t"; fail=1; continue; fi
+            grep -qF "<!-- profile-id: $p -->" "$t" || { echo "FAIL: $t is missing the '<!-- profile-id: $p -->' stamp."; fail=1; }
+            grep -qF 'applyTo: "**/*"' "$t" || { echo "FAIL: $t is missing the 'applyTo: \"**/*\"' frontmatter."; fail=1; }
+          done
+
+          grep -qx '/.github/instructions/active-profile.instructions.md' .gitignore || {
+            echo "FAIL: .gitignore must contain the exact line '/.github/instructions/active-profile.instructions.md'."
+            fail=1
+          }
+
+          if git ls-tree -r HEAD --name-only | grep -qx '.github/instructions/active-profile.instructions.md'; then
+            echo "FAIL: active-profile.instructions.md is committed; it must stay gitignored (per-machine only)."
+            fail=1
+          fi
+
+          grep -vE '^[[:space:]]*#' setup.ps1 | grep -qF "ValidateSet('full', 'lite')" || { echo "FAIL: setup.ps1 missing the -Profile ValidateSet('full', 'lite') on a non-comment line."; fail=1; }
+          grep -vE '^[[:space:]]*#' setup.ps1 | grep -qF 'active-profile.instructions.md' || { echo "FAIL: setup.ps1 does not write active-profile.instructions.md."; fail=1; }
+          grep -vE '^[[:space:]]*#' setup.sh | grep -qF -- '--profile' || { echo "FAIL: setup.sh missing the --profile argument."; fail=1; }
+          grep -vE '^[[:space:]]*#' setup.sh | grep -qF 'active-profile.instructions.md' || { echo "FAIL: setup.sh does not write active-profile.instructions.md."; fail=1; }
+
+          if [ "$fail" -ne 0 ]; then echo "Profile invariants FAILED."; exit 1; fi
+          echo "OK: all profile overlay invariants hold."
