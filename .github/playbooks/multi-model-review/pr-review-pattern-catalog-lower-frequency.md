@@ -53,7 +53,7 @@ The agent updates this file after each PR convergence (maintenance protocol belo
 After each PR final state (converged-to-zero OR merged OR closed-with-deferred-findings-tracker):
 
 1. Pull the round's findings (Copilot review comments + agent's classifications) into the project's `pr_review_findings` file. Per-project storage means no `project: <slug>` column is needed — the file's location uniquely identifies the project. Schema columns in `pr-review-findings-schema.md` are the authoritative list.
-2. Re-run the regex classifier against the corpus. If a NEW pattern appears with frequency ≥3 across the project's full history, propose adding it to this catalog (CopilotInstructions PR) with abstract phrasing.
+2. Re-run the regex classifier against the corpus. **Catalog-first:** add EVERY generalizable finding immediately (1-hit) with abstract phrasing (CopilotInstructions PR) - do NOT wait for a frequency threshold. Frequency drives tier/priority, not inclusion.
 3. If a pattern's hit rate is decaying (occurring less frequently round-over-round), the catalog can demote it from the preflight battery to the "lower-frequency" section. Demotions require ≥2 consecutive rounds of zero-hits to confirm decay.
 4. Update `known-false-positives.md` if Copilot raised a new FP worth deterring.
 5. Commit the catalog updates to `CopilotInstructions/main` per the §1B instruction-repo gate. Project-specific telemetry stays in the consuming project's repo.

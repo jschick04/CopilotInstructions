@@ -60,6 +60,11 @@ Assert-False (Test-IsNewCommentLine -Content '# Heading' -FilePath 'README.md') 
 Assert-False (Test-IsNewCommentLine -Content '* bullet' -FilePath 'README.md') 'MD bullet is NOT comment'
 Assert-False (Test-IsNewCommentLine -Content '---' -FilePath 'README.md') 'MD hr is NOT comment'
 Assert-True (Test-IsNewCommentLine -Content '<!-- comment -->' -FilePath 'README.md') 'MD HTML comment'
+Assert-False (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 -->' -FilePath 'README.md') 'read-receipt-token header is exempt metadata, not a prose comment'
+Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 -->' -FilePath 'app.html') 'read-receipt-token exemption is markdown-only; non-md HTML comment still flagged (no comment-audit bypass)'
+Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345' -FilePath 'README.md') 'unterminated read-receipt-token opener is NOT exempt (must be the closed single-line form)'
+Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 --> trailing prose' -FilePath 'README.md') 'read-receipt-token line with text after the closer is NOT exempt'
+Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 sneaky -->' -FilePath 'README.md') 'read-receipt-token with extra content before the closer is NOT exempt'
 
 Assert-True (Test-IsNewCommentLine -Content '# python comment' -FilePath 'app.py') 'Python #'
 Assert-True (Test-IsNewCommentLine -Content '    # indented' -FilePath 'app.py') 'Python indented #'

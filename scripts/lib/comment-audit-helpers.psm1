@@ -115,6 +115,7 @@ function Test-IsNewCommentLine {
     if (-not $patterns) { return $false }
     $extension = [System.IO.Path]::GetExtension($FilePath).TrimStart('.').ToLowerInvariant()
     $trimmed = $Content -replace '^\s+', ''
+    if ($extension -in @('md','markdown') -and $trimmed -cmatch '^<!--\s*read-receipt-token:\s*[0-9a-f]{8}\s*-->\s*$') { return $false }
     foreach ($pattern in $patterns) {
         if ($trimmed -cmatch "^$pattern") {
             if ($pattern -eq '#' -and $extension -in @('c','cpp','h','hpp','cc','cxx')) { return $false }
