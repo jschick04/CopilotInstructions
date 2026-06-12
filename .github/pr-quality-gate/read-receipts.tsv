@@ -11,3 +11,4 @@ file
 .github/playbooks/pre-implementation.md
 .github/playbooks/post-pr-review.md
 .github/playbooks/multi-model-review.md
+.github/playbooks/instruction-set-maintenance.md

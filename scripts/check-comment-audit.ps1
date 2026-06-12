@@ -141,5 +141,5 @@ if ($violations) {
     exit $script:ExitViolation
 }
 
-Write-Host "OK: all $($commitsForward.Count) commit(s) passed comment-audit ledger verification."
+Write-Host "OK: all $(@($commitsForward).Count) commit(s) passed comment-audit ledger verification."
 exit $script:ExitOk

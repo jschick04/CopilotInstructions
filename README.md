@@ -27,6 +27,7 @@ CopilotInstructions/
 │       │   ├── cleanup-commit-buckets.md               # natural-unit grouping default (G2) + 3 cleanup buckets + staging-sprawl guard
 │       │   └── when-to-re-run-sweep.md
 │       ├── post-pr-review.md                           # bot-finding audit + C2 status enum + instructions delta (phase)
+│       ├── instruction-set-maintenance.md              # maintaining THIS instruction set: no-project-refs / DRY / catalog-first / edit cycle / PR-comment update flow
 │       ├── worktree-setup.md                           # hidden-bare + sibling-checkouts layout + stacked-worktree-for-stacked-PR discipline (G7)
 │       ├── software-install.md                         # platform-package-manager-first install + fallbacks
 │       ├── design-spec.md                              # current-state survey / design-change request / dev design spec (durable artifact)

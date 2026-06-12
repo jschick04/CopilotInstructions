@@ -120,6 +120,7 @@ Gate blocks that depend on an on-demand file MUST include a `reads=<file>@<token
 | Strong cross-file-bug-investigation trigger | OFFER `cross-file-bug-investigation.md` |
 | Test-writing context within pre-implementation / post-code-change | AUTO-FIRE `intent-driven-testing.md` |
 | About to add/rewrite a comment | AUTO-FIRE `comment-protocol.md` |
+| Editing any file in the instruction-set repo | `instruction-set-maintenance.md` |
 
 All playbook paths are under `.github/playbooks/`. Domain triggers always confirmed via `ask_user`; phase triggers are mandatory. Phrase examples are illustrative; route by intent shape. Per-playbook frontmatter and `manifest.yaml` are discoverability aids only.
 
@@ -236,7 +237,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Do NOT report ready** until every phase completed or explicitly skipped with recorded warning.
 - **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md`: rubber-duck=`heavy-claude-standard`, code-review=`heavy-claude-xhigh`, explore=`light-claude-balanced`, general-purpose=`heavy-claude-standard`, security=`heavy-claude-xhigh`, panels=per `intake.md` item 4.
 - **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always uses full review rigor on both profiles.
-- **Instruction-set maintenance - mind context cost.** Principle (1-3 sentences) -> AGENTS.md; procedural detail -> playbook with STOP pointer. >10 lines / >1.5KB -> split to playbook.
+- **Instruction-set maintenance.** STOP + view `.github/playbooks/instruction-set-maintenance.md` before any instruction-repo edit.
 - **Output: caveman-terse.** Results over process narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).
 
 ---
