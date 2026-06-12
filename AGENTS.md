@@ -55,11 +55,11 @@ Before ANY `git add`:
 
 ### git commit
 
-Before ANY `git commit` invocation:
-1. Present the full proposed commit message to the user.
-2. Call `ask_user` with the message and options to approve, edit, or reject.
-3. Only execute `git commit` after the user explicitly approves the final message.
-4. If the user edits the message, use their version exactly.
+Before ANY `git commit`:
+1. Present the full proposed commit message.
+2. `ask_user` to approve / edit / reject.
+3. Execute only after the user explicitly approves the final message.
+4. If the user edits it, use their version exactly.
 
 ### git push --force / --force-with-lease
 
@@ -75,11 +75,11 @@ Before ANY `git commit` invocation:
 ### gh pr create
 
 Before ANY `gh pr create`:
-1. Ensure `pre-pr-creation-review.md` (§2D) emitted `PRE-PR REVIEW COVERAGE` with `READY-pending-user-approval`. Absent -> STOP, run §2D first.
-2. Present PR title, body, target branch to user.
-3. `ask_user` with full details.
-4. Re-emit `PRE-PR REVIEW COVERAGE` with `READY-re-emitted-after-user-approval` (same-state re-check).
-5. Only execute after step 4 + user approval from step 3.
+1. `pre-pr-creation-review.md` (§2D) must have emitted `PRE-PR REVIEW COVERAGE` with `READY-pending-user-approval`. Absent -> STOP, run §2D first.
+2. Present PR title, body, target branch.
+3. `ask_user` with full details (approve / edit / reject).
+4. Re-emit `PRE-PR REVIEW COVERAGE` with `READY-re-emitted-after-user-approval` (same-state re-check) in the same turn as the invocation.
+5. Execute only after step 4 + the user's step-3 approval.
 
 ---
 
