@@ -343,8 +343,13 @@ Files under `.github/instructions/` load automatically when matching files are i
 
 | File | Loads when | Adds |
 |---|---|---|
-| `csharp.instructions.md` | `**/*.cs`, `**/*.csx`, `**/*.csproj`, `**/*.razor`, `**/*.cshtml`, `**/*.aspx` | C# style, XML-doc, `nameof()`, NSubstitute, native-interop, Blazor, access modifiers |
-| `csharp-testing.instructions.md` | `**/*Tests*/**/*.cs`, test `.csproj` variants | C# test infrastructure, naming, gap audit, synchronization |
+| `csharp.instructions.md` | `**/*.cs`, `**/*.csx`, `**/*.csproj`, `**/*.razor`, `**/*.cshtml`, `**/*.aspx` | C# XML-doc, project structure, access modifiers, file/folder organization |
+| `csharp-style.instructions.md` | (same C# glob) | C# naming conventions, formatting, member ordering, expression preferences |
+| `csharp-runtime.instructions.md` | (same C# glob) | Async/disposal lifecycle, return-value contracts, concurrency primitives |
+| `csharp-smells.instructions.md` | (same C# glob) | C#-specific recurring code smells from PR reviews |
+| `csharp-testing.instructions.md` | `**/*Tests*/**/*.cs`, test `.csproj` variants | C# test layout, naming, constants, TestUtils |
+| `csharp-testing-quality.instructions.md` | (same test glob) | Test purpose, audit-and-delete framework |
+| `csharp-testing-sync.instructions.md` | (same test glob) | Alternative test patterns, test synchronization |
 | `coding-standards.instructions.md` | `**/*` | §3.2, §3.3, §3.3.1, §3.6, §3.9: naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text |
 | `coding-standards-code.instructions.md` | `**/*.{cs,csx,razor,cshtml,cpp,h,hpp,cc,cxx,c,ts,tsx,mts,cts,js,jsx,mjs,cjs,py,go,rs,java,kt}` | §3.4-§3.5, §3.7-§3.8, §3.10-§3.13: tests, perf, state predicates, deferred mutations, recurring smells, structure |
 | `cpp.instructions.md` | `**/*.cpp`, `**/*.h`, `**/*.hpp`, `**/*.cc`, `**/*.cxx`, `**/*.c` | C++ naming, formatting, COM patterns, vcxproj |

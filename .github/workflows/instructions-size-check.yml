@@ -44,9 +44,6 @@ jobs:
           # P3 will split these; until then they are exempt from the 30KB hard-fail.
           $allowlist = @(
             '.github/pr-quality-gate/pattern-catalog.md',
-            '.github/instructions/csharp.instructions.md',
-            '.github/playbooks/multi-model-review/pr-review-pattern-catalog.md',
-            '.github/instructions/csharp-testing.instructions.md',
             '.github/playbooks/review-workflow-gates.md',
             '.github/playbooks/pre-pr-creation-review/implementation-roadmap.md',
             '.github/playbooks/pre-pr-creation-review.md',
