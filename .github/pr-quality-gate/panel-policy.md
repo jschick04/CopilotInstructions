@@ -190,8 +190,12 @@ core_rules_acknowledged:
           keep_reason: <string>     # required when disposition=keep-because; ≤12 words; MUST add information beyond comment text
       diff_metric_check: <string>   # cross-check: rg-violation count or git-diff-extracted count matched against per_site_citations.Count
       divergence_acknowledged: <string>  # required when rg-battery count > per_site_citations.Count; ≤50-word specific reason; logged to panel-misses.csv.divergence_override_history
-    rationale: <string>             # REQUIRED when status=not-applicable; ≤30-word justification
+    rationale: <string>             # REQUIRED when status=not-applicable; 3-30w, >=1 repo/code-specific token, NOT in {na,n/a,skip,none,unknown,false-positive,not-applicable} (anti-tautology)
 ```
+
+### Chat-emission form (caveman)
+
+Chat + gate emit `core_rules_acknowledged` in the compressed one-line-per-slug grammar defined in `post-code-change.md` §"core_rules_acknowledged - chat-emission form (caveman)" (DRY). The YAML above is the canonical/audit-file form.
 
 ### Verification (BLOCK with manual override)
 
@@ -203,13 +207,7 @@ The runner cross-references rg-battery violation counts (for hybrid/diff/tree-sc
 
 ### What counts as evidence
 
-For each `status: applied` entry on a review-pass-only slug:
-- **MANDATORY**: `per_site_citations` list with file:line:disposition triples for every site the slug applies to in the diff
-- **MANDATORY**: `diff_metric_check` cross-reference (e.g., `git diff --cached -U0 | grep -cE '^\+\s*(//|///|/\*)'` returned N; `per_site_citations` covers N sites)
-- **ROTE-CHECKBOX FAILURE MODE**: `evidence` with only an aggregate count and no per-site list → gate BLOCKED
-
-For each `status: not-applicable` entry:
-- **MANDATORY**: `rationale` (≤30 words) citing why slug doesn't apply (e.g., "no new sync calls in async methods; verified by diff inspection")
+`status: applied` (review-pass-only slug): `per_site_citations` (file:line:disposition per applicable site) AND `diff_metric_check` (e.g. `git diff --cached -U0 | grep -cE '^\+\s*(//|///|/\*)'` returned N; citations cover N) are BOTH MANDATORY. Aggregate count with no per-site list = ROTE-CHECKBOX FAILURE = gate BLOCKED. `status: not-applicable`: `rationale` MANDATORY (anti-tautology constraint in the schema above).
 
 ### Trivial-PR carve-out
 
@@ -261,7 +259,7 @@ These print on EVERY invocation regardless of session-compaction state — the a
 ```
 panel:
   invoked: <true|false>                     # false only for lint-only
-  profile: <full|lite|full-default>         # from on-disk active-profile.instructions.md (full-default if absent); must agree with the LEDGER + PRE-COMMIT GATE PASSED copies
+  profile: <full|lite|full-default>         # on-disk active-profile (full-default if absent); must match LEDGER + PRE-COMMIT copies
   slate_floor_passed: <bool>
   reviewers: [<slot>: <model> <family> <role>, ...]
   convergence_model: <enum>
@@ -271,11 +269,11 @@ panel:
   fix_iteration_count: <int>
   must_fix_unresolved: <int>
   core_rules_acknowledged: <see §Per-rule acknowledgement>
-  rule_coverage_passed: <bool>              # true if all HIGH-tier review-pass-only slugs have an applied/not-applicable disposition
+  rule_coverage_passed: <bool>              # true if all HIGH-tier review-pass-only slugs dispositioned
   anti_recidivism_acknowledged: <list>      # verified-no-recurrence entries; empty if no PrRef
 ```
 
-§1B enforcement requires `convergence_result: passed` AND `dropped_reviewers: []` (or replacements present) AND `must_fix_unresolved: 0` AND `rule_coverage_passed: true` before any G6 forbidden-tool call.
+§1B enforcement requires `convergence_result: passed` AND `dropped_reviewers: []` (or replacements present) AND `must_fix_unresolved: 0` AND `rule_coverage_passed: true` before any G6 forbidden-tool call (the caveman `key=value` form satisfies this identically; `invoke-panel.ps1`'s per-mode contracts list all four keys for EVERY mode incl triage).
 
 ## Slate-floor checkpoint timing
 
@@ -283,7 +281,7 @@ panel:
 - **Checkpoint #2-N**: AFTER each drop+replacement. If floor would be broken after a drop, drop-handling rule above fires.
 - **Final checkpoint**: BEFORE emitting `PANEL CONVERGED`. Final slate must meet floor; substitutions recorded in `slate_substitutions`.
 
-Recorded in `slate_floor_passed: true|false` field. Any `false` → gate BLOCKED.
+Recorded in `slate_floor_passed`. Any `false` = gate BLOCKED.
 
 ## Catalog-edit + ack-sync invariant — MANDATORY
 

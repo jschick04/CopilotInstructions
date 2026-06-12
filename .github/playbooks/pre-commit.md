@@ -27,54 +27,22 @@ Before any `git commit` (including `git commit --amend`, `git cherry-pick`, `git
 
 ```
 PRE-COMMIT GATE PASSED
-  diff_shown: yes (turn <N>)
-  diff_approved: yes (turn <N+M> user response: "<verbatim approval phrase>")
-  profile: <full|lite|full-default>
-  author_identity: <name> <<email>> (scope: <local | global | env-override>)
-  commit_ownership: agent | user
-  proposed_subject: "<single-line subject - exact string the agent will pass to git commit -m>"
-  subject_approved: yes (turn <K> user response: "<verbatim approval phrase or 'edited to: ...'>")
-  format_check:
-    single_line: yes
-    co_authored_by_trailer: no
-    body: no
-    conventional_commit_prefix: no
-    subject_length_chars: <integer>
-  comment_audit:
-    audit_file_staged: <yes (path: .github/pr-quality-gate/audits/last.md) | no - repo has not adopted CI workflow (no .github/workflows/pr-gate-check.yml AND no scripts/check-comment-audit.ps1 AND no pre-existing audit file in main) | no - FAILS GATE (adopted repo but file missing)>
-    audit_file_parent_sha: <SHA from audit's parent_sha: header - set to `git rev-parse HEAD` at audit-write time (current HEAD is the about-to-be-created commit's parent). For root commits with no parent, use the literal `EMPTY_TREE` placeholder.>
-    new_or_rewritten_comment_lines_in_diff: <integer count, per-file-extension comment-syntax pattern matching per comment-protocol.md §Scope>
-    approval_entries_in_audit: <integer count of valid approval_turn: bullets (excluding deleted (...) entries)>
-    schema_source: "comment-protocol.md §Persisted audit file (canonical) + post-code-change.md §2.6 (ledger format)"
-  core_rules_acknowledged:
-    # Per panel-policy.md §Per-rule acknowledgement - REQUIRED enumeration of every HIGH-tier review-pass-only slug.
-    # Aggregate counts alone are INVALID for status=applied; per-site file:line citations are MANDATORY.
-    - slug: <string>
-      status: <applied | not-applicable>
-      evidence:
-        per_site_citations:        # REQUIRED when status=applied for review-pass-only slugs
-          - file: <relative path>
-            line: <int or int-range>
-            disposition: <rename | extract | remove | restore | keep-because>
-            keep_reason: <≤12 words; MUST add information beyond comment text (tautology meta-rule)>
-        diff_metric_check: <cross-reference: rg/grep count vs per_site_citations.Count>
-        divergence_acknowledged: <≤50-word specific reason; required when rg count > per_site_citations count>
-      rationale: <≤30-word; REQUIRED when status=not-applicable>
-  rule_coverage_passed: <bool; true iff every HIGH-tier review-pass-only slug has applied/not-applicable disposition>
-  full_scan_results:
-    # REQUIRED whenever this turn ALSO commits a catalog edit (new slug OR enhanced audit-method).
-    # Absent / empty = process violation per AGENTS.md §1A.3.
-    - new_or_enhanced_slug: <slug>
-      change_type: <new | enhanced-audit-method>
-      sites_scanned: <int - number of code sites the audit-method examined across the full PR diff>
-      gaps_found: [<file:line>, ...]
-      gaps_fixed_in_this_amend: [<file:line>, ...]
-      gaps_deferred_with_reason: [<file:line - ≤30-word justification>, ...]
-  pr_creation: deferred | draft | ready
-  staged_files:
-    - <explicit relative path 1>
-    - <explicit relative path 2>
-    - <... - must enumerate ALL staged files; "git add ." / "-A" / "--all" are forbidden per §0>
+gate|diff_shown=yes:t<N>|diff_approved=yes:t<N+M>:"<approval phrase>"|staged_diff_verified=<yes:(N files,+X/-Y)matches-shown | no:<discrepancy>>|profile=<full|lite|full-default>|author_identity=<name> <<email>>(scope:<local|global|env-override>)|commit_ownership=<agent|user>|rule_coverage_passed=<bool>|pr_creation=<deferred|draft|ready>
+subject|proposed_subject="<exact -m string>"|subject_approved=yes:t<K>:"<phrase|edited to:...>"|format_check=single_line:yes,co_authored_by_trailer:no,body:no,conventional_commit_prefix:no,subject_length_chars:<int>
+comment_audit|audit_file_staged=<yes:.github/pr-quality-gate/audits/last.md | no-not-adopted(no pr-gate-check.yml AND no check-comment-audit.ps1 AND no audit file in main) | no-FAILS(adopted but missing)>|parent_sha=<literal SHA from audit header = git rev-parse HEAD at write time; EMPTY_TREE for root>|new_or_rewritten=<int>|approval_entries=<int valid approval_turn bullets>|schema_source="comment-protocol.md §Persisted audit file + post-code-change.md §2.6"
+core_rules_acknowledged:   # caveman one-line-per-slug per post-code-change.md §"core_rules_acknowledged - chat-emission form (caveman)"; enumerate EVERY HIGH-tier review-pass-only slug; aggregate counts INVALID
+  - slug:<slug> status:applied sites:<site[,...]> metric:rg=<C/N> disp:<rename|extract|remove|restore|keep> [keep_reason:"<=12w"]
+  - ... (one line per slug x disposition-group; status:na lines carry na_reason)
+full_scan_results:   # REQUIRED iff this turn ALSO commits a catalog edit (new slug OR enhanced audit-method); absent/empty = §1A.3 violation. Structured per-site (STAYS):
+  - new_or_enhanced_slug: <slug>
+    change_type: <new | enhanced-audit-method>
+    sites_scanned: <int - code sites the audit-method examined across the full PR diff>
+    gaps_found: [<file:line>, ...]
+    gaps_fixed_in_this_amend: [<file:line>, ...]
+    gaps_deferred_with_reason: [<file:line - <=30w justification>, ...]
+staged_files:   # per-path enumeration (STAYS); "git add ." / "-A" / "--all" forbidden per §0
+  - <explicit relative path 1>
+  - <... enumerate ALL staged files>
 ```
 
 ### Field requirements
@@ -86,10 +54,10 @@ PRE-COMMIT GATE PASSED
 - **`subject_approved`** - record the user response that approved the proposed subject. If the user edited the subject during approval, `proposed_subject` must reflect the edited version, and `subject_approved` should quote the edit.
 - **`format_check`** - five boolean sub-fields. Any `no` on `single_line` / `subject_length_chars > 72` / etc. that contradicts the playbook's format rules MUST cause the agent to revise the message before re-emitting the block.
 - **`comment_audit`** - runs after the diff is approved by the user but before `git add`. Procedure: (1) for each file in the staged additions, use the per-extension comment-syntax map from `comment-protocol.md` §Scope to count NEW or substantively-rewritten comment lines (NOT pre-existing comments that happen to live in modified files); (2) for each counted comment, classify per `comment-protocol.md` (clarity-check → rename-check → step-3 `ask_user` OR an exempt category from the canonical 6); (3) tracking format depends on adoption (see `comment-protocol.md` §Persisted audit file - adoption gate): **(adopted repos)** write the §2.6 audit block to `.github/pr-quality-gate/audits/last.md` with `parent_sha:` set to `git rev-parse HEAD` (the commit's about-to-be parent), `commit_subject:` set to the proposed commit subject, and one bullet per NEW or substantively-rewritten comment; stage the audit file via explicit `git add .github/pr-quality-gate/audits/last.md` (enumerated in `staged_files`). Meta-changes with zero source-code edits still write the audit file with the zero-count template - the file's presence is invariant on adopted repos. **(non-adopted repos)** DO NOT create the audit file; record the dispositions INLINE in this `comment_audit` block (counts + per-comment approval-turn citations from the session's `ask_user` history). The `comment_audit` block records the audit-file status + counts + the parent_sha used (when applicable); on adopted repos, mismatch between the audit's parent_sha and the actual commit parent fails `pr-gate-check.yml` post-push.
-- **`core_rules_acknowledged`** - REQUIRED enumeration of every HIGH-tier review-pass-only catalog slug. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement. Per-site `file:line:disposition` citations are MANDATORY for `status: applied`; aggregate counts alone are INVALID. **Forcing-function recipe** for the most common HIGH-tier slugs:
+- **`core_rules_acknowledged`** - REQUIRED enumeration of every HIGH-tier review-pass-only catalog slug. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement; chat emits the caveman one-line-per-slug form (`post-code-change.md` §"core_rules_acknowledged - chat-emission form (caveman)"). Per-site citations are MANDATORY for `status:applied`; aggregate counts alone are INVALID. **Forcing-function recipe** for the most common HIGH-tier slugs:
     - `comment-necessity`: cite per-bullet `approval_turn:` value from the §2.6 ledger (paste from `.github/pr-quality-gate/audits/last.md` on adopted repos OR from the inline `comment_audit` block on non-adopted repos). Valid forms: (i) real `ask_user` turn/message ref + `allowed-case` (non-obvious invariant | external constraint | trade-off); (ii) `n/a - exempt: <category from canonical 6>` (`typo` | `deletion` | `stale-comment-fix-per-§3.9/§3.10` | `generated` | `vendored` | `THROWAWAY-header`); (iii) `n/a - degraded-mode-drop`; (iv) `n/a - no-response-drop`; (v) `deleted (per protocol step-3 rejection | rename-first resolution)`. Any other value = violation. On adopted repos, the audit file MUST be staged via explicit `git add .github/pr-quality-gate/audits/last.md` (enumerated in `staged_files`); on non-adopted repos, the audit file is NOT created and the citations live in the inline block.
     - `prefer-async-suffix`: paste output of `git diff --cached -U0 | grep -nE '^\+.*\.(Open|SaveChanges|Read|Write|Flush|Send|Dispose|CreateDbContext)\(' | grep -v '^\+\+\+'` then cite per site (used-async-overload / no-async-overload-on-receiver / sync-justified:<reason>). If choosing sync where Async exists, MUST justify.
-    - `panel-artifact-leakage`: run `git diff --cached -U0 | grep -nEi '(round[ -]?\d|bot.*(caught|finding|flagged)|Slot \d|PR ?\d+\+\d)' | grep -v '^\+\+\+'`. Zero matches = `status: applied; per_site_citations: []; diff_metric_check: "0 matches"`. Any match BLOCKS the commit until removed.
+    - `panel-artifact-leakage`: run `git diff --cached -U0 | grep -nEi '(round[ -]?\d|bot.*(caught|finding|flagged)|Slot \d|PR ?\d+\+\d)' | grep -v '^\+\+\+'`. Zero matches = `status:applied sites:[] metric:rg=0/0`. Any match BLOCKS the commit until removed.
     - Other HIGH-tier slugs: see catalog `review_pass_only_prompt` text for the slug's check. Cite per-site disposition for any matches in the diff.
   Verification: if rg-battery violation count (from gate-runner output) > acknowledged per_site_citations count → gate BLOCKED unless `divergence_acknowledged: <specific reason>` is set with ≤50-word justification. Divergence override is logged to `panel-misses.csv.divergence_override_history` for audit.
 - **`rule_coverage_passed`** - boolean derived from `core_rules_acknowledged`: true iff every HIGH-tier review-pass-only slug from `pattern-catalog.md` (or `HIGH-TIER-SLUGS.md` once Phase E lands) has an `applied` or `not-applicable` disposition with valid evidence/rationale. A missing slug = `rule_coverage_passed: false` = gate BLOCKED.

@@ -10,6 +10,6 @@ Parameterizes the review workflow. The active profile is whichever `profile.inst
 - Default panel mode: `full` (4-6 reviewers per the `panel-policy.md` full slate floor: >=1 Claude + >=2 GPT + >=1 Gemini family, >=1 rubber-duck + >=2 code-review, >=1 heavy-tier).
 - Trivial fast-path: not sanctioned on full. `triage` / `lint-only` require their usual explicit CLI flag + ask_user receipt.
 - Hard-gate convergence: unanimous.
-- Output: standard (compressed-KV low-risk records per `review-workflow-gates-sweeps.md` §2B; verbose high-risk gate blocks).
+- Output: compressed (low-risk records in KV per `review-workflow-gates-sweeps.md` §2B; high-risk gate blocks use their caveman chat-emission forms - structure collapsed, every enumeration/metric/key-presence forcing function intact).
 - Safety-critical and governance/instruction artifacts: full slate always; never any fast-path (same on both profiles).
 - Emit `profile=full` in the POST-CODE-CHANGE LEDGER, PRE-COMMIT GATE PASSED, and PANEL CONVERGED blocks.

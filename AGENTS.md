@@ -33,12 +33,7 @@ At the implementation -> git boundary, the FIRST tool call MUST be `ask_user` fo
 
 ```
 PRE-GIT SENTINEL
-  phase_transition_intent: implementation -> git
-  tests_status: <project>: <count> passing
-  diff_shown_to_user_turn: <turn>
-  user_diff_approval: pending
-  pre_commit_gate_block_emitted: pending
-  next_action: ask_user for diff approval
+phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | diff_shown_to_user_turn=<turn> | user_diff_approval=pending | pre_commit_gate_block_emitted=pending | next_action=ask_user for diff approval
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
@@ -242,6 +237,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md`: rubber-duck=`heavy-claude-standard`, code-review=`heavy-claude-xhigh`, explore=`light-claude-balanced`, general-purpose=`heavy-claude-standard`, security=`heavy-claude-xhigh`, panels=per `intake.md` item 4.
 - **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always uses full review rigor on both profiles.
 - **Instruction-set maintenance - mind context cost.** Principle (1-3 sentences) -> AGENTS.md; procedural detail -> playbook with STOP pointer. >10 lines / >1.5KB -> split to playbook.
+- **Output: caveman-terse.** Results over process narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).
 
 ---
 

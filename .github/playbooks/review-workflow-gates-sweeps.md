@@ -220,7 +220,7 @@ gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<
 4. Catalog sub-blocks (`pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, `playbook-invocations`) stay in EXISTING STRUCTURED form below KV (dot-path parsers depend on structure).
 5. APPENDIX (only when count>0): emit the canonical structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
 6. Adopted: full schema to audit file, appendix optional in chat. Non-adopted: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
-7. NOT compressed (stay verbose): §0 gates, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, `PRE-PR REVIEW COVERAGE`.
+7. §0 SENTINEL, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, and `PRE-PR REVIEW COVERAGE` emit the caveman chat-emission form defined in each block's home section, NOT verbose YAML.
 
 ### Waiver semantics
 

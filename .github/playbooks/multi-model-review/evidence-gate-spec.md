@@ -37,6 +37,21 @@ Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence
 - `citation-verification: <V verified, D verification-failed-dropped, I verification-invalid-dropped, R rework-1, T verification-twice-ambiguous-dropped, N no-citation-dropped>` — synthesis-time outcomes per finding from the orchestrator's citation-verification sub-step (`cross-file-bug-investigation.md` hard gate 9). Required for `bug-investigation`; absent for other target-types.
 - `C2 dispositions this round: deferred-to-caller-step-11A` — for `target-type=bug-investigation`, C2 routing is DEFERRED to the caller's Step 11A (which happens after user report approval per the caller's fix-transition protocol). The standard C2 dispositions row carries this sentinel value instead of resolving individual finding statuses. See `procedure.md` step 11 target-type variation.
 
+### Per-round - chat-emission form (caveman)
+
+Chat emits each round in this compressed grammar; the structured template above is the canonical/cumulative-log form. One KV line per reviewer; the dedup'd-themes + agreement enumeration STAYS (it proves synthesis - a bare count is fakeable).
+
+```
+round=<N> reviewers=<count> convergence=<unanimous|threshold|confidence-weighted> max_loops=<M>
+- slot=<slot> model=<id> verdict=<READY|NEEDS> conf=<X%|na> find=<B>/<M>/<N>
+- ... (one line per reviewer)
+themes=[<slug-theme>:<K/N>, ...]   # dedup'd by root cause; K of N reviewers flagged
+convergence=<yes | no:dissent-from-<slot>:"<finding>"> c2=<Fx>fx/<Rn>rn/<Rd>rd/<Dg>dg subagent_ask_user_calls=0
+next=<DONE | LOOP_R<N+1> | ESCALATE>
+```
+
+`bug-investigation` target-type appends, in KV: `- slot=<slot> lane=<lane>` per reviewer; `citation-verification=<V>/<D>/<I>/<R>/<T>/<N>`; and the `c2` field carries the literal `deferred-to-caller-step-11A` sentinel.
+
 ## C2 findings audit format (cross-cutting hard rule)
 
 The C2 status enum is used both inside this playbook (per-round disposition) AND by AGENTS.md cross-cutting findings audit (whenever any sub-agent surfaces a finding the orchestrator must dispose of). Format:
@@ -60,6 +75,16 @@ Findings audit: 0 findings — all sub-agent outputs re-read; no findings found.
 - `routed-now` — finding routed via `ask_user`; user decided in this turn. **Citation**: `ask_user` call ref + user decision summary.
 - `routed-deferred` — finding deferred to a future session / external work item. **Citation**: issue tracker URL / session note path / external record id. **NOT acceptable**: deferral with no external record.
 - `dismissed-source-grounded` — finding refuted by evidence from source. **Citation**: source location (`file:line`, doc URL, RFC, ADR) that refutes the finding. **NOT acceptable**: *"out of scope per reviewer"* without source grounding.
+
+### C2 audit - chat-emission form (caveman)
+
+Chat emits the C2 findings audit inline; the per-finding status + citation STAY (the enumeration is the proof, not a count).
+
+```
+Findings audit: <N> sub-agent findings. [<agent>:<finding-slug>=<status>:"<citation>"], ... subagent_ask_user_calls=0
+```
+
+Zero-count form: `Findings audit: 0 - all sub-agent outputs re-read; none found. subagent_ask_user_calls=0`. `<status>` in {fixed, routed-now, routed-deferred, dismissed-source-grounded}; `<citation>` per the status definitions above (file:line | ask_user-ref | tracker-id/URL | source-loc), quoted.
 
 ## Cumulative log
 

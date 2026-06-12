@@ -338,6 +338,27 @@ PRE-PR REVIEW COVERAGE
 
 The `catalog-revision`, `fp-registry-revision`, and `pattern-preflight-skip-status` fields are the state-echo for G6's PATTERN PREFLIGHT check - MUST be populated from phase-state on every emission. Use `not-yet-built` for SHA fields only when skip-status is `catalog: not-yet-built`; otherwise hold real SHAs.
 
+#### Chat-emission form (caveman)
+
+Chat emits `PRE-PR REVIEW COVERAGE` with scalars collapsed to pipe-KV; the THREE enumerations - `slate` (proves the floor), `resolution` (per-finding status+citation), and `routed-deferred-with-tracker` (C2 deferral proof) - STAY enumerated (counts are fakeable). The block above is the canonical form; keys are the forcing function.
+
+```
+PRE-PR REVIEW COVERAGE (caveman)
+meta|phase=<initial-pending-user-approval|ready-re-emitted-after-user-approval>|mode=<via-pre-pr-push-step-5|direct-invocation-dry-run-only>|triggers=[<trigger>,...]|base=<baseRef>@<baseSha>|head=<headSha>|commits=<N>|scope=<N files,+X/-Y>
+panel|convergence=<unanimous|threshold-N%|confidence-weighted-N%>|conv-waive=<no|"quote">|rounds=<K>|fixiter=<N>|fixiter-cap=<3|override>|dropped=[<slot>,...]|replaced=[<slot>,...]|subs=[]|slate-waive=<no|"quote">|prior-panel-disp=<none-<reason>|compacted-list>
+slate:
+  - slot 1: <model> <family> <role> [substituted from <requested>: <reason>]
+  - ...
+findings|raw=<total>|themes=<M>|mustfix-resolved=<K/K>
+resolution:
+  - [<cat 1-11>] <severity> [<reviewer>]: <finding>: <status>: <citation>
+  - ...
+routed-deferred-with-tracker:
+  - <finding> -> <tracker URL> (ask_user: <call ref>)
+  - ... (default: [])
+state|bootstrap=<not-applicable|present-in-body|removed-revokes-exemption>|catalog=<SHA|not-yet-built>|fp-registry=<SHA|not-yet-built>|preflight=<ran|catalog:not-yet-built|catalog:empty-battery|catalog:skipped-bootstrap|catalog:skipped-no-production-diff>|status=<READY-pending-user-approval|READY-re-emitted-after-user-approval|DRY-RUN-INFO-ONLY|BLOCKED-<reason>> subagent_ask_user_calls=0
+```
+
 ### Step 8. AGENTS user-approval
 
 Per AGENTS.md `gh pr create` section: present PR title + body + base via `ask_user`. User approves/edits/rejects. Non-GitHub forges: mirror same flow before G6 tool.
