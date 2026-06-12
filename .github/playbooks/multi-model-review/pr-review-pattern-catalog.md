@@ -8,7 +8,7 @@ This catalog is **project-deidentified**: signatures, discovery queries, and can
 
 1. §2D pre-PR-creation review enters its Step 2.5 (pattern preflight) BEFORE launching reviewers.
 2. For each high-frequency pattern below, run the entry's `discovery_query` against the branch diff (scope-mode noted per entry: `diff-scoped` over `<merge-base>..HEAD` OR `tree-scoped` over the project source tree).
-3. For each match, classify with the Delta K enum: `applied` / `already-applies` / `not-applicable`. `not-applicable` requires a rationale citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant — pure runtime-behavior assertions are NOT valid rationale (matches Delta K v4 rubric in `review-workflow-gates.md` §2B `delta-g-sweeps:` row).
+3. For each match, classify with the Delta K enum: `applied` / `already-applies` / `not-applicable`. `not-applicable` requires a rationale citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant — pure runtime-behavior assertions are NOT valid rationale (matches Delta K v4 rubric in `review-workflow-gates-sweeps.md` §2B `delta-g-sweeps:` row).
 4. Cross-check `known-false-positives.md` — if a finding matches FP-N, dismiss with the registered template; do NOT include it in the panel's reviewable findings.
 5. Emit a `PATTERN PREFLIGHT` block in the same response that subsequently launches the Step 3 panel — the block precedes the panel-launch tool calls in that response so the reviewers see the preflight as part of their initial context. See `pre-pr-creation-review.md` Step 2.5 for the strict format.
 

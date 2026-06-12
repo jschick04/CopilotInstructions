@@ -129,7 +129,7 @@ Beyond the playbooks (which are procedural), this repo provides a **rule enforce
 
 **Canonical sources** (this README is overview-only):
 - `panel-policy.md` — convergence model, per-rule ack schema, catalog-edit + ack-sync invariant
-- `review-workflow-gates.md` — POST-CODE-CHANGE LEDGER §2B canonical format
+- `review-workflow-gates-sweeps.md` — POST-CODE-CHANGE LEDGER §2B canonical format
 - `pattern-catalog.md` — full rule definitions with audit methods
 
 ## Consumer-repo adoption — comment-protocol persisted audit + CI gate
@@ -180,7 +180,7 @@ The four initial cycle-1 / cycle-2 in-repo playbook integrations are shown below
 | `design-exploration.md` | rg battery (`prototype-imported-by-production`) + reviewer pass (marker check) | `prototype-imported-by-production` (HIGH, tree-scoped rg) + `prototype-file-missing-throwaway-marker` (MEDIUM) |
 | `performance-comparison.md` | inherits design-exploration rules + reviewer pass (quantitative-claim check) | the two prototype rules above + `perf-claim-without-environment-capture` (MEDIUM) |
 
-The ledger-gate rules (LPA, ITD) work by requiring evidence in the agent's POST-CODE-CHANGE LEDGER block (canonical schema in `review-workflow-gates.md` §2B). Reviewers verify the field is populated when the diff's trigger condition holds. `N/A — <reason>` values must cite a specific carve-out from the playbook (framework-mandated visibility, rename-only test delta, etc.) — bare `N/A` is a violation.
+The ledger-gate rules (LPA, ITD) work by requiring evidence in the agent's POST-CODE-CHANGE LEDGER block (canonical schema in `review-workflow-gates-sweeps.md` §2B). Reviewers verify the field is populated when the diff's trigger condition holds. `N/A — <reason>` values must cite a specific carve-out from the playbook (framework-mandated visibility, rename-only test delta, etc.) — bare `N/A` is a violation.
 
 The rg-rule (`prototype-imported-by-production`) is `tree-scoped` and uses a multi-language import-statement regex (C#, TS/JS, Python, Rust, Go, Java/Kotlin, C++) with word-boundary anchoring to avoid `myprototypes`/`prototypes2` false positives. Excludes the prototype subtree itself via `--glob '!prototypes/**'`.
 
@@ -193,7 +193,7 @@ Cycle-3 expanded catalog enforcement to 7 cycle-3-scope playbooks at the pre-imp
 | Pre-implementation | `multi-model-review` panel (target-type `plan`); G5 + G6 evaluations | `implementation-planning` (non-trivial change), `library-restructure` (folder/namespace move) | `design-exploration` (≥2 competing approaches), `performance-comparison` (quantitative perf goal), `scope-planning` (scope <50 chars + no artifact), `system-framing` (cross-asm/project boundary), `project-vocabulary` (≥3 new domain terms) | `solution-architecture` (informational), `design-spec`, `ado-task-planning` |
 | Implementation | `intent-driven-testing` (prospective — when `behaviors_to_cover` non-empty) | (catalog meta-rule `implementation-phase-missed-playbook-required-by-pre-impl` verifies the 4 in-scope decision-having playbooks were honored per pre-impl LEDGER decisions) | | `software-install` (as needed) |
 | Post-code-change | `least-privilege-audit` (touched-file scope), `intent-driven-testing` (retrospective), `multi-model-review` panel, recurring-pattern sweep, prior-PR-review sweep, DRY-audit, §3.1 comment audit | (post-impl rules `library-restructure-required-on-folder-namespace-move-in-diff` HIGH + `implementation-planning-required-on-nontrivial-final-diff` HIGH catch missed-re-entry bypasses) | | |
-| Pre-commit | (consumes POST-CODE-CHANGE LEDGER incl. `pre-impl-trigger-detections` + `pre-impl-playbook-decisions` + `playbook-invocations` sub-blocks per `review-workflow-gates.md` §2B) | | | |
+| Pre-commit | (consumes POST-CODE-CHANGE LEDGER incl. `pre-impl-trigger-detections` + `pre-impl-playbook-decisions` + `playbook-invocations` sub-blocks per `review-workflow-gates-sweeps.md` §2B) | | | |
 | Pre-PR-creation | `pre-pr-creation-review` heavy panel (Delta-G sweeps, 11-category mirror prompt) | | | |
 | Pre-PR-push | `least-privilege-audit` (branch-wide scope), `per-commit-micro-hygiene`, `branch-wide-sweep`, prior-PR-review sweep | | | |
 | Post-PR-review | bot-finding audit + C2 status enum + instructions delta | | | |

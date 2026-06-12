@@ -45,7 +45,7 @@ When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<
 
 ## Per-phase additional fields
 
-**Pre-implementation phase additional fields** (cycle-3 G6 Playbook offer evaluation) - when running the pre-implementation phase per `pre-implementation.md`, record 14 additional lines per phase-state record mirroring the G6 chat output (7 `trigger-detected-<playbook>:` + 7 `playbook-decision-<playbook>:`). The keys mirror the POST-CODE-CHANGE LEDGER `gates.pre-impl-trigger-detections` + `gates.pre-impl-playbook-decisions` sub-blocks per `review-workflow-gates.md` §2B; both surfaces stay in sync (chat-visible LEDGER is the enforcement target; phase-state is the resumed-session continuity target). On G6 re-entry mid-implementation (when scope materially changes per the `pre-implementation.md` *G6 re-entry clause*), both surfaces are updated.
+**Pre-implementation phase additional fields** (cycle-3 G6 Playbook offer evaluation) - when running the pre-implementation phase per `pre-implementation.md`, record 14 additional lines per phase-state record mirroring the G6 chat output (7 `trigger-detected-<playbook>:` + 7 `playbook-decision-<playbook>:`). The keys mirror the POST-CODE-CHANGE LEDGER `gates.pre-impl-trigger-detections` + `gates.pre-impl-playbook-decisions` sub-blocks per `review-workflow-gates-sweeps.md` §2B; both surfaces stay in sync (chat-visible LEDGER is the enforcement target; phase-state is the resumed-session continuity target). On G6 re-entry mid-implementation (when scope materially changes per the `pre-implementation.md` *G6 re-entry clause*), both surfaces are updated.
 
 - `trigger-detected-implementation-planning`: `yes` | `no`
 - `trigger-detected-library-restructure`: `yes` | `no`

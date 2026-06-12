@@ -194,7 +194,7 @@ Runs BEFORE the panel launch (Step 3) so the `PATTERN PREFLIGHT` block is in the
 3. **Per match**, classify with the Delta K enum (consistent with §2B `delta-g-sweeps:` row):
    - `applied` — the pattern's canonical fix is in place in the current change. Requires `evidence: <file:line-range>`.
    - `already-applies` — the site was already correct at merge-base. Requires `evidence: <file:line-range>`.
-   - `not-applicable` — the site is exempt. Requires `rationale: <one line>` citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant. **Pure runtime-behavior assertions without code evidence are NOT valid rationale** (matches Delta K v4 rubric in `review-workflow-gates.md` §2B `delta-g-sweeps:` row).
+   - `not-applicable` — the site is exempt. Requires `rationale: <one line>` citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant. **Pure runtime-behavior assertions without code evidence are NOT valid rationale** (matches Delta K v4 rubric in `review-workflow-gates-sweeps.md` §2B `delta-g-sweeps:` row).
 
 4. **FP cross-check**: for each Copilot finding (if any) that the agent is processing alongside this preflight, check against `known-false-positives.md`. If the finding matches an FP entry by **technical claim** (per `known-false-positives.md` Matching policy — semantic match, not phrasing match): dismiss with the canonical template, record in `pr_review_findings.classification = 'recurring-false-positive'`, and DO NOT include in the panel's reviewable findings. **If the consuming project's `<project-root>/.github/data/pr-review-findings.csv` (or `.sqlite`) does not exist, follow the bootstrap procedure in `pr-review-findings-schema.md` §Initial seeding to create it before recording the row.**
 
@@ -270,7 +270,7 @@ Per `multi-model-review/procedure.md` synthesis (dedup by theme, severity rankin
 
 Every reviewer-flagged `blocking` finding resolved via G2's three paths.
 
-For `fixed` findings: apply change in this turn, re-stage, re-run build + tests, emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates.md` §2B, then re-run the panel from Step 2.
+For `fixed` findings: apply change in this turn, re-stage, re-run build + tests, emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates-sweeps.md` §2B, then re-run the panel from Step 2.
 
 **Before re-launching the panel from Step 2 after a `fixed` finding, increment `fixIterationCount` in the §2D phase-state record.** If `fixIterationCount > fixIterationCountCap` (default `3`), STOP and escalate via `ask_user`. The escalation prompt MUST classify the iteration history into one of two shapes so the user can make an informed call:
 
@@ -378,7 +378,7 @@ Read these back from canonical session todos when emitting `PRE-PR REVIEW COVERA
 
 ## §2B carve-out forward-reference
 
-When the future `review-workflow-gates.md` §2B edit lands (tightening `post-code-change-panel` from `ran | N/A — reason | user-waived` to `ran | N/A — reason`), preserve the existing N/A carve-out for pure-recommit / rebase with zero behavioral delta vs. previously-panelled artifact (~line 297). Removing `user-waived` is correct; removing the N/A carve-out would be a regression.
+When the future `review-workflow-gates-sweeps.md` §2B edit lands (tightening `post-code-change-panel` from `ran | N/A — reason | user-waived` to `ran | N/A — reason`), preserve the existing N/A carve-out for pure-recommit / rebase with zero behavioral delta vs. previously-panelled artifact (~line 297). Removing `user-waived` is correct; removing the N/A carve-out would be a regression.
 
 ## Cross-cutting fit — companion edits required (G7 condition 3)
 
@@ -390,7 +390,7 @@ The introducing PR for §2D MUST include ALL of:
 - `AGENTS.md` `gh pr create` section — extended to require G3 block emissions before user-approval.
 - `AGENTS.md` cross-cutting hard-gate bullets — new bullet referencing §2D.
 - `pre-pr-push.md` Step 5 — invokes this playbook for review-targeting pushes. Adds `preCreationReviewStatus` field to the state predicate.
-- `review-workflow-gates.md` §2D — LEDGER row + G1-G7 enforcement summary.
+- `review-workflow-gates-sweeps.md` §2D — LEDGER row + G1-G7 enforcement summary.
 - `.github/playbooks/manifest.yaml` — registers `pre-pr-creation-review`.
 
 Missing any of these → §2D is non-operative post-merge → G7 bootstrap exemption invalid.
@@ -407,4 +407,4 @@ LLM-based PR reviewers consistently surface a known set of pattern categories on
 
 Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens". The work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
 
-When a Copilot-bot PR-review finding lands on a PR that PASSED §2D, treat it as evidence the 11-category prompt or the per-commit catalog has a gap. Follow `review-workflow-gates.md` §2 root-cause analysis and propose an addition to the §2.5 catalog or the prompt template in the next `post-pr-review.md` cycle. The §2D gate improves via this feedback loop.
+When a Copilot-bot PR-review finding lands on a PR that PASSED §2D, treat it as evidence the 11-category prompt or the per-commit catalog has a gap. Follow `review-workflow-gates-sweeps.md` §2 root-cause analysis and propose an addition to the §2.5 catalog or the prompt template in the next `post-pr-review.md` cycle. The §2D gate improves via this feedback loop.

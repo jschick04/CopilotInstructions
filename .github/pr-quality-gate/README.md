@@ -418,7 +418,7 @@ This is acceptable because gate-runner is fast (seconds, not minutes) and panel 
 
 - `review-workflow-gates.md` §1A: add `slate-mode: full | triage | lint-only` carve-out documented in `panel-policy.md`
 - `review-workflow-gates.md` §1B: forbidden-tools gate references QUALITY GATE block name + `gate_status: READY` requirement
-- `review-workflow-gates.md` §2B: LEDGER pointer says "see QUALITY GATE block in `pr-quality-gate/quality-gate-block.md`"
+- `review-workflow-gates-sweeps.md` §2B: LEDGER pointer says "see QUALITY GATE block in `pr-quality-gate/quality-gate-block.md`"
 - `review-workflow-gates.md` PRE-COMMIT GATE PASSED: adds `preferences_compliance: <slug>: passed|violated` for every machine-checkable pref
 
 ## Open items pre-implementation panel verification

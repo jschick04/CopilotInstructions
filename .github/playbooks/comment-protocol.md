@@ -21,7 +21,7 @@ The trigger is **objective** — it fires on what would end up in the diff, NOT 
 - Sub-agents (`general-purpose`, `task`, `research`, etc.) may NOT call `ask_user` for step 3 — sub-agent-emitted comments are PROPOSED only and run through the orchestrator's step 3 on integration.
 - One rejection at step 3 → DROP the comment, no reject-loop ping-pong, unless the user explicitly asks you to rework and re-propose.
 - Headless / `ask_user` unavailable → DROP the comment. NEVER hard-stop the change for an unapproved comment.
-- Post-code-change ledger step 2.6 fails closed if any non-exempt comment lacks an `approval_turn:` citation — `git add` is blocked per `review-workflow-gates.md` §2B.
+- Post-code-change ledger step 2.6 fails closed if any non-exempt comment lacks an `approval_turn:` citation — `git add` is blocked per `review-workflow-gates-sweeps.md` §2B.
 
 ## Scope — what the protocol governs
 
@@ -177,7 +177,7 @@ For comments dropped via step-3 rejection or step-2 rename-first resolution (aud
 - <file:line>: deleted (per protocol step-3 rejection | rename-first resolution)
 ```
 
-A bullet missing the `approval_turn:` field, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` value fails the step-2.6 gate and blocks `git add` per `review-workflow-gates.md` §2B (`comment-audit-§3.1: failed — <site list>`).
+A bullet missing the `approval_turn:` field, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` value fails the step-2.6 gate and blocks `git add` per `review-workflow-gates-sweeps.md` §2B (`comment-audit-§3.1: failed — <site list>`).
 
 ## Persisted audit file — `.github/pr-quality-gate/audits/last.md` (OPT-IN per consuming repo)
 

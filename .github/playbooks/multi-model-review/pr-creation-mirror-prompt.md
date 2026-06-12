@@ -219,7 +219,7 @@ regressions.
 **Enforce Delta G's sweep via §2B's POST-CODE-CHANGE LEDGER (Delta K)**:
 when a commit applies a remediation pattern P that has at least one branch-existing
 or branch-new sister site (per Delta G + Delta J), the commit's POST-CODE-CHANGE
-LEDGER's `delta-g-sweeps:` row (defined in `review-workflow-gates.md` §2B's LEDGER
+LEDGER's `delta-g-sweeps:` row (defined in `review-workflow-gates-sweeps.md` §2B's LEDGER
 format) MUST be `ran, N patterns swept, M sites enumerated` with a structurally-valid
 entry per pattern. Absence or structural invalidity of the row blocks `git add` per
 §2B's existing `git add` block — no new tool-gate is introduced.
@@ -505,5 +505,5 @@ read-only `powershell` for `git --no-pager diff` / `show` / `log`). No
 
 ## Maintenance
 
-- **Update trigger**: a Copilot-bot PR-review finding lands on a PR that PASSED §2D — that's evidence the 11-category prompt has a gap; propose adding the missing pattern as a sub-bullet under the most appropriate category. Follow `review-workflow-gates.md` §2 root-cause analysis.
+- **Update trigger**: a Copilot-bot PR-review finding lands on a PR that PASSED §2D — that's evidence the 11-category prompt has a gap; propose adding the missing pattern as a sub-bullet under the most appropriate category. Follow `review-workflow-gates-sweeps.md` §2 root-cause analysis.
 - **Project-agnosticism**: framework examples in category 7 use `(illustrative)` labels and framework API names, not project-specific type names. Language-version qualifiers (`.NET 7+`, `C# 9+`) are language facts, not project leaks. Maintain this discipline when extending.

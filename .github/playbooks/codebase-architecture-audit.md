@@ -53,7 +53,7 @@ Checks (the lens criteria, applied to the scoped files):
 3. No root-level outlier in an assembly that otherwise organizes by feature folders.
 4. A uniformly-flat small assembly with NO existing folders is NOT an outlier; do NOT folderize it just to add structure (gold-plating per §3.13). Uniformly-flat means no production source subfolders (generated / `bin` / `obj` excluded) AND you cannot name 2+ coherent future slices or domains for it per §3.13; the carve-out expires once a second slice or domain clearly emerges, after which the normal slice-placement rule applies. A documented prior CLEAN verdict for such an assembly stands unless the user explicitly overrides it.
 
-Output is the `vsa-audit` ledger row (review-workflow-gates §2B): `ran (N placements checked, K misplaced)` or `N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change`. Fresh grep beats any cached survey or prior audit verdict; when a scoped finding contradicts a prior audit, record the contradiction so the prior audit can be corrected.
+Output is the `vsa-audit` ledger row (review-workflow-gates-sweeps.md §2B): `ran (N placements checked, K misplaced)` or `N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change`. Fresh grep beats any cached survey or prior audit verdict; when a scoped finding contradicts a prior audit, record the contradiction so the prior audit can be corrected.
 
 ## Procedure
 

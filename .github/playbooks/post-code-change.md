@@ -128,7 +128,7 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 - Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD` filtered for added comment syntax (`//`, `#`, `/*`, `<!--`, `--`, `<#`, `;`, `///`, `"""`) by file extension (per `comment-protocol.md` §Scope)" (or equivalent language-specific pattern).
 ```
 
-**Fail-closed semantics.** Every bullet MUST have a valid `approval_turn:` value — one of: **(i)** a real `ask_user` turn/message ref with paired `allowed-case`, **(ii)** `n/a — exempt: <category>` where `<category>` is from `comment-protocol.md`'s canonical 6, **(iii)** `n/a — degraded-mode-drop`, **(iv)** `n/a — no-response-drop`, or **(v)** `deleted (per protocol step-3 rejection or rename-first resolution)`. Any bullet failing this — missing `approval_turn:`, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` — fails the gate and blocks `git add` per `review-workflow-gates.md` §2B (the `comment-audit-§3.1` ledger row emits `failed — <site list>`). The `parent_sha:` and `commit_subject:` header lines are REQUIRED — `pr-gate-check.yml` uses `parent_sha:` to detect stale audit files (audit written for commit X but commit Y was actually made).
+**Fail-closed semantics.** Every bullet MUST have a valid `approval_turn:` value — one of: **(i)** a real `ask_user` turn/message ref with paired `allowed-case`, **(ii)** `n/a — exempt: <category>` where `<category>` is from `comment-protocol.md`'s canonical 6, **(iii)** `n/a — degraded-mode-drop`, **(iv)** `n/a — no-response-drop`, or **(v)** `deleted (per protocol step-3 rejection or rename-first resolution)`. Any bullet failing this — missing `approval_turn:`, citing an exempt category not in the canonical 6, or citing an unknown `n/a — <reason>` — fails the gate and blocks `git add` per `review-workflow-gates-sweeps.md` §2B (the `comment-audit-§3.1` ledger row emits `failed — <site list>`). The `parent_sha:` and `commit_subject:` header lines are REQUIRED — `pr-gate-check.yml` uses `parent_sha:` to detect stale audit files (audit written for commit X but commit Y was actually made).
 
 **Persisted audit file (HARD GATE on adopted repos; SKIP on non-adopted repos).** The §2.6 audit block above is written to `.github/pr-quality-gate/audits/last.md` in the project repo root ONLY when the consuming repo has adopted the audit-file workflow (see `comment-protocol.md` §Persisted audit file — adoption gate: at least one of `.github/workflows/pr-gate-check.yml`, `scripts/check-comment-audit.ps1`, or pre-existing audit file in main). On **adopted repos**: stage the file alongside the source change in every commit by enumerating it in the explicit staged-files list (`git add .github/pr-quality-gate/audits/last.md` — never `git add .` per AGENTS.md §0). The file MUST be present in every commit including no-comment / meta-change commits (use the zero-count template). Failure to stage the file = failure of this step, blocks `git add`. On **non-adopted repos**: DO NOT create the audit file. The §3.1 discipline still applies, but tracking happens INLINE via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (per `pre-commit.md` `comment_audit.audit_file_staged: no — repo has not adopted CI workflow`).
 
@@ -136,7 +136,7 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 
-Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates.md` §2B** — that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.). The summary below is illustrative; the full schema lives there.
+Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** — that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.). The summary below is illustrative; the full schema lives there.
 
 ```
 POST-CODE-CHANGE LEDGER
@@ -144,7 +144,7 @@ POST-CODE-CHANGE LEDGER
   shown_diff_matches_intent: yes | no
   self_similarity_sweep: clean | <list of sibling sites + dispositions>
   tests_run: <result summary or n/a>
-  # ... plus every gate row from review-workflow-gates.md §2B (touched-file-LPA, intent-driven-testing-audit, post-code-change-panel, delta-g-sweeps, etc.)
+  # ... plus every gate row from review-workflow-gates-sweeps.md §2B (touched-file-LPA, intent-driven-testing-audit, post-code-change-panel, delta-g-sweeps, etc.)
   core_rules_acknowledged:
     # Per panel-policy.md §Per-rule acknowledgement — required enumeration with per-site citations.
     - slug: <string>
@@ -204,7 +204,7 @@ Sub-agent findings outside the immediate scope are routed via `ask_user` per the
 
 The benchmark / test from `pre-implementation.md` must show the expected delta (perf) or pass (functional). If the metric didn't move, the change is a no-op — revert and re-diagnose. Do not paper over a no-op fix with reviewer agreement.
 
-**Intent-driven testing retrospective dispatch**: if the diff contains new test files OR a production SUT branch / public API delta vs the prior commit, `intent-driven-testing.md` (retrospective mode) fires as a phase sub-step — produces the Test-loop audit evidence-gate output (Direction A regression-pinning + Direction B gap list) per that playbook. Surfaces gaps as C2 follow-up candidates; does NOT fail this phase for missing tests on a mechanical-port commit. **Record the result in the POST-CODE-CHANGE LEDGER's `intent-driven-testing-audit` field** (per `review-workflow-gates.md` §2B); the catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) enforces the field is populated when the trigger fires.
+**Intent-driven testing retrospective dispatch**: if the diff contains new test files OR a production SUT branch / public API delta vs the prior commit, `intent-driven-testing.md` (retrospective mode) fires as a phase sub-step — produces the Test-loop audit evidence-gate output (Direction A regression-pinning + Direction B gap list) per that playbook. Surfaces gaps as C2 follow-up candidates; does NOT fail this phase for missing tests on a mechanical-port commit. **Record the result in the POST-CODE-CHANGE LEDGER's `intent-driven-testing-audit` field** (per `review-workflow-gates-sweeps.md` §2B); the catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) enforces the field is populated when the trigger fires.
 
 ### 7. Run affected builds and tests
 

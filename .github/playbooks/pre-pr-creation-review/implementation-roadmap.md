@@ -457,7 +457,7 @@ Standard `multi-model-review/procedure.md` synthesis (dedup by theme, rank sever
 
 Every finding flagged `blocking` by any reviewer must be resolved per G2's three paths: `fixed`, `dismissed-source-grounded`, or G4-compliant `routed-deferred-with-tracker-and-ask_user`.
 
-For `fixed` findings: apply the change in this turn, re-stage, re-run build + tests, re-emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates.md` §2B. After the fix commit, re-run the panel from Step 2.
+For `fixed` findings: apply the change in this turn, re-stage, re-run build + tests, re-emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates-sweeps.md` §2B. After the fix commit, re-run the panel from Step 2.
 
 **Branch-level iteration cap (separate from `multi-model-review.md` round-level max-loop)**: track `fixIterationCount` in the §2D phase-state record. Increment by 1 on each Step 9 fix-then-re-run cycle.
 
@@ -572,7 +572,7 @@ Read these back from canonical session todos when emitting the `PRE-PR REVIEW CO
 
 ## §2B carve-out forward-reference
 
-When the future `review-workflow-gates.md` §2B edit lands (the one tightening `post-code-change-panel` from `ran | N/A — reason | user-waived` to `ran | N/A — reason`), preserve the existing N/A carve-out for pure-recommit / rebase with zero behavioral delta vs. previously-panelled artifact (existing carve-out at `review-workflow-gates.md` ~line 297). Removing `user-waived` is correct; removing the N/A carve-out would be a regression.
+When the future `review-workflow-gates-sweeps.md` §2B edit lands (the one tightening `post-code-change-panel` from `ran | N/A — reason | user-waived` to `ran | N/A — reason`), preserve the existing N/A carve-out for pure-recommit / rebase with zero behavioral delta vs. previously-panelled artifact (existing carve-out at `review-workflow-gates-sweeps.md` ~line 297). Removing `user-waived` is correct; removing the N/A carve-out would be a regression.
 
 ## Cross-cutting fit — companion edits required for §2D to be operative
 
@@ -581,7 +581,7 @@ Per G7's "ALL companion edits required" rule, the introducing PR for §2D MUST i
 - **`AGENTS.md` `gh pr create` section** — extended to require the `PRE-PR REVIEW COVERAGE` block emission per G3 (initial + re-emission) before the existing user-approval step.
 - **`AGENTS.md` cross-cutting hard-gate bullets** — new bullet referencing §2D.
 - **`pre-pr-push.md` Step 5** — invokes this playbook (single source of truth for "should §2D fire now?"). Adds `preCreationReviewStatus` field to the pre-PR-push state predicate.
-- **`review-workflow-gates.md` §2D** — the hard-gate spec (LEDGER row format, mandatory-output rules, G1-G7 enforcement summary).
+- **`review-workflow-gates-sweeps.md` §2D** — the hard-gate spec (LEDGER row format, mandatory-output rules, G1-G7 enforcement summary).
 - **`multi-model-review/current-model-registry.md`** — created with current capability-tier mappings.
 - **This playbook** (`pre-pr-creation-review.md`).
 
@@ -598,7 +598,7 @@ LLM-based PR reviewers (GitHub Copilot's PR-review feature and similar bot revie
 
 Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens". The work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
 
-When a Copilot-bot PR-review finding lands on a PR that PASSED §2D, treat it as evidence the 11-category prompt or the per-commit catalog has a gap. Follow `review-workflow-gates.md` §2 root-cause analysis and propose an addition to the §2.5 catalog or the 11-category prompt in the next `post-pr-review.md` cycle. The §2D gate improves via this feedback loop, not via static perfection.
+When a Copilot-bot PR-review finding lands on a PR that PASSED §2D, treat it as evidence the 11-category prompt or the per-commit catalog has a gap. Follow `review-workflow-gates-sweeps.md` §2 root-cause analysis and propose an addition to the §2.5 catalog or the 11-category prompt in the next `post-pr-review.md` cycle. The §2D gate improves via this feedback loop, not via static perfection.
 
 The cost is panel context (≥4 reviewers × ~10-15K tokens each ≈ 40-75K tokens per gate run). Acceptable for the safety value at PR-creation time. The per-commit sister gate runs a lighter panel to keep cumulative context manageable across many commits; Step 3's context-budget circuit-breaker (parameterized to the orchestrator's runtime window size) prevents the gate from blowing memory on large branches.
 

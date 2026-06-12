@@ -162,13 +162,13 @@ Hard gates:
 - **Touched-file least-privilege audit.** Trigger: visibility/export/mutability surface delta. All 6 axes; fresh grep is non-negotiable.
 - **Touched-file VSA audit.** Trigger: new type/file, move/rename, root-level addition, multi-type file.
 - **Recurring-pattern sweep with findings count.** MANDATORY on every commit-bound change; silent skip is the failure mode.
-- **Prior-PR-review sweep.** Two-scope: current PR thread + last 10 merged PRs (§2A in `review-workflow-gates.md`).
-- **DRY remediation gate.** Refactor where 2+ files share >=5 identical lines (§2C in `review-workflow-gates.md`). DRY gate output shape: `ran, <N> duplications, <K> refactored, <J> waived`.
+- **Prior-PR-review sweep.** Two-scope: current PR thread + last 10 merged PRs (§2A in `review-workflow-gates-sweeps.md`).
+- **DRY remediation gate.** Refactor where 2+ files share >=5 identical lines (§2C in `review-workflow-gates-sweeps.md`). DRY gate output shape: `ran, <N> duplications, <K> refactored, <J> waived`.
 - Multi-model panel, unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`.
 - §3.1 comment audit evidence-gate output.
 - Diagnosis-verifying re-run passes.
 - Affected builds + tests pass.
-- **Post-code-change ledger emitted before `git add`.** Without it in current turn, `git add` is forbidden (§2B in `review-workflow-gates.md`). Ledger enumerates every gate with status `ran` | `N/A: <reason>` | `user-waived: "<quote>"`.
+- **Post-code-change ledger emitted before `git add`.** Without it in current turn, `git add` is forbidden (§2B in `review-workflow-gates-sweeps.md`). Ledger enumerates every gate with status `ran` | `N/A: <reason>` | `user-waived: "<quote>"`.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`.
 
@@ -177,7 +177,7 @@ Hard gates:
 Hard gates:
 
 - **Diff shown + approved.** Applies to ALL commit-producing operations (fresh, `--amend`, fixup, cherry-pick, rebase). No "trivial amend" exemption.
-- **Ledger emitted before `git add`.** Fresh each commit; previous-turn waivers do not carry forward (§2B in `review-workflow-gates.md`).
+- **Ledger emitted before `git add`.** Fresh each commit; previous-turn waivers do not carry forward (§2B in `review-workflow-gates-sweeps.md`).
 - **HARD STOP before `git add`.** `ask_user` approval MUST precede `git add`. No batching without prior approval.
 - **Panel READY != diff-approval.** Both independent; both must pass on project repos.
 - **Author identity verified per §4.1.** Preserved author also checked on amend/replay.
@@ -197,7 +197,7 @@ Hard gates:
 - Branch-wide rename-first sweep before first review push.
 - **Branch-wide least-privilege audit** when diff shows visibility/export/mutability delta.
 - **Branch-wide VSA audit** when diff adds/moves/renames types or files.
-- **Branch-wide prior-PR-review sweep** (two-scope against full branch diff; §2A in `review-workflow-gates.md`).
+- **Branch-wide prior-PR-review sweep** (two-scope against full branch diff; §2A in `review-workflow-gates-sweeps.md`).
 - **No internal plan markers** in PR titles or bodies.
 - State read-back (11-field predicate) before claiming ready.
 - No "ready to push" until all gates done OR explicitly skipped with warning.
@@ -212,7 +212,7 @@ Hard gates:
 - Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
 - Per-finding audit output per `post-pr-review.md` step 6 (C2 status enum + `subagent_ask_user_calls=0`).
 - Instructions-file delta proposed for each fixed comment (project-agnostic).
-- **PR review comments are hard blockers.** Every comment must be root-cause analyzed, similar patterns swept across the diff, and instructions updated if a gap is revealed. Full procedure in `.github/playbooks/review-workflow-gates.md` §2.
+- **PR review comments are hard blockers.** Every comment must be root-cause analyzed, similar patterns swept across the diff, and instructions updated if a gap is revealed. Full procedure in `.github/playbooks/review-workflow-gates-sweeps.md` §2.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-pr-review.md`.
 
