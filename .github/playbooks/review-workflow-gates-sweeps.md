@@ -6,7 +6,7 @@ Companion to `review-workflow-gates.md` (post-change sweep, ledger, DRY, and pre
 
 ### The problem this solves
 
-When a PR review comment (bot or human) identifies an issue, a surface-level fix that passes the immediate check but leaves the underlying pattern in place causes the same class of issue to be flagged again in subsequent reviews. This wastes reviewer time, developer time, and erodes confidence in the review process.
+Surface-level fixes that leave the underlying pattern in place cause repeat findings across review rounds.
 
 ### Hard gate
 
@@ -23,11 +23,10 @@ Every PR review comment must be analyzed through this checklist before marking i
 
 ### Repeat findings are process failures
 
-When the same class of issue is flagged across multiple review rounds:
-
-1. Treat it as evidence that the pre-implementation panel missed something.
-2. Identify why the panel missed it (was the pattern not in the sweep list? Was the reviewer angle too narrow? Was the rubber-duck stage skipped?).
-3. Feed the learning back: update the instruction set, add a sweep pattern, or adjust panel reviewer angles.
+When the same issue class recurs across review rounds:
+1. Treat as evidence the pre-implementation panel missed something.
+2. Identify why (pattern missing from sweep list? angle too narrow? rubber-duck skipped?).
+3. Feed back: update instructions, add sweep pattern, or adjust panel angles.
 
 ---
 
@@ -35,18 +34,18 @@ When the same class of issue is flagged across multiple review rounds:
 
 ### The problem
 
-PRs frequently get the same class of review comment that prior PRs already received. Each round of fix-up commits wastes reviewer time, developer time, and slows the merge cycle. The patterns are visible in the prior PR review history — fetching them and sweeping the current diff prevents the second-round comments.
+PRs frequently get the same class of review comment that prior PRs received. Fetching prior review patterns and sweeping the current diff prevents repeat findings.
 
 ### Procedure
 
-Two-scope sweep — current branch + recent repo PRs:
+Two-scope sweep  -  current branch + recent repo PRs:
 
-**Scope A — Current branch PR thread:**
+**Scope A  -  Current branch PR thread:**
 1. If the current branch already has an open PR, fetch all review comments (both inline and review-body) from that PR via `gh api repos/<owner>/<repo>/pulls/<n>/comments` and `gh api repos/<owner>/<repo>/pulls/<n>/reviews`.
-2. Extract the pattern from each comment — not the specific file/line, but the class of issue (e.g. "empty CompareExchange guard", "ProviderDbContext 2-arg overload defaults ensureCreated=true", "HTML disabled on span tag").
+2. Extract the pattern from each comment  -  not the specific file/line, but the class of issue (e.g. "empty CompareExchange guard", "ProviderDbContext 2-arg overload defaults ensureCreated=true", "HTML disabled on span tag").
 3. Sweep the current uncommitted/staged diff for each pattern.
 
-**Scope B — Recent repo PRs:**
+**Scope B  -  Recent repo PRs:**
 1. Fetch the last 10 merged PRs in the repo: `gh pr list --state merged --limit 10 --json number,title`.
 2. For each PR, fetch review comments (bot + human) via the same API calls.
 3. Extract patterns (same as Scope A).
@@ -64,21 +63,21 @@ Prior-PR-review sweep: ran, M patterns checked, N findings.
 
 ### When this gate fires
 
-- **`post-code-change.md`** — every commit-bound change runs the sweep before the diff is shown.
-- **`pre-pr-push.md`** — every push intended for review runs the sweep against the full branch diff (`git diff <base>..HEAD`).
+- **`post-code-change.md`**  -  every commit-bound change runs the sweep before the diff is shown.
+- **`pre-pr-push.md`**  -  every push intended for review runs the sweep against the full branch diff (`git diff <base>..HEAD`).
 
 ### Skip conditions
 
 This sweep may be skipped when:
-- The repo has no prior merged PRs (e.g. brand-new repo) — skip Scope B; Scope A still applies if a current PR exists.
-- The current change has no production-code edits (pure docs / pure CI config change with no code patterns to match) — explicitly document this fact.
+- The repo has no prior merged PRs (e.g. brand-new repo)  -  skip Scope B; Scope A still applies if a current PR exists.
+- The current change has no production-code edits (pure docs / pure CI config change with no code patterns to match)  -  explicitly document this fact.
 
 In every other case, the sweep is mandatory. Silent skip ("I don't think any prior patterns apply") is the failure mode this gate exists to prevent.
 
 ### Why both scopes
 
-- **Scope A catches re-pushed fixes** — same PR thread, prior round flagged X, fix-up commit re-introduces X elsewhere. Most common in iterative review cycles.
-- **Scope B catches "patterns the team has already learned about"** — comments from prior PRs reflect what reviewers care about; the current PR should not re-trigger them.
+- **Scope A catches re-pushed fixes**  -  same PR thread, prior round flagged X, fix-up commit re-introduces X elsewhere. Most common in iterative review cycles.
+- **Scope B catches "patterns the team has already learned about"**  -  comments from prior PRs reflect what reviewers care about; the current PR should not re-trigger them.
 
 ### Cost containment
 
@@ -90,13 +89,13 @@ Fetching review comments for 10 PRs is ~20 API calls. Use `gh api --paginate` on
 
 ### The problem
 
-The pre-implementation phase has a single named certification block (`PANEL CONVERGED` per §1A) whose presence is enforced by §1B — implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped — and the user has no easy way to detect it after the fact.
+The pre-implementation phase has a single named certification block (`PANEL CONVERGED` per §1A) whose presence is enforced by §1B  -  implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped  -  and the user has no easy way to detect it after the fact.
 
 This is the failure mode that landed on this branch: `PANEL CONVERGED` was emitted once for the plan; subsequent implementation commits proceeded with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running. The user had previously waived the diff-approval `ask_user` step on an earlier commit; that single-step waiver was implicitly carried forward and treated as a blanket post-code-change waiver on later commits.
 
 ### Rule
 
-Before ANY `git add` (or `git commit --amend` that re-stages files, or `git stash pop` that resolves into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, `git add` is forbidden — extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary.
+Before ANY `git add` (or `git commit --amend` that re-stages files, or `git stash pop` that resolves into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, `git add` is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary.
 
 ### Ledger format
 
@@ -203,6 +202,25 @@ POST-CODE-CHANGE LEDGER
 
 Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped".
 
+### Chat-emission form (compressed KV v1)
+
+Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audit-file form. Keys are the forcing function; detail is recoverable.
+
+```
+POST-CODE-CHANGE LEDGER (KV v1)
+core|commit=<json-string>|files=<N>(+<added>/-<removed>)
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+```
+
+**Rules:**
+1. Fields `|`-separated; values are counts/codes/enums EXCEPT `commit`: a JSON-escaped quoted string (`"`->`\"`, `|`->`\u007c`), unambiguous for any subject. Lists `[...]`, no interior spaces.
+2. N/A codes name the trigger absence: `na:no-visibility-delta`, etc.
+3. Every `gates|` key MUST appear with status+metric (`=none` for empty triggers, never blank).
+4. Catalog sub-blocks (`pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, `playbook-invocations`) stay in EXISTING STRUCTURED form below KV (dot-path parsers depend on structure).
+5. APPENDIX (only when count>0): emit the canonical structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
+6. Adopted: full schema to audit file, appendix optional in chat. Non-adopted: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
+7. NOT compressed (stay verbose): §0 gates, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, `PRE-PR REVIEW COVERAGE`.
+
 ### Waiver semantics
 
 A `user-waived` value MUST quote the user's waiver from the **current turn**. Waivers from earlier turns do NOT carry forward to new commits. This is the specific rule that catches the silent-skip failure mode: "the user said staged-means-reviewed on commit N" cannot waive any gate on commit N+1.
@@ -219,7 +237,7 @@ diff-shown: user-waived: "staged means I reviewed it" [turn 47]
 
 ### Required outputs per gate
 
-The ledger does NOT replace each gate's own required output (e.g. §2.5 sweep still emits `Step 2.5 sweep: ran, N findings`, §2A still emits its sweep line). The ledger AGGREGATES those into a single signed-off block. Per-gate output must still appear in the same turn — the ledger just confirms each gate ran AND attests to its result.
+The ledger does NOT replace each gate's own required output (e.g. §2.5 sweep still emits `Step 2.5 sweep: ran, N findings`, §2A still emits its sweep line). The ledger AGGREGATES those into a single signed-off block. Per-gate output must still appear in the same turn  -  the ledger just confirms each gate ran AND attests to its result.
 
 ### When this gate fires
 
@@ -232,9 +250,9 @@ Every `git add` of files staged for a commit. Specifically:
 
 **Carve-outs (no ledger required):**
 
-- `git add` to mark conflicts as resolved when **no commit will follow in the current turn** — i.e. the user has explicitly directed leaving the resolved state in the working tree for their own review before any commit.
+- `git add` to mark conflicts as resolved when **no commit will follow in the current turn**  -  i.e. the user has explicitly directed leaving the resolved state in the working tree for their own review before any commit.
 - `git add` followed by `git stash push` (preparing to stash, not commit).
-- `git restore --staged <path>` (unstaging — no commit pathway).
+- `git restore --staged <path>` (unstaging  -  no commit pathway).
 
 ### Skip conditions
 
@@ -249,8 +267,8 @@ A gate row may be `N/A: <reason>` when:
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root
-  files whose dirname is `.` expand to the repo's source roots — typically `src/`, `tests/`
-  — and exclude generated/vendored trees such as `node_modules/`, `vendor/`, `obj/`, `bin/`
+  files whose dirname is `.` expand to the repo's source roots  -  typically `src/`, `tests/`
+   -  and exclude generated/vendored trees such as `node_modules/`, `vendor/`, `obj/`, `bin/`
   per the repo's `.gitignore`). Wider scope is permitted and encouraged for cross-cutting
   patterns; narrower scope is forbidden. If a sister site outside the recorded scope is
   later discovered, the LEDGER is falsified per §2B and the falsified-ledger remediation
@@ -274,7 +292,7 @@ If a `POST-CODE-CHANGE LEDGER` block is later found to have falsified a gate sta
 
 ### The problem
 
-The agent has repeatedly noticed code duplication during implementation but proceeded to commit without refactoring — leaving the user to call it out later. Examples from recent sessions: 5 tab classes sharing 100+ lines of run/cancel/state/log plumbing (caught by user, base class extracted after commit); 3 picker services sharing the WinUI window-init dance (caught by user, shared helper extracted after commit). The pattern is "I saw it, I didn't act." This wastes a re-review round and erodes trust.
+The agent has repeatedly noticed code duplication during implementation but proceeded to commit without refactoring  -  leaving the user to call it out later. Examples from recent sessions: 5 tab classes sharing 100+ lines of run/cancel/state/log plumbing (caught by user, base class extracted after commit); 3 picker services sharing the WinUI window-init dance (caught by user, shared helper extracted after commit). The pattern is "I saw it, I didn't act." This wastes a re-review round and erodes trust.
 
 ### Rule
 
@@ -289,7 +307,7 @@ During the post-code-change phase, the agent MUST run a DRY audit on the staged 
 The default action is refactor, using the smallest abstraction that captures the duplication:
 
 - 2+ classes sharing fields + methods → base class (abstract for behavior, concrete for shared state).
-- 2+ files calling the same 3–10 lines of platform/util code → static helper.
+- 2+ files calling the same 3-10 lines of platform/util code → static helper.
 - 2+ methods with same shape but different generic parameter → generic method.
 - 2+ types with parallel members → extension method, interface, or partial class.
 - 2+ Razor components sharing template + binding → component inheritance or shared `RenderFragment`.
@@ -300,7 +318,7 @@ If refactoring is not appropriate, the agent presents the duplication to the use
 
 1. The pattern (concrete code or shape).
 2. The file paths + line ranges where it appears.
-3. The proposed refactor + why the agent is recommending against it (e.g., "premature abstraction — only 2 sites today, abstraction would obscure rather than help").
+3. The proposed refactor + why the agent is recommending against it (e.g., "premature abstraction  -  only 2 sites today, abstraction would obscure rather than help").
 4. A `refactor | waive` choice via `ask_user`.
 
 A `user-waived` entry in the LEDGER's `dry-audit` row MUST quote the user's waiver from the **current turn**.
@@ -308,7 +326,7 @@ A `user-waived` entry in the LEDGER's `dry-audit` row MUST quote the user's waiv
 ### Exceptions (no audit needed)
 
 - Test fixtures that intentionally duplicate setup for isolation.
-- Trivial 1–2 line guards (`ArgumentNullException.ThrowIfNull(x)`).
+- Trivial 1-2 line guards (`ArgumentNullException.ThrowIfNull(x)`).
 - Tool-generated code (EF migrations, Razor compilation output, scaffolding).
 - Boilerplate the language requires (e.g., `partial` declarations, attribute decorators).
 
@@ -323,7 +341,7 @@ dry-audit: ran, N duplications, K refactored, J waived
 
 ### Repeat-failure escalation
 
-If the same duplication pattern is detected in a subsequent commit (i.e., the user had to call it out after the agent shipped without refactoring), that counts as a §2B "falsified ledger" — agent reports the slip proactively and proposes remediation. Two such slips in the same session triggers an explicit pause + plan-correction cycle.
+If the same duplication pattern is detected in a subsequent commit (i.e., the user had to call it out after the agent shipped without refactoring), that counts as a §2B "falsified ledger"  -  agent reports the slip proactively and proposes remediation. Two such slips in the same session triggers an explicit pause + plan-correction cycle.
 
 ---
 
@@ -333,18 +351,18 @@ If the same duplication pattern is detected in a subsequent commit (i.e., the us
 
 Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), a multi-model heavy panel (≥4 reviewers per slate floor in `pre-pr-creation-review.md` waive matrix) MUST run on the FULL branch diff (`<base>..HEAD`) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). A `PRE-PR REVIEW COVERAGE` block MUST appear in the same turn as the PR-creation tool call (initial emission at end of synthesis + re-emission after the AGENTS user-approval `ask_user` returns).
 
-Strict mandatory — G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
+Strict mandatory  -  G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
 
 ### LEDGER row format
 
-When §2D is in scope (review-targeting push per `pre-pr-push.md` Step 5), the §2D ledger row appears in `PRE-PR REVIEW COVERAGE` per the playbook's Step 7 / Step 9 emission format. The `pr-creation-status` field is the gate's READY signal — values:
+When §2D is in scope (review-targeting push per `pre-pr-push.md` Step 5), the §2D ledger row appears in `PRE-PR REVIEW COVERAGE` per the playbook's Step 7 / Step 9 emission format. The `pr-creation-status` field is the gate's READY signal  -  values:
 
 - `READY-pending-user-approval` (initial emission, end of synthesis turn).
 - `READY-re-emitted-after-user-approval` (PR-creation tool-call turn, after AGENTS user-approval ask_user returns + same-state re-check passes).
-- `BLOCKED — <N> must-fix unresolved` (must-fix findings still pending).
-- `BLOCKED — slate-floor violated` (slate composition fell below the waive matrix floor).
-- `BLOCKED — bootstrap-token-removed` (G7 token removed from PR body after initial emission).
-- `BLOCKED — same-state-check-failed` (HEAD / base / commit-count changed between initial and re-emission).
+- `BLOCKED  -  <N> must-fix unresolved` (must-fix findings still pending).
+- `BLOCKED  -  slate-floor violated` (slate composition fell below the waive matrix floor).
+- `BLOCKED  -  bootstrap-token-removed` (G7 token removed from PR body after initial emission).
+- `BLOCKED  -  same-state-check-failed` (HEAD / base / commit-count changed between initial and re-emission).
 
 The PR-creation tool call is forbidden unless `pr-creation-status` reads `READY-re-emitted-after-user-approval` in the same turn.
 
@@ -356,7 +374,7 @@ The PR that introduces §2D itself (this entire gate, the consumer playbook, the
 2. The PR body contains the literal token `BOOTSTRAP-EXEMPTION: §2D pre-PR-creation review gate`.
 3. The PR includes ALL companion edits required for the gate to be operative post-merge (listed above).
 
-PRs that modify, tighten, loosen, or refactor §2D-as-already-shipped are NOT bootstrap-exempt — they go through §2D normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
+PRs that modify, tighten, loosen, or refactor §2D-as-already-shipped are NOT bootstrap-exempt  -  they go through §2D normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
 
 This template applies to any future meta-change introducing a new mandatory gate at the §2-level: the introducing PR is exempt from the gate it introduces; subsequent modification PRs go through the gate normally.
 
@@ -366,7 +384,7 @@ See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1
 
 ### Why §2D exists
 
-LLM-based PR reviewers (GitHub Copilot's PR-review feature, GitLab Duo Code Review, similar bot reviewers) consistently surface a known set of pattern categories on every PR. Patching the static-pattern catalog reactively after each PR is whack-a-mole. The LLM-judgment patterns (doc-impl divergence, comment-promises-behavior-code-doesn't-deliver, hardcoded ARIA, framework-binding stale-render, attach-without-detach, etc.) need an LLM in the loop to catch. Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens" — the work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
+LLM-based PR reviewers (GitHub Copilot's PR-review feature, GitLab Duo Code Review, similar bot reviewers) consistently surface a known set of pattern categories on every PR. Patching the static-pattern catalog reactively after each PR is whack-a-mole. The LLM-judgment patterns (doc-impl divergence, comment-promises-behavior-code-doesn't-deliver, hardcoded ARIA, framework-binding stale-render, attach-without-detach, etc.) need an LLM in the loop to catch. Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens"  -  the work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
 
 ---
 

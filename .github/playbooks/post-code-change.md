@@ -146,7 +146,9 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 
-Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.). Illustrative summary:
+Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or `git add`. This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.).
+
+**Chat emission**: use the compressed KV v1 form per `review-workflow-gates-sweeps.md` §2B "Chat-emission form". The `pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, and `playbook-invocations` sub-blocks stay in their existing structured form below the KV line (catalog rules parse their dot-paths). The `delta-g-sweeps` sites appendix and `comment-audit` per-site appendix are emitted in chat only when their count>0 (on adopted repos the audit file holds the full detail). Canonical/full form (below) is written to the audit file on adopted repos:
 
 ```
 POST-CODE-CHANGE LEDGER
@@ -164,6 +166,17 @@ POST-CODE-CHANGE LEDGER
       rationale: <≤30 words; required when status=not-applicable>
   rule_coverage_passed: <bool>
 ```
+
+**Worked example** (chat KV v1 emission; canonical compressed rendering of the block above):
+
+```
+POST-CODE-CHANGE LEDGER (KV v1)
+core|commit="Guard against null tag list in filter dropdown"|files=2(+31/-6)
+gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+appendix=none
+```
+
+Here `appendix=none` is valid because `delta-g` sites (the value after `/`) and `comment` failed-sites are both 0. When either is >0, `appendix=none` is INVALID (§2B rule 6): emit the canonical structured `delta-g-sweeps` site sub-block + `comment` failed-site bullets (from the schema above) in its place, NOT pipe-compressed. The `pre-impl-trigger-detections`/`pre-impl-playbook-decisions`/`playbook-invocations` sub-blocks always follow in their structured form.
 
 **Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` field when diff has a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` field when diff has test files OR any production-source SUT modification (new exported member, signature change, new conditional branch, new method declaration public OR private, new error-handling branch). Private-only SUT branches DO trigger the ITD rule. See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 

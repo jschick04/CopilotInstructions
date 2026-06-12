@@ -227,6 +227,26 @@ PATTERN PREFLIGHT
 
 **Catalog drift detection**: if `catalog_revision` differs from prior run's recorded value, run FULL preflight regardless of `re-run-triggers`. Step 9 re-fetches catalog SHAs and restarts at Step 2.5 on drift.
 
+**Chat-emission form**: in chat, emit `PATTERN PREFLIGHT` in the compressed KV v1 form (a header line `catalog=<sha>|fpreg=<sha>|checked=<N>`, then top-level per-pattern status/counts on one line per pattern: `pattern=<slug>|scope=<mode>|hits=<N>|status=[applied:X,already:Y,na:Z]`). A pattern with findings>0 is followed by its canonical structured `sites:` sub-block (above), NOT pipe-compressed. The full PREFLIGHT block (above) remains the canonical form the orchestrator computes and feeds to §2D reviewers; the compressed form is the chat-visible summary. On re-emission in Step 9, the compressed form is sufficient if SHAs are unchanged.
+
+**Worked example** (compressed KV v1 chat rendering of the block above):
+
+```
+PATTERN PREFLIGHT (KV v1)
+catalog=a1b2c3d|fpreg=e4f5a6b|checked=12
+pattern=state-predicate-completeness|scope=diff|hits=2|status=[applied:1,already:1,na:0]
+  sites:
+    - path: src/Filters/FilterModel.cs
+      status: applied
+      evidence: 120-135
+    - path: src/Filters/FilterModel.cs
+      status: already-applies
+      evidence: 200-210
+pattern=null-deref-on-optional-chain|scope=diff|hits=0|status=[applied:0,already:0,na:0]
+```
+
+The header line mirrors the full block's `catalog_revision`/`fp_registry_revision`/`patterns_checked`. A pattern with `hits>0` is followed by its canonical structured `sites:` sub-block (schema in Step 2.5 above), NOT pipe-compressed; `hits=0` patterns collapse to the status line only.
+
 ### Step 3. Launch the panel in parallel
 
 Per `multi-model-review/procedure.md` parallel-launch protocol. All reviewers launched same response (background mode) with `pr-creation-mirror-prompt.md` template. Prompts include reference to PATTERN PREFLIGHT block; reviewers verify `applied`/`already-applies` correctness, validate `not-applicable` rationale, and probe for catalog-uncovered patterns.
