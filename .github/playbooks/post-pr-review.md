@@ -12,16 +12,16 @@ Fires when a PR has been opened and either an automated reviewer (GitHub Copilot
 - Each bot finding verified against source before applying / dismissing.
 - Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
 - Instructions-file delta proposed for each fixed comment (project-agnostic).
-- **Per-finding C2-status-enum audit emitted** at the end of the review pass (see step 6) — structured chat block listing each finding with its disposition (`fixed | routed-now | routed-deferred | dismissed-source-grounded`), the citation backing the disposition, and `subagent_ask_user_calls=0` confirmation.
+- **Per-finding C2-status-enum audit emitted** at the end of the review pass (see step 6) - structured chat block listing each finding with its disposition (`fixed | routed-now | routed-deferred | dismissed-source-grounded`), the citation backing the disposition, and `subagent_ask_user_calls=0` confirmation.
 
 ## Intake questions
 
 Bundle these in one prompt:
 
-1. **Which PR?** (URL or repo + number — needed to fetch comments via `pull_request_read`.)
+1. **Which PR?** (URL or repo + number - needed to fetch comments via `pull_request_read`.)
 2. **Should I verify findings against source independently** (recommended), or trust the bot for stylistic ones (typos, casing) and only deep-verify the substantive ones?
-3. **Triage depth** — address every comment in this session, or pick a subset (e.g. only "must-fix" / "blocking" / specific files)?
-4. **Re-review strategy** — should I run the multi-model panel again after the fix round (recommended for non-trivial PRs), or trust the PR-author + reviewer iteration?
+3. **Triage depth** - address every comment in this session, or pick a subset (e.g. only "must-fix" / "blocking" / specific files)?
+4. **Re-review strategy** - should I run the multi-model panel again after the fix round (recommended for non-trivial PRs), or trust the PR-author + reviewer iteration?
 
 ## Procedure
 
@@ -31,19 +31,19 @@ Pull all comments via `pull_request_read` (methods `get_review_comments`, `get_c
 
 ### 2. For each finding, verify against the source
 
-GitHub Copilot's PR reviewer (and any external reviewer) is sometimes wrong — it lacks full context, can hallucinate symbol behavior, or propose fixes that would obviously break callers.
+GitHub Copilot's PR reviewer (and any external reviewer) is sometimes wrong - it lacks full context, can hallucinate symbol behavior, or propose fixes that would obviously break callers.
 
 For each comment:
 
 - Read the cited code AND the surrounding context (caller sites, interface definitions, related tests).
 - Decide:
-  - **(a) apply the fix** — the finding is correct.
-  - **(b) push back** with a one-line justification on the PR thread and resolve as "won't fix" — the finding is wrong or doesn't apply.
+  - **(a) apply the fix** - the finding is correct.
+  - **(b) push back** with a one-line justification on the PR thread and resolve as "won't fix" - the finding is wrong or doesn't apply.
   - **(c) ask the user** when ambiguous.
 
 Do NOT silently apply changes you cannot independently justify.
 
-#### 2.1. Doc-comment / XML-doc accuracy findings — comment-necessity audit first
+#### 2.1. Doc-comment / XML-doc accuracy findings - comment-necessity audit first
 
 Before applying a bot's suggested doc-comment rewording or accuracy fix, run the comment-necessity audit per the `pattern-catalog.md` `comment-necessity` slug (and per `AGENTS.md` §3.1 comments policy). The audit short-circuits the most common bot-driven doc-iteration spiral (bot flags wording → reviewer rewords → bot flags the new wording → reviewer re-rewords) by deleting non-load-bearing comments outright rather than wordsmithing them.
 
@@ -63,15 +63,15 @@ Before applying any bot fix that matches a known recurring pattern (entry-CT-thr
 
 ```
 Self-similarity sweep for <pattern>: <N> sites found, <K> already-fixed, <J> need-fix.
-  - file.cs:line — <status: bot-flagged | sister-site-found | already-applies | not-applicable + 1-line rationale>
-  - file2.cs:line — ...
+  - file.cs:line - <status: bot-flagged | sister-site-found | already-applies | not-applicable + 1-line rationale>
+  - file2.cs:line - ...
 ```
 
-This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask_user` diff-approval gate fires. If the sweep finds 0 sister sites, the report is still emitted with `0 sister sites; pattern is single-instance in this diff` — explicit-by-design, not implied. Skipping the sweep on the rationale "the bot flagged only one site so probably just one site needs fixing" is a process violation tracked under `self-similarity-sweep-incomplete-after-bot-finding` in `pr-quality-gate/data/panel-misses.csv` (consuming-pr-8 round 5).
+This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask_user` diff-approval gate fires. If the sweep finds 0 sister sites, the report is still emitted with `0 sister sites; pattern is single-instance in this diff` - explicit-by-design, not implied. Skipping the sweep on the rationale "the bot flagged only one site so probably just one site needs fixing" is a process violation tracked under `self-similarity-sweep-incomplete-after-bot-finding` in `pr-quality-gate/data/panel-misses.csv`.
 
 **Pattern recognition primer**: the most common recurring shapes bot reviewers flag in this corpus are: (a) entry-`ThrowIfCancellationRequested` missing at one method of N CT-accepting methods; (b) defensive catch missing at one callback of N callbacks; (c) lock convention mismatch at some sites but not others; (d) XML doc staleness when interface gets new members; (e) comment-vs-code drift after method extraction. Always sweep for these patterns regardless of which single instance the bot cited.
 
-### 3. Run the multi-model reviewer panel in parallel — same parallel rule as `post-code-change.md`
+### 3. Run the multi-model reviewer panel in parallel - same parallel rule as `post-code-change.md`
 
 Same default panel as `post-code-change.md` §3 (profile-aware: full = the 6-reviewer heavy slate `heavy-claude-xhigh` + `heavy-gpt-premium` + `heavy-gpt-codex` + `heavy-gpt-cross-version` + `heavy-gemini-premium` + rubber-duck at `heavy-claude-standard`; lite = 3 cross-family light-tier; tier -> model via `current-model-registry.md`), same parallel-launch rule, same anti-anchoring rules.
 
@@ -89,13 +89,13 @@ If something fits, propose the delta in your summary. Skip silently if the comme
 
 ### 5. Instructions-file additions must stay project-agnostic
 
-These instructions apply to *every* project the user works on. Any rule, example, code snippet, type name, field name, file path, error message, or "examples that bit us" anecdote you add must be **generic** — describe the *class* of issue and the *shape* of the fix without naming a real project's symbols, modules, table names, schemas, or domain concepts.
+These instructions apply to *every* project the user works on. Any rule, example, code snippet, type name, field name, file path, error message, or "examples that bit us" anecdote you add must be **generic** - describe the *class* of issue and the *shape* of the fix without naming a real project's symbols, modules, table names, schemas, or domain concepts.
 
 Use illustrative placeholder names (`UserSessionCache`, `customerName`, `LoggingMiddleware`) or describe the structure abstractly ("a composite key over `(LocalId, SubId)`"). When you catch yourself about to write a real type name from the current repo, rename it.
 
-Same applies to the rubber-duck or code-review prompts you're proposing as templates — strip project specifics before promoting them into an instructions file.
+Same applies to the rubber-duck or code-review prompts you're proposing as templates - strip project specifics before promoting them into an instructions file.
 
-### 6. Audit before declaring done — evidence-gate output
+### 6. Audit before declaring done - evidence-gate output
 
 Re-read every sub-agent response and PR comment in this iteration. Confirm every distinct finding has either (a) been fixed in the diff, (b) been pushed back on with justification, or (c) been routed through an `ask_user` call this turn.
 
@@ -112,10 +112,10 @@ PR review audit: <N> findings total this iteration.
 
 **Status definitions** (canonical in `multi-model-review/evidence-gate-spec.md`; reproduced here for context):
 
-- `fixed` — finding addressed by an edit in the response commit. **Citation**: `file:line` of the change.
-- `routed-now` — finding routed via `ask_user`; user decided in this turn. **Citation**: `ask_user` call ref + user decision summary.
-- `routed-deferred` — finding deferred to a future PR / session / external work item. **Citation**: issue tracker URL / session note path / external record id. NOT acceptable: deferral with no external record.
-- `dismissed-source-grounded` — finding refuted by evidence from source. **Citation**: source location (`file:line`, doc URL, RFC, ADR) refuting the finding. NOT acceptable: *"out of scope per reviewer"* without source grounding.
+- `fixed` - finding addressed by an edit in the response commit. **Citation**: `file:line` of the change.
+- `routed-now` - finding routed via `ask_user`; user decided in this turn. **Citation**: `ask_user` call ref + user decision summary.
+- `routed-deferred` - finding deferred to a future PR / session / external work item. **Citation**: issue tracker URL / session note path / external record id. NOT acceptable: deferral with no external record.
+- `dismissed-source-grounded` - finding refuted by evidence from source. **Citation**: source location (`file:line`, doc URL, RFC, ADR) refuting the finding. NOT acceptable: *"out of scope per reviewer"* without source grounding.
 
 ### 7. Apply pre-PR-push rules to the review-response push
 
@@ -131,13 +131,13 @@ Per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule in `A
 
 Briefly summarize each finding (1 line each), state your recommendation, and use `ask_user` to choose:
 
-- Address now in this PR (expanding scope — get explicit approval).
-- Defer to a follow-up (record externally — session note, issue, tracker — never as a `TODO` / `FIXME` / `HACK` comment in code).
+- Address now in this PR (expanding scope - get explicit approval).
+- Defer to a follow-up (record externally - session note, issue, tracker - never as a `TODO` / `FIXME` / `HACK` comment in code).
 - Dismiss with reason.
 
 `ask_user` is mandatory, not optional. Mentioning a sub-agent finding inside your final review summary, the diff walkthrough, the "ready to push" message, or any other prose without a paired `ask_user` call counts as silently dropping it.
 
-Even findings the reviewer itself labels "out of scope," "pre-existing," "not introduced by this change," or "low severity" must go through `ask_user` — those labels are the reviewer's opinion, not your decision to make on the user's behalf.
+Even findings the reviewer itself labels "out of scope," "pre-existing," "not introduced by this change," or "low severity" must go through `ask_user` - those labels are the reviewer's opinion, not your decision to make on the user's behalf.
 
 ## After all comments are resolved
 

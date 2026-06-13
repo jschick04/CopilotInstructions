@@ -249,7 +249,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Describe the change**, not which plan item. No `A2`, plan numbers, or Conventional-Commit prefixes.
 - **Imperative mood, no trailing period.**
 
-Examples: OK: `Defer TagsDisplayName join until first read` / BAD: `perf: defer TagsDisplayName join (A2)` / BAD: any trailer.
+Examples: OK: `Defer CategoryDisplayName join until first read` / BAD: `perf: defer CategoryDisplayName join (A2)` / BAD: any trailer.
 
 > §4 governs commit author identity and push authentication; this section governs message content only.
 

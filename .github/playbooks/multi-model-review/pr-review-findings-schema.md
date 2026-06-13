@@ -6,8 +6,8 @@ Schema for per-project SQL telemetry of GitHub Copilot PR review findings + agen
 
 | Storage | Cross-session | Multi-project | Notes |
 |---|---|---|---|
-| Project repo `.github/data/pr-review-findings.csv` | Yes (in repo) | One file per project | **Recommended** — keeps project data with the project; shared via git |
-| CopilotInstructions repo | Yes | Mixed (column-keyed) | Rejected — per-project data has no place in the shared instruction repo per §1B project-agnosticism |
+| Project repo `.github/data/pr-review-findings.csv` | Yes (in repo) | One file per project | **Recommended** - keeps project data with the project; shared via git |
+| CopilotInstructions repo | Yes | Mixed (column-keyed) | Rejected - per-project data has no place in the shared instruction repo per §1B project-agnosticism |
 | Session-store DuckDB | No (per-session) | No | Useful for in-session analytics but does NOT persist across PR rounds without explicit export |
 | In-memory / chat-only | No | No | Lost on context compaction |
 
@@ -40,10 +40,10 @@ Example header + first data row:
 
 ```
 id,pr_number,round,review_timestamp,file_path,line_number,category,finding_summary,classification,fix_commit,dismissal_rationale,pattern_slug,fp_registry_id,created_at
-1,544,11,2026-05-24T17:12:32Z,src/SampleProject.UI/Views/SomeViewBase.cs,130,Cat 1,"OnPinStateChanged early-return logic inversion",real,500f9dd1,,logic-inversion,,2026-05-24T17:15:00Z
+1,123,11,2026-05-24T17:12:32Z,src/SampleProject.UI/Views/SomeViewBase.cs,130,Cat 1,"OnPinStateChanged early-return logic inversion",real,abc1234d,,logic-inversion,,2026-05-24T17:15:00Z
 ```
 
-(Example uses placeholder paths — the consuming project's file would have its own real paths.)
+(Example uses placeholder paths - the consuming project's file would have its own real paths.)
 
 ## SQLite alternative
 
@@ -75,7 +75,7 @@ The same DDL is reproduced in this file so the agent can re-create the table fro
 
 ## Trend queries
 
-These are illustrative queries the catalog maintenance protocol (`pr-review-pattern-catalog.md`) can use to re-classify patterns. Run with `sqlite3` on the per-project file (no `project` predicate needed — single-project file):
+These are illustrative queries the catalog maintenance protocol (`pr-review-pattern-catalog.md`) can use to re-classify patterns. Run with `sqlite3` on the per-project file (no `project` predicate needed - single-project file):
 
 ```sql
 -- Pattern frequency over last N PRs (drives high/low-frequency promotion/demotion)
