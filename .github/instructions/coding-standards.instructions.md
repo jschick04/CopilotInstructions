@@ -32,7 +32,7 @@ Cases that warrant the ask:
 - A new cache type that could be named after its key, its value, or its consumer (`UserSessionCache` vs `LoginTokenCache` vs `AuthRequestCache`).
 - A new helper method whose name could imply a stronger or weaker contract (`TryGetMessage` vs `GetMessageOrNull` vs `LookupMessage`).
 - A flag whose polarity matters (`IsLazy` vs `IsEager`, `RebuildAlways` vs `RebuildOnChange`).
-- A model property where the prior name disagrees with the new behavior (e.g., renaming `TagsDisplayName` to better reflect that it is now lazy / on-demand - options: `TagsDisplayText`, `TagsJoined`, `FormattedTags`, leave-as-is-with-doc-comment).
+- A model property where the prior name disagrees with the new behavior (e.g., renaming `CategoryDisplayName` to better reflect that it is now lazy / on-demand - options: `CategoryDisplayText`, `CategoriesJoined`, `FormattedCategories`, leave-as-is-with-doc-comment).
 
 When choices clearly differ only in style (and not in intent), pick one and move on - do not over-ask.
 
@@ -45,9 +45,9 @@ When to surface a rename:
 - Name describes implementation, not intent (`StringDictionary` vs `UserPreferences`, `IntList` vs `RetryDelays`).
 - Name disagrees with current behavior because the type evolved (`SyncCache` that's now async, `ReadOnlyList` that exposes mutation).
 - Name uses an outdated abbreviation or one that conflicts with project terminology (`Pkg` vs `Package`, `Auth` ambiguous between authentication / authorization).
-- Name shadows a type (PascalCase local / parameter `LogPathType LogPathType`) - flag as a code-quality rename even if it currently compiles.
-- Name uses pre-rename terminology that survived only because the rename pass missed it (e.g., a member named `XLogNames` on a class renamed to `LogChannelNames` should probably become `XLogChannels`).
-- An interface name doesn't communicate the role (`IDatabaseCollectionProvider` for what's really an "active databases" provider).
+- Name shadows a type (PascalCase local / parameter `SourceKind SourceKind`) - flag as a code-quality rename even if it currently compiles.
+- Name uses pre-rename terminology that survived only because the rename pass missed it (e.g., a member named `XmlGroupNames` on a class renamed to `WidgetNames` should probably become `XmlWidgetNames`).
+- An interface name doesn't communicate the role (`ICollectionProvider` for what's really an "active items" provider).
 
 When NOT to surface a rename:
 - Name is locally consistent with project conventions even if it's not your preferred name (style-only).

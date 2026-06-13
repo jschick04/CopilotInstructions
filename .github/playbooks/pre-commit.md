@@ -285,10 +285,10 @@ Examples:
 
 | Verdict | Message |
 | --- | --- |
-| ✅ | `Defer TagsDisplayName join until first read` |
+| ✅ | `Defer CategoryDisplayName join until first read` |
 | ✅ | `Add IsEnabled guard to LoggingMiddleware before serializing actions` |
-| ❌ | `perf: defer TagsDisplayName join (A2)` |
-| ❌ | `A2 - lazy tags` |
+| ❌ | `perf: defer CategoryDisplayName join (A2)` |
+| ❌ | `A2 - lazy categories` |
 | ❌ | Any message followed by `Co-authored-by:` or any other trailer. |
 
 #### Run the commit

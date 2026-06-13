@@ -1,13 +1,13 @@
-# PR Quality Gate — Panel Policy
+# PR Quality Gate - Panel Policy
 
 Multi-reviewer panel governance for the `full` and `triage` modes. Read by the orchestrator before invoking `invoke-panel.ps1`. The script is a thin launcher; policy lives here so it's reviewable + amendable independently of the launcher code.
 
-## When the panel runs (timing requirement — MANDATORY)
+## When the panel runs (timing requirement - MANDATORY)
 
 There are TWO panel invocation points per task, both required for non-trivial work:
 
-1. **Pre-implementation panel** — AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while course-correction is still cheap.
-2. **Pre-PR-creation panel** — AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. This is the panel slot enforced by `gate-runner.ps1` / `gate-runner.sh` (G6 forbidden-tool gate). Reviewers see the actual diff + the QUALITY GATE block. Required verdict: `unanimous READY`.
+1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while course-correction is still cheap.
+2. **Pre-PR-creation panel** - AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. This is the panel slot enforced by `gate-runner.ps1` / `gate-runner.sh` (G6 forbidden-tool gate). Reviewers see the actual diff + the QUALITY GATE block. Required verdict: `unanimous READY`.
 
 "Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything the user describes with words like "feature", "refactor", "add", "implement". A small isolated single-file bugfix (e.g., a 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
 
@@ -17,7 +17,7 @@ Skipping pre-implementation panel for non-trivial work is a process violation. T
 
 | mode | reviewers | output cap | rg battery | `§1A` slate carve-out | Activation |
 |---|---|---|---|---|---|
-| `full` | 4-6 (slate-floor below) | none | yes | none — full slate-floor applies | default; no `ask_user` receipt required |
+| `full` | 4-6 (slate-floor below) | none | yes | none - full slate-floor applies | default; no `ask_user` receipt required |
 | `lite` | 3 (lite slate-floor below) | none | yes | `slate-mode: lite; slate-size=3; convergence_model: unanimous` | default WHEN the active profile is lite; `invoke-panel.ps1 -Mode lite` derives the floor from the on-disk active profile; running `lite` below a `full` floor needs a same-turn `ask_user` `lite-acknowledged` receipt |
 | `triage` | 1 code-review-role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review`; `convergence_model: single-reviewer` MANDATORY | `invoke-panel.ps1 -Mode triage`; same-turn `ask_user` receipt with `triage-acknowledged` token required per PR |
 | `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | `invoke-panel.ps1 -Mode lint-only` (effectively skips panel); same-turn `ask_user` receipt with `lint-only-acknowledged` token required per PR |
@@ -48,12 +48,12 @@ Floor is verifiable from the slate enumeration. Substitutions are allowed mid-la
 
 | convergence_model | rule | use |
 |---|---|---|
-| `unanimous` (DEFAULT for `full`) | all reviewers must return `READY` (or all `NEEDS_REWORK`) | strict — no findings ship without all-reviewer agreement |
+| `unanimous` (DEFAULT for `full`) | all reviewers must return `READY` (or all `NEEDS_REWORK`) | strict - no findings ship without all-reviewer agreement |
 | `threshold-N%` (waive floor) | ≥ N% of reviewers must converge on verdict; floor `N=75` | acceptable when ≥75% agree on READY |
 | `confidence-weighted-N%` (waive floor) | ≥ N% confidence-weighted sum; floor `N=80` | accounts for reviewer confidence per finding |
 | `single-reviewer` (MANDATORY for `triage`) | single reviewer's verdict is the panel verdict | distinguishes from `unanimous` in audit trail (Slot 1 NB-V2 / Slot 4 D) |
 
-Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote in the `PANEL CONVERGED` block's `convergence-waive` field. `triage` MUST use `single-reviewer` — no waive needed (it's structural).
+Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote in the `PANEL CONVERGED` block's `convergence-waive` field. `triage` MUST use `single-reviewer` - no waive needed (it's structural).
 
 ## Drop handling (`full` mode only)
 
@@ -64,7 +64,7 @@ Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote i
 | 0 | proceed |
 | 1 | launch replacement (same family + role + tier; record in `replacement_reviewers` field) |
 | 2 | `ask_user` quoting both drops; user decides proceed-with-2-replacements OR abort |
-| ≥ 3 | hard escalate — abort panel; emit `ask_user` with all drops listed; require user to authorize remediation (e.g., switch to `triage` mode, retry later, etc.) |
+| ≥ 3 | hard escalate - abort panel; emit `ask_user` with all drops listed; require user to authorize remediation (e.g., switch to `triage` mode, retry later, etc.) |
 
 Each drop is recorded in `dropped_reviewers` field with timestamp + reason (timeout, error, drop-explicit).
 
@@ -81,43 +81,43 @@ For EACH external-reviewer finding on a PR with a converged pre-PR panel:
 
 2. **Apply the fix** (amend or follow-up commit) AND update tracking in the SAME session:
    - For each `panel-miss`: append a row to `data/panel-misses.csv`.
-   - For each new/refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies — no rule lands without convergence).
+   - For each new/refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies - no rule lands without convergence).
    - The agent MUST NOT close the PR loop without updating tracking. If tracking is deferred (e.g., user authorizes "fix-now-track-later"), the agent MUST surface this via same-turn `ask_user` with literal token `panel-miss-deferred`.
 
-3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum (`pending | catalog-updated | catalog-rejected | superseded | catalog-strengthened | catalog-new | catalog-ext | catalog-existing | catalog-validated`), classification enum (`panel-miss | valid-deferred | rejected | process-violation | false-positive | process-confirmation`), RFC 4180 quoting requirements, and append discipline. The schema lived inline in earlier versions of this document — single source of truth is now `data/README.md` to prevent drift.
+3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum (`pending | catalog-updated | catalog-rejected | superseded | catalog-strengthened | catalog-new | catalog-ext | catalog-existing | catalog-validated`), classification enum (`panel-miss | valid-deferred | rejected | process-violation | false-positive | process-confirmation`), RFC 4180 quoting requirements, and append discipline. The schema lived inline in earlier versions of this document - single source of truth is now `data/README.md` to prevent drift.
 
-**Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot — observed in practice (the comment-rule regression, the publication-barrier discipline gap, the test-subscription-ordering gap all started as panel-misses).
+**Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot - observed in practice (the comment-rule regression, the publication-barrier discipline gap, the test-subscription-ordering gap all started as panel-misses).
 
 **How to detect a process violation**: if a PR has external-reviewer findings AND the agent has amended/follow-up-committed AND there is NO corresponding entry in `data/panel-misses.csv`, the loop was bypassed. The user can call this out at any point and the agent MUST classify + record before further work.
 
-## Iteration discipline (panel re-convergence) — MANDATORY
+## Iteration discipline (panel re-convergence) - MANDATORY
 
 When a panel returns any verdict other than `unanimous READY`, the agent MUST iterate:
 
 1. **Revise the plan / code** addressing every finding (or explicitly document why a finding is set aside with rationale).
 2. **Re-launch the SAME panel slate** (same composition; substitutions allowed per the floor rules) on the revised work.
-3. **Repeat until `unanimous READY`** (or until the `fix_iteration_count` cap is reached — see below).
+3. **Repeat until `unanimous READY`** (or until the `fix_iteration_count` cap is reached - see below).
 
 The agent MUST NOT:
 
-- **Substitute user approval for panel re-convergence.** If a panel returns `NEEDS_REWORK`, presenting a synthesized revised plan to the user as a "please approve so I can implement" step is a process violation. User approval is necessary but NOT sufficient — the panel is the independent-validation mechanism, and only the panel can clear its own findings. This is the most common regression vector observed in practice.
+- **Substitute user approval for panel re-convergence.** If a panel returns `NEEDS_REWORK`, presenting a synthesized revised plan to the user as a "please approve so I can implement" step is a process violation. User approval is necessary but NOT sufficient - the panel is the independent-validation mechanism, and only the panel can clear its own findings. This is the most common regression vector observed in practice.
 - **Treat "I addressed the findings" as equivalent to "the panel cleared the findings".** The panel must see the revised work and re-verify.
 - **Silently skip iteration** by collapsing multiple rounds into "we'll fix it in implementation". Findings are the panel's word; only the panel can retract them.
 
 The agent MAY:
 
-- **Surface the iteration status to the user** between rounds (e.g., "Round 1 returned 4/4 NEEDS_REWORK with convergent findings X, Y, Z — applying fixes and re-launching panel"). This is informational, not approval-seeking.
-- **Request user override of the iteration requirement** via same-turn `ask_user` quote with literal token `iteration-waive-acknowledged` — rare cases where the user explicitly decides to bypass (e.g., panel-found findings are deferred to follow-up work tracked elsewhere). The waive MUST be recorded in the `PANEL CONVERGED` block's `iteration_waive` field. Default is iterate.
+- **Surface the iteration status to the user** between rounds (e.g., "Round 1 returned 4/4 NEEDS_REWORK with convergent findings X, Y, Z - applying fixes and re-launching panel"). This is informational, not approval-seeking.
+- **Request user override of the iteration requirement** via same-turn `ask_user` quote with literal token `iteration-waive-acknowledged` - rare cases where the user explicitly decides to bypass (e.g., panel-found findings are deferred to follow-up work tracked elsewhere). The waive MUST be recorded in the `PANEL CONVERGED` block's `iteration_waive` field. Default is iterate.
 
 **How to detect a process violation in practice**: if the agent has emitted a synthesis of panel findings + a "approve this revised plan?" `ask_user` without a fresh panel slate launch between the two, the iteration discipline was bypassed. The user can call this out at any point and the agent MUST re-launch the panel before any further implementation work.
 
-## User diff-approval after panel READY — MANDATORY
+## User diff-approval after panel READY - MANDATORY
 
 The pre-PR-creation panel (and any pre-implementation panel run on uncommitted working-tree changes) certifies the code from a multi-model technical-review perspective. **On project (non-instruction) repositories**, this does NOT substitute for the user's diff-approval gate in `pre-commit.md`.
 
 When a panel returns `unanimous READY` on uncommitted project-repo work, the agent MUST NOT:
 
-- **Substitute panel READY for the `pre-commit.md` diff-approval gate.** Panel verdict is necessary but NOT sufficient. The `pre-commit.md` flow (show diff, `ask_user` for approval, emit `PRE-COMMIT GATE PASSED` block) MUST still fire before any commit-producing tool call (`git commit`, `git commit --amend`, `git cherry-pick`, `git rebase`-driven replay, `git am`, or any other tool call that produces a new commit object), `git push`, or PR-creation tool call. The narrow `pre-commit.md` §"Skip conditions" remain available where their stated conditions apply — they govern when the `PRE-COMMIT GATE PASSED` block may be omitted (e.g., mechanical `--amend --no-edit` after a clean rebase) and are NOT a generic "panel READY covers diff-approval" waiver.
+- **Substitute panel READY for the `pre-commit.md` diff-approval gate.** Panel verdict is necessary but NOT sufficient. The `pre-commit.md` flow (show diff, `ask_user` for approval, emit `PRE-COMMIT GATE PASSED` block) MUST still fire before any commit-producing tool call (`git commit`, `git commit --amend`, `git cherry-pick`, `git rebase`-driven replay, `git am`, or any other tool call that produces a new commit object), `git push`, or PR-creation tool call. The narrow `pre-commit.md` §"Skip conditions" remain available where their stated conditions apply - they govern when the `PRE-COMMIT GATE PASSED` block may be omitted (e.g., mechanical `--amend --no-edit` after a clean rebase) and are NOT a generic "panel READY covers diff-approval" waiver.
 - **Chain panel READY into commit-producing tool calls, `git push`, or `gh pr create`.** This skips two independent gates (user diff-approval AND the `PRE-COMMIT GATE PASSED` block) by treating the panel as both technical-review and user-review. The two are independent: the panel reviews technical correctness; the user reviews scope, intent, and approves the resulting commit.
 - **Treat a panel run on uncommitted changes as "post-commit review".** A panel on the working tree is a *pre-commit* technical review; commit gates still apply afterward.
 
@@ -128,19 +128,19 @@ The agent MAY:
 
 **Instruction-repo scope**: §0 git safety gates (`ask_user` before every `git add` / `git commit` / `git push`) apply in ALL repos. The panel certification waives ONLY the EXTRA §1B working-tree-diff-review step for instruction-repo edits (see `review-workflow-gates.md` §1B), never §0.
 
-**How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) — regardless of how many panels converged READY beforehand — the diff-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
+**How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) - regardless of how many panels converged READY beforehand - the diff-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
 
 ## Fix-iteration cap
 
 After panel returns `NEEDS_REWORK`, agent applies fixes + re-runs panel. Cycle counter is `fix_iteration_count`; default cap is **3 cycles**.
 
 When cap is hit:
-- **`cap-with-regressions`**: each iteration introduces NEW findings on top of resolving old ones — abort; emit `ask_user` quoting all iterations' verdicts. User authorizes override OR routes via G4 `routed-deferred-with-tracker-and-ask_user`.
-- **`cap-with-new-clean-categories`**: iterations resolve old findings but reveal new ones in previously-unreviewed code areas — typically indicates panel is doing useful work; user authorizes cap override (e.g., raise to 5) with explicit quoted approval.
+- **`cap-with-regressions`**: each iteration introduces NEW findings on top of resolving old ones - abort; emit `ask_user` quoting all iterations' verdicts. User authorizes override OR routes via G4 `routed-deferred-with-tracker-and-ask_user`.
+- **`cap-with-new-clean-categories`**: iterations resolve old findings but reveal new ones in previously-unreviewed code areas - typically indicates panel is doing useful work; user authorizes cap override (e.g., raise to 5) with explicit quoted approval.
 
 Cap override is recorded in `fix_iteration_count_cap` field of `PANEL CONVERGED` block.
 
-## System-prompt-rule enforcement (defensive — MANDATORY)
+## System-prompt-rule enforcement (defensive - MANDATORY)
 
 The agent's system prompt contains style rules that may not be fully wired into `gate-runner.{ps1,sh}` or `pattern-catalog.md` yet. Reviewers MUST flag violations of these rules even when no corresponding `coding-preferences.md` or `pattern-catalog.md` entry exists for the specific instance.
 
@@ -148,7 +148,7 @@ Each reviewer's prompt MUST include this preamble (alongside the same-state re-c
 
 > The agent's system prompt enforces style rules beyond the catalog. In particular: "Only comment code that needs a bit of clarification. Do not comment otherwise." Treat this as a gate rule even if not enumerated in `coding-preferences.md`. **Apply only to code newly added or modified in this PR (the `+` lines of the diff); do NOT flag pre-existing comments on baseline lines of modified files.** Flag: multi-line `<remarks>` XML doc blocks; inline comments narrating what (not why) the code does; comments referencing PR history, panel slots, round numbers, or planning artifacts. Brief one-line `<summary>` on public APIs and one-line *why*-comments for subtle behavior are fine.
 
-This is the catch-net for the gap between "rule exists in system prompt" and "rule is auto-detected by gate-runner". Without it, panel reviewers truthfully report "0 violations" against the catalog while system-prompt rules silently regress (the exact failure mode observed in the IModalCoordinator PR 1+2 review).
+This is the catch-net for the gap between "rule exists in system prompt" and "rule is auto-detected by gate-runner". Without it, panel reviewers truthfully report "0 violations" against the catalog while system-prompt rules silently regress (the exact failure mode observed in a prior multi-PR review).
 
 ## Reviewer same-state re-checks
 
@@ -163,7 +163,7 @@ For every catalog entry with `scope_mode: review-pass-only`, `invoke-panel.ps1` 
 > ## Review-pass-only patterns to verify
 > (one bulleted item per catalog `review_pass_only_prompt`)
 
-Without this, the highest-frequency pattern in the seed corpus (`doc-impl-mismatch` at ~11% of all hits) is undetectable — rg cannot catch prose-vs-code divergence.
+Without this, the highest-frequency pattern in the seed corpus (`doc-impl-mismatch` at ~11% of all hits) is undetectable - rg cannot catch prose-vs-code divergence.
 
 `lint-only` mode skips panel invocation entirely → review-pass-only patterns ARE NOT checked in lint-only mode. This is part of the user-acknowledged trade-off for the `lint-only-acknowledged` token (audit trail makes the gap explicit).
 
@@ -171,7 +171,7 @@ Without this, the highest-frequency pattern in the seed corpus (`doc-impl-mismat
 
 Every panel verdict AND every pre-commit gate MUST emit a `core_rules_acknowledged` block enumerating every HIGH-tier review-pass-only catalog slug with an explicit disposition. This is the rule-coverage forcing function: without per-site evidence, an `applied` status is not falsifiable.
 
-**Process rules** (slugs that check a process artifact rather than code — currently `implementation-to-commit-transition-bypasses-user-approval`, `full-scan-against-new-rule-not-triggered-after-bot-finding`, `least-privilege-audit-required-on-visibility-delta`, `intent-driven-testing-required-on-test-or-SUT-delta`): reviewer verifies the artifact (PRE-GIT SENTINEL block, POST-CODE-CHANGE LEDGER field, `full_scan_results` field) in the agent's text output earlier in the conversation. The `evidence.per_site_citations` for a process rule points at the ledger / sentinel block citation rather than a source-file location.
+**Process rules** (slugs that check a process artifact rather than code - currently `implementation-to-commit-transition-bypasses-user-approval`, `full-scan-against-new-rule-not-triggered-after-bot-finding`, `least-privilege-audit-required-on-visibility-delta`, `intent-driven-testing-required-on-test-or-SUT-delta`): reviewer verifies the artifact (PRE-GIT SENTINEL block, POST-CODE-CHANGE LEDGER field, `full_scan_results` field) in the agent's text output earlier in the conversation. The `evidence.per_site_citations` for a process rule points at the ledger / sentinel block citation rather than a source-file location.
 
 ### Schema (canonical)
 
@@ -180,7 +180,7 @@ core_rules_acknowledged:
   - slug: <string>                  # exact catalog slug
     status: <applied | not-applicable>
     evidence:                       # REQUIRED when status=applied for review-pass-only slugs
-      per_site_citations:           # REQUIRED — aggregate counts alone are INVALID
+      per_site_citations:           # REQUIRED - aggregate counts alone are INVALID
         - file: <relative path>
           line: <int or int-range>
           disposition: <rename | extract | remove | restore | keep-because>
@@ -214,7 +214,7 @@ The runner cross-references rg-battery violation counts (for hybrid/diff/tree-sc
 The per-rule acknowledgement requirement is REDUCED (not eliminated) when ALL of:
 - `panel_mode: lint-only` AND
 - `diff_scope` shows ≤2 files changed AND
-- The existing `least-privilege-audit.md` touched-file gate result returns "no public-surface delta" (NOT a regex-only check — reuses the existing audit's per-file classification)
+- The existing `least-privilege-audit.md` touched-file gate result returns "no public-surface delta" (NOT a regex-only check - reuses the existing audit's per-file classification)
 
 In the reduced path, the agent emits `core_rules_acknowledged: [trivial-pr-carveout: applied]` with a single entry citing the audit result. Other HIGH-tier slugs are skipped with their auto-derived `not-applicable-because-trivial-pr-carveout` status.
 
@@ -227,14 +227,14 @@ For PRs with prior entries in `.github/pr-quality-gate/data/panel-misses.csv` (m
 - `invoke-panel.ps1 -PrRef <ref>` (PRIMARY): emits anti-recidivism preamble in `PANEL LAUNCH CONTRACT` under `reviewer_prompt_must_include.anti_recidivism_preamble`; reviewers see it before producing verdict
 - `gate-runner.ps1 -PrRef <ref>` (SECONDARY): emits same preamble in `QUALITY GATE` output for the agent's pre-commit visibility
 
-`-PrRef` is a manually-supplied opaque token matching existing `panel-misses.csv.pr_ref` values (e.g., `consuming-pr-8`). NOT auto-derived. Default empty → no anti-recidivism (preserves backward compat).
+`-PrRef` is a manually-supplied opaque token matching existing `panel-misses.csv.pr_ref` values. NOT auto-derived. Default empty → no anti-recidivism (preserves backward compat).
 
 ### Verified-no-recurrence schema
 
 ```yaml
 verified_no_recurrence:
   - slug: <prior-slug>
-    fix_evidence:                   # REQUIRED — pointer to where prior occurrence was resolved
+    fix_evidence:                   # REQUIRED - pointer to where prior occurrence was resolved
       commit_sha: <40-char>         # commit that addressed the prior occurrence
       diff_hunk: |                  # OR pasted diff hunk showing the fix
         <git-diff snippet>
@@ -250,7 +250,7 @@ Without `fix_evidence`, the verdict is treated as NEEDS_REWORK (textual ack alon
 2. **rg-battery flagged sites** (gate-runner only): `rg_flagged_sites: { <slug>: [{file, line}, ...] }` per slug from this run
 3. **Anti-recidivism preamble** (when `-PrRef` supplied): listed slugs the agent / panel must clear
 
-These print on EVERY invocation regardless of session-compaction state — the agent always sees them at the moment of need. This is the load-bearing mitigation: rules in `AGENTS.md` survive load-time compaction; machinery emission survives runtime-application-time compaction.
+These print on EVERY invocation regardless of session-compaction state - the agent always sees them at the moment of need. This is the load-bearing mitigation: rules in `AGENTS.md` survive load-time compaction; machinery emission survives runtime-application-time compaction.
 
 ## Panel output → QUALITY GATE block mapping
 
@@ -283,11 +283,11 @@ panel:
 
 Recorded in `slate_floor_passed`. Any `false` = gate BLOCKED.
 
-## Catalog-edit + ack-sync invariant — MANDATORY
+## Catalog-edit + ack-sync invariant - MANDATORY
 
 `pattern-catalog.md` is the canonical source of HIGH-tier review-pass-only slugs that the panel MUST acknowledge per-commit (see §"Per-rule acknowledgement"). `HIGH-TIER-SLUGS.md` is a GENERATED file derived from `pattern-catalog.md` via `scripts/sync-critical-rules.ps1` (or its byte-identical bash twin `scripts/sync-critical-rules.sh`). The invariant is: **every commit that edits `pattern-catalog.md` MUST also stage `HIGH-TIER-SLUGS.md` regenerated by the sync script**.
 
-If the two files drift, the per-rule ack gate doesn't enforce newly-added HIGH-tier rules — the panel can silently skip them and the bot will catch them on PR review (back-and-forth the gate was designed to prevent). This invariant is enforced in **4 layers**:
+If the two files drift, the per-rule ack gate doesn't enforce newly-added HIGH-tier rules - the panel can silently skip them and the bot will catch them on PR review (back-and-forth the gate was designed to prevent). This invariant is enforced in **4 layers**:
 
 | Layer | Mechanism | What it catches | Bypassable by |
 |---|---|---|---|
@@ -298,7 +298,7 @@ If the two files drift, the per-rule ack gate doesn't enforce newly-added HIGH-t
 
 **Layer 1 enforcement**: `setup.ps1` (Windows) and `setup.sh` (Unix) configure `git -C <repo> config --local core.hooksPath .githooks`. Existing contributors who pulled this safeguard for the first time must run their platform's setup script OR manually `git config --local core.hooksPath .githooks`.
 
-**Layer 4 parity job**: catches silent drift between `scripts/sync-critical-rules.ps1` (pwsh) and `scripts/sync-critical-rules.sh` (bash). Both must produce byte-identical output for every catalog state — the parity job hashes both via `git hash-object --stdin` and asserts equality. Any divergence blocks merge.
+**Layer 4 parity job**: catches silent drift between `scripts/sync-critical-rules.ps1` (pwsh) and `scripts/sync-critical-rules.sh` (bash). Both must produce byte-identical output for every catalog state - the parity job hashes both via `git hash-object --stdin` and asserts equality. Any divergence blocks merge.
 
 **Cross-platform stability**: content hash embedded in `HIGH-TIER-SLUGS.md` uses `git hash-object` (canonical normalized blob SHA-1, immune to working-tree CRLF/LF drift). The `.gitattributes` file (`* text=auto`) ensures consistent normalization on commit.
 
@@ -307,8 +307,8 @@ If the two files drift, the per-rule ack gate doesn't enforce newly-added HIGH-t
 2. `scripts/sync-critical-rules.sh` (bash twin)
 3. `.github/pr-quality-gate/gate-runner.ps1` (`Read-CatalogTable`)
 4. `.github/pr-quality-gate/gate-runner.sh` (bash parser)
-5. `.github/workflows/catalog-sync-check.yml` (if it does any parsing of its own — currently doesn't)
-6. `.githooks/pre-commit` (currently delegates to the sync script — no schema knowledge of its own)
+5. `.github/workflows/catalog-sync-check.yml` (if it does any parsing of its own - currently doesn't)
+6. `.githooks/pre-commit` (currently delegates to the sync script - no schema knowledge of its own)
 7. `.github/pr-quality-gate/invoke-panel.ps1` (reviewer-prompt forwarding)
 
 Otherwise a future schema bump can ship with stale layers (one implementation parses the new column, the others don't), the parity job fails, and back-and-forth resumes.

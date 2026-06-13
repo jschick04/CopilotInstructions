@@ -136,7 +136,7 @@ timestamp,revision,pattern_slug,classification,finding_brief,slate_mode,finding_
 
 **Project agnosticism**: NO repo URL, NO `project_hash`, NO file paths, NO `branch` column. `finding_brief` uses generic phrasings only. Per-PR specifics stay in the QUALITY GATE block (ephemeral; not persisted).
 
-**Why `branch` was removed**: branch names contain user identity (`jschick/...`) and project intent, re-introducing leakage. Session recovery uses `plan.md`. If branch-type stratification is needed later, a categorical `branch_type` (feature/hotfix/bugfix/release) can be added without re-introducing identity.
+**Why `branch` was removed**: branch names contain user identity (`<username>/...`) and project intent, re-introducing leakage. Session recovery uses `plan.md`. If branch-type stratification is needed later, a categorical `branch_type` (feature/hotfix/bugfix/release) can be added without re-introducing identity.
 
 **Trade-off**: without `project_hash`, cannot distinguish noisy-project clusters. Aggregate-only; per-project trends require manual export.
 
@@ -396,7 +396,7 @@ Gate-runner is fast (seconds); panel re-invocation via `invoke-panel.ps1` with f
 
 ## Validation plan (post-build)
 
-1. Run `gate-runner.ps1` against PR #544 HEAD `0f09cfde` (which had ~46 historical findings + 7 FPs)
+1. Run `gate-runner.ps1` against a known-noisy PR's HEAD from your own project (first record that PR's baseline historical-finding + false-positive counts so you have something to compare against)
 2. Compare to v4 catalog recall (~89%); v5 rg-battery alone should match or exceed
 3. Run `invoke-panel.ps1 -Mode full` against the same diff; verify multi-panel reviews emit `PANEL CONVERGED` block correctly
 4. Run `invoke-panel.ps1 -Mode triage`; verify single-reviewer record format

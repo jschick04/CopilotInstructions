@@ -41,8 +41,9 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 
 - Forbidden in committed instruction content: project names, project-specific type/identifier names, PR/issue numbers, product/domain specifics.
 - Examples must be language-generic and self-evidently illustrative.
-- **Pre-commit audit (advisory until Batch B):** scan the staged diff for the current consuming-project identifiers - `git diff --cached -U0 | grep -nEi '<project-name>|<product-name>|<project-specific-type-or-namespace>' | grep -v '^\+\+\+'` (replace the `<...>` tokens with the actual identifiers before running) - 0 hits required. Until Batch B wires the per-deployment denylist config + the `project-refs-leakage` rg-battery slug, the ENFORCED gate is the full-rigor panel review on every instruction-repo diff; this grep is an advisory pre-check.
+- **Pre-commit audit (advisory until Batch B2):** scan the staged diff for the current consuming-project identifiers - `git diff --cached -U0 | grep -nEi '<project-name>|<product-name>|<project-specific-type-or-namespace>' | grep -v '^\+\+\+'` (replace the `<...>` tokens with the actual identifiers before running) - 0 hits required. Until Batch B2 wires the per-deployment denylist config + the `project-refs-leakage` rg-battery check, the ENFORCED gate is the full-rigor panel review on every instruction-repo diff; this grep is an advisory pre-check.
 - Provenance / "why this rule exists": phrase generically. A lesson learned from a consuming project's PR review is recorded as "from a consuming-project PR review", not the project name.
+- Exception: the `data/panel-misses.csv` `pr_ref` column keeps its deidentified ledger keys (functional anti-recidivism identifiers in the machine ledger, not copied into instruction examples); the ledger is excluded from the B2 denylist scan scope.
 
 ## The edit cycle (full rigor)
 
