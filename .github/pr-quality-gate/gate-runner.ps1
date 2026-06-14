@@ -81,12 +81,13 @@ function Read-CatalogTable { param([string] $Path)
         }
         if ($slugs.ContainsKey($slug)) { Exit-Runner 2 "Duplicate slug '$slug' at line $lineNum" }
         $slugs[$slug] = $true
-        if ($scope -notin 'diff-scoped','tree-scoped','hybrid','review-pass-only') { Exit-Runner 2 "Invalid scope_mode '$scope' at line $lineNum" }
+        if ($scope -notin 'diff-scoped','tree-scoped','hybrid','review-pass-only','checker-scoped') { Exit-Runner 2 "Invalid scope_mode '$scope' at line $lineNum" }
         try { $params = $paramsRaw | ConvertFrom-Json -ErrorAction Stop }
         catch { Exit-Runner 2 "Malformed JSON in params at line ${lineNum}: $($_.Exception.Message)" }
         # Cross-field validity
         switch ($scope) {
             'review-pass-only' { if (-not $reviewPrompt) { Exit-Runner 2 "scope_mode=review-pass-only requires non-empty review_pass_only_prompt at line $lineNum" } }
+            'checker-scoped'   { if (-not $params.checker_id) { Exit-Runner 2 "scope_mode=checker-scoped requires params.checker_id at line $lineNum" }; if ($reviewPrompt) { Exit-Runner 2 "scope_mode=checker-scoped MUST have empty review_pass_only_prompt at line $lineNum" } }
             'diff-scoped'      { if (-not $params.pattern -or -not $params.glob -or $params.glob.Count -eq 0) { Exit-Runner 2 "scope_mode=diff-scoped requires non-empty params.pattern and params.glob at line $lineNum" }; if ($reviewPrompt) { Exit-Runner 2 "scope_mode=diff-scoped MUST have empty review_pass_only_prompt at line $lineNum" } }
             'tree-scoped'      { if (-not $params.pattern) { Exit-Runner 2 "scope_mode=tree-scoped requires non-empty params.pattern at line $lineNum" }; if ($reviewPrompt) { Exit-Runner 2 "scope_mode=tree-scoped MUST have empty review_pass_only_prompt at line $lineNum" } }
             'hybrid'           {
@@ -210,6 +211,11 @@ foreach ($e in $entries) {
         $findings += [pscustomobject]@{ slug = $e.Slug; hits = 'review-required'; sites = @(); scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt; tier = $e.Tier }
         continue
     }
+    if ($e.ScopeMode -eq 'checker-scoped') {
+        # Mechanized by a registry checker (run separately); emit a marker, not an rg pass.
+        $findings += [pscustomobject]@{ slug = $e.Slug; hits = 'checker-mechanized'; sites = @(); scope_mode = $e.ScopeMode; review_prompt = $e.ReviewPrompt; tier = $e.Tier }
+        continue
+    }
     $rawHits = @()
     if ($e.ScopeMode -eq 'diff-scoped') {
         $rawHits = Invoke-RgPattern -Files $diffFiles -Pattern $e.Params.pattern -Globs $e.Params.glob -TreeRoot $ProjectRoot
@@ -227,7 +233,7 @@ foreach ($e in $entries) {
 # ===== Emit QUALITY GATE block =====
 $ts = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $diffLine = "$BaseSha..$HeadSha ($fileCount files)"
-$gateStatus = if ($findings | Where-Object { $_.hits -gt 0 -and $_.hits -ne 'review-required' }) { 'BLOCKED — findings present' } else { 'READY' }
+$gateStatus = if ($findings | Where-Object { ($_.hits -is [int]) -and $_.hits -gt 0 }) { 'BLOCKED — findings present' } else { 'READY' }
 
 # ===== Build HIGH-tier required-ack slug list (filtered by Mode) =====
 $tierForMode = switch ($Mode) {
@@ -302,7 +308,7 @@ $dataDir = Join-Path $clone '.github/pr-quality-gate/data'
 if (-not (Test-Path -LiteralPath $dataDir)) { New-Item -ItemType Directory -Force -Path $dataDir | Out-Null }
 $rows = @()
 foreach ($f in $findings) {
-    if ($f.hits -eq 'review-required' -or $f.hits -eq 0) { continue }
+    if (-not ($f.hits -is [int]) -or $f.hits -le 0) { continue }
     foreach ($s in $f.sites) {
         $rows += @{ timestamp = $ts; revision = $catalogRevision; pattern_slug = $f.slug; classification = 'pending'; finding_brief = "$($f.slug) hit"; slate_mode = $Mode; finding_type = 'pattern' }
     }

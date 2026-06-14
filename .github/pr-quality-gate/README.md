@@ -209,7 +209,7 @@ Each pattern entry is a single line in a markdown table:
 ```
 
 - `slug`: lowercase ASCII identifier (`[a-z0-9-]+`), UNIQUE across the catalog. Parser MUST exit 2 with `catalog parse error: duplicate slug '<slug>' at line N` on duplicate.
-- `scope_mode`: enum `diff-scoped | tree-scoped | hybrid | review-pass-only`. Other values → exit 2.
+- `scope_mode`: enum `diff-scoped | tree-scoped | hybrid | review-pass-only | checker-scoped`. Other values → exit 2.
 - `params`: JSON object inline in the markdown table cell (parallels `coding-preferences.md` schema). Pipe characters inside JSON values MUST be escaped as `\|` per markdown table cell rules. Parser unescapes before JSON parse. Schema depends on `scope_mode` - see cross-field constraints below.
 - `review_pass_only_prompt`: for `scope_mode=review-pass-only`, this is the §2D-style reviewer instruction that `invoke-panel.ps1` forwards to reviewer prompts. Empty string for other scope_modes.
 - `fp_slug`: optional cross-reference to inline FP entry (`fp-1`, `fp-2`, ...); empty if none.
@@ -228,6 +228,7 @@ Single-row representation (no implicit row-pairing); `params` JSON shape determi
 | `tree-scoped` | `{"pattern":"<rg-regex>","glob":["<glob1>",...]}` (`glob` may be empty array; falls back to `<source-tree>`) | MUST be empty |
 | `hybrid` | `{"tree":{"pattern":"...","glob":[...]},"diff":{"pattern":"...","glob":[...]}}` (BOTH `tree` and `diff` sub-objects required; sub-rules: `tree.pattern` non-empty + `tree.glob` MAY be empty (falls back to `<source-tree>`, matches `tree-scoped` semantics); `diff.pattern` non-empty + `diff.glob` MUST be non-empty (matches `diff-scoped` semantics; empty → exit 2 with `params.diff.glob` named in stderr)) | MUST be empty |
 | `review-pass-only` | `{}` (empty object - no rg discovery) | MUST be non-empty |
+| `checker-scoped` | `{"checker_id":"<id>"}` (script-mechanized; not rg-scanned or lens-forwarded; parity-gated by `check-checker-registry.ps1`) | MUST be empty |
 
 `fp_slug` non-empty → catalog file MUST contain a corresponding `### FP-<slug>` section; orphan = exit 2.
 

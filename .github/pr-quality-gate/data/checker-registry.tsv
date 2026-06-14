@@ -1,0 +1,12 @@
+# Sparse deterministic checker-registry (D2 of the catalog-driven enforcement baseline).
+# Maps a finding-slug to the SCRIPT that mechanizes it (beyond what the catalog rg-battery can do), its fixtures,
+# and its maturity. The parity gate (scripts/check-checker-registry.ps1) FAILS LOUD if a hard-fail slug has no
+# existing checker/fixtures, or if the checker emits a slug not registered here (drift). This is a queryable STORE,
+# never loaded into LLM context (size-free). Baseline detection modality derives from the catalog scope_mode; this
+# file only adds checker_id + checker_script + fixtures + maturity for the mechanizable-beyond-rg slugs.
+# Columns (tab-separated): slug	checker_id	checker_script	fixtures	maturity
+slug	checker_id	checker_script	fixtures	maturity
+receipt-numeric-claim-drift	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	hard-fail
+shell-sed-exit-zero-fallback-unreachable	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
+ci-shell-or-true-swallows-real-failures	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
+ci-jq-arg-literal-backslash-n	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
