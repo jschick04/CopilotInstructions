@@ -127,11 +127,16 @@ while IFS= read -r line; do
 
     [[ -n "${SLUG_SEEN[$slug]:-}" ]] && die 2 "Duplicate slug '$slug' at line $LINE_NUM"
     SLUG_SEEN[$slug]=1
-    case "$scope" in diff-scoped|tree-scoped|hybrid|review-pass-only) ;; *) die 2 "Invalid scope_mode '$scope' at line $LINE_NUM" ;; esac
+    case "$scope" in diff-scoped|tree-scoped|hybrid|review-pass-only|checker-scoped) ;; *) die 2 "Invalid scope_mode '$scope' at line $LINE_NUM" ;; esac
     echo "$params" | jq empty 2>/dev/null || die 2 "Malformed JSON in params at line $LINE_NUM"
 
     case "$scope" in
         review-pass-only) [[ -z "$review_prompt" ]] && die 2 "scope_mode=review-pass-only requires non-empty review_pass_only_prompt at line $LINE_NUM" ;;
+        checker-scoped)
+            cid="$(echo "$params" | jq -r '.checker_id // ""')"
+            [[ -z "$cid" ]] && die 2 "scope_mode=checker-scoped requires params.checker_id at line $LINE_NUM"
+            [[ -n "$review_prompt" ]] && die 2 "scope_mode=checker-scoped MUST have empty review_pass_only_prompt at line $LINE_NUM"
+            ;;
         diff-scoped)
             pat="$(echo "$params" | jq -r '.pattern // ""')"; gcount="$(echo "$params" | jq -r '.glob | length')"
             [[ -z "$pat" || "$gcount" -eq 0 ]] && die 2 "scope_mode=diff-scoped requires params.pattern and non-empty params.glob at line $LINE_NUM"
@@ -200,6 +205,7 @@ for i in "${!SLUGS[@]}"; do
     hits=''
     case "$scope" in
         review-pass-only) hits='review-required'; sites='' ;;
+        checker-scoped) hits='checker-mechanized'; sites='' ;;
         diff-scoped)
             pat="$(echo "$params" | jq -r '.pattern')"; gj="$(echo "$params" | jq -c '.glob')"
             sites="$(run_rg "$pat" "$gj" "$DIFF_FILES" | LC_ALL=C sort -u)" ;;
@@ -342,6 +348,7 @@ echo "  findings:"
 for i in "${!FINDING_SLUGS[@]}"; do
     slug="${FINDING_SLUGS[$i]}"; hits="${FINDING_HITS[$i]}"; scope="${FINDING_SCOPES[$i]}"; tier="${FINDING_TIERS[$i]:-MEDIUM}"
     [[ "$scope" == 'review-pass-only' ]] && hits='review-required'
+    [[ "$scope" == 'checker-scoped' ]] && hits='checker-mechanized'
     cat <<EOF
     - pattern: $slug
       scope_mode: $scope

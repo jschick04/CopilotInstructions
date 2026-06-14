@@ -36,3 +36,43 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - shell: pwsh
         run: ./scripts/tests/check-comment-audit.tests.ps1
+
+  diff-consistency:
+    name: Deterministic diff-consistency checker (D2, every PR commit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: pwsh
+        run: |
+          git fetch origin "${{ github.base_ref }}" 2>$null
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::git fetch of base ref '${{ github.base_ref }}' failed"; exit 1 }
+          $commits = @(git rev-list --reverse "origin/${{ github.base_ref }}..HEAD" 2>$null)
+          if ($LASTEXITCODE -ne 0) { Write-Host "::error::git rev-list failed (could not enumerate PR commits)"; exit 1 }
+          if ($commits.Count -eq 0) { Write-Host "::error::no commits found in origin/${{ github.base_ref }}..HEAD; refusing to pass without checking"; exit 1 }
+          $failed = $false
+          foreach ($commitSha in $commits) {
+            Write-Host "::group::diff-consistency $commitSha"
+            ./scripts/check-diff-consistency.ps1 -Mode commit -HeadRef $commitSha
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+            Write-Host "::endgroup::"
+          }
+          if ($failed) { Write-Host '::error::diff-consistency found a HARD finding in one or more commits'; exit 1 }
+
+  diff-consistency-tests:
+    name: diff-consistency checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-diff-consistency.tests.ps1
+
+  checker-registry-parity:
+    name: Deterministic checker-registry parity (fail-loud on unwired hard-fail slug)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/check-checker-registry.ps1
