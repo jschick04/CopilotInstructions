@@ -46,7 +46,7 @@ foreach ($commitSha in $commits) {
     Write-Host "::endgroup::"
 }
 if ($failed) {
-    Write-Host "::error::check-diff-consistency-ci: a HARD finding was reported in one or more commits"
+    Write-Host "::error::check-diff-consistency-ci: check-diff-consistency reported a failure (a HARD finding or a script error) in one or more commits"
     exit 1
 }
 Write-Host "check-diff-consistency-ci: PASS over $($commits.Count) commit(s)" -ForegroundColor Green

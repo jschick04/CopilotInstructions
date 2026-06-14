@@ -3,19 +3,19 @@
 
 ## Purpose
 
-Show the diff to the user, get explicit approval, confirm who handles the commit, and record the commit per the project's commit-message rules. Fires after `post-code-change.md` clears (build + tests + reviewer consensus + verify-fix all green).
+Classify the working tree (the user stages = review), confirm the staged set + message at the commit-approval, confirm who handles the commit, and record the commit per the project's commit-message rules. Fires after `post-code-change.md` clears (build + tests + reviewer consensus + verify-fix all green).
 
 ## Hard gates (also in `AGENTS.md`)
 
-- Diff shown to user; explicit approval received.
+- Working tree classified (`git status --porcelain`); staged = the user's reviewed scope; unstaged changes paused (review-now / stage-for-me / skip-file / abort) - the agent never auto-stages code.
 - **Commit author identity verified per `AGENTS.md` §4.1** - both effective config (`git config --show-scope --show-origin --get user.name` / `user.email`) AND `git var GIT_AUTHOR_IDENT` / `GIT_COMMITTER_IDENT` resolve to a non-empty human identity (not a disallowed automation identity); for `--amend` / `cherry-pick` / `rebase` / `am`, the preserved author + committer on the target commit are ALSO not disallowed automation identities. On missing / disallowed: prompt the user via `ask_user` (Step 3a below); write `--local` by default; promote to `--global` ONLY on explicit user opt-in.
 - Commit ownership confirmed (user vs agent) via `ask_user` - prompt MUST display the resolved `<user.name> <<user.email>>` + scope AND use the literal `the agent` / `you (the user)` actor labels (no bare `I` / `me` / `you`). Step 3b below has the canonical form schema.
 - Single-line commit message; no Conventional-Commit prefix; no `Co-authored-by` trailer; no body / footer.
-- Stage only touched files (`git add <path>` - never `git add .`).
-- **Comment audit on staged diff (HARD GATE per `comment-protocol.md` §3.1 + §Persisted audit file)** - every commit MUST run the §3.1 comment-protocol DISCIPLINE on every NEW or substantively-rewritten comment in the diff (clarity-check → rename-check → step-3 `ask_user` OR exempt-category citation; details in `comment-protocol.md` and `post-code-change.md` §2.6). Tracking format depends on whether the consuming repo has adopted the audit-file workflow: **(adopted repos)** stage `.github/pr-quality-gate/audits/last.md` containing the §2.6 audit block verbatim with the required `parent_sha:` header - the audit-file path is enumerated in `staged_files` and CANNOT be omitted; `pr-gate-check.yml` fails the PR if the file is missing or the audit `parent_sha` doesn't match the commit's actual parent. **(non-adopted repos)** comment-audit tracking happens INLINE via the `comment_audit` block in `PRE-COMMIT GATE PASSED` only - DO NOT create the audit file (see `comment-protocol.md` §Persisted audit file - adoption gate). Adoption detection: at least ONE of `.github/workflows/pr-gate-check.yml`, `scripts/check-comment-audit.ps1`, or a pre-existing `.github/pr-quality-gate/audits/last.md` in main. Run the audit AFTER the diff is shown + approved but BEFORE `git add`, so the recorded content reflects what's actually being committed. Full procedure: `comment-protocol.md` (canonical) + `post-code-change.md` §2.6 (ledger format).
+- The USER stages reviewed code (the review signal); the agent stages ONLY its own gate artifacts and never `git add .` / `-A`. Staged set enumerated + revalidated before commit (see Procedure step 4).
+- **Comment audit on staged diff (HARD GATE per `comment-protocol.md` §3.1 + §Persisted audit file)** - every commit runs the §3.1 discipline on every NEW or substantively-rewritten comment in the staged diff (clarity-check -> rename-check -> step-3 `ask_user` OR a canonical-6 exempt category). Run it AFTER the user stages the code, BEFORE `git commit`. **adopted repos** (>= one of `.github/workflows/pr-gate-check.yml`, `scripts/check-comment-audit.ps1`, or an existing `audits/last.md` in main): stage `.github/pr-quality-gate/audits/last.md` (the §2.6 block + `parent_sha:` header; enumerated in `staged_files`; CANNOT be omitted) - `pr-gate-check.yml` fails if it is missing or its `parent_sha` mismatches. **non-adopted repos**: track inline in the `comment_audit` block; do NOT create the file. Detail + the user-authored-comment narrow-`ask_user` rule: field requirement below + `comment-protocol.md` (canonical) + `post-code-change.md` §2.6.
 - **`PRE-COMMIT GATE PASSED` block emitted in the current turn** before any `git commit` tool call - §1B refuses `git commit` without this block (mirrors §1A's `PANEL CONVERGED` enforcement at the implementation boundary and §2B's `POST-CODE-CHANGE LEDGER` enforcement at the staging boundary).
-- **A panel `READY` verdict (pre-implementation, pre-PR-creation, or any other panel slot) does NOT satisfy this gate on project (non-instruction) repos.** Panel review is technical; this gate is user review. Both independent, both must pass. Chaining panel `READY` into any commit-producing tool call, `git push`, or `gh pr create` without an intervening `ask_user`-based diff-approval is a process violation. Full rule in `pr-quality-gate/panel-policy.md` §"User diff-approval after panel READY".
-- **Pre-impl panel `READY` does NOT satisfy the post-implementation review.** The pre-implementation panel reviews specifications; it cannot see actual code. Implementation-level bugs emerge only after code is written. `post-code-change.md` step 3 (multi-model reviewer panel) MUST run after implementation lands and before `git add` of staged-for-commit files - its result is recorded in `POST-CODE-CHANGE LEDGER` per §2B as `post-code-change-panel: ran, unanimous`. The pre-impl and post-impl panels are independent gates; BOTH must clear before `git commit`. Bypass tracked as `post-impl-review-skipped-after-pre-impl-panel-ready` in `pr-quality-gate/data/panel-misses.csv`. **Lightweight escape hatch:** when the change is trivial (single-file, ≤10 lines, no new types/methods/behavior - typo fix, config bump, dependency upgrade, comment edit), a single-agent code-review pass on the staged diff substitutes for the full multi-model panel; record this as `post-code-change-panel: ran, single-agent-review (rationale: <trivial-change reason>)` in the ledger.
+- **A panel `READY` verdict (pre-implementation, pre-PR-creation, or any other panel slot) does NOT satisfy this gate on project (non-instruction) repos.** Panel review is technical; this gate is user review. Both independent, both must pass. Chaining panel `READY` into any commit-producing tool call, `git push`, or `gh pr create` without an intervening `ask_user`-based commit-approval is a process violation. Full rule in `pr-quality-gate/panel-policy.md` §"User commit-approval after panel READY".
+- **Pre-impl panel `READY` does NOT satisfy the post-implementation review.** The pre-implementation panel reviews specifications; it cannot see actual code. Implementation-level bugs emerge only after code is written. `post-code-change.md` step 3 (multi-model reviewer panel) MUST run after implementation lands and before artifact-staging / `git commit` - its result is recorded in `POST-CODE-CHANGE LEDGER` per §2B as `post-code-change-panel: ran, unanimous`. The pre-impl and post-impl panels are independent gates; BOTH must clear before `git commit`. Bypass tracked as `post-impl-review-skipped-after-pre-impl-panel-ready` in `pr-quality-gate/data/panel-misses.csv`. **Lightweight escape hatch:** when the change is trivial (single-file, ≤10 lines, no new types/methods/behavior - typo fix, config bump, dependency upgrade, comment edit), a single-agent code-review pass on the staged diff substitutes for the full multi-model panel; record this as `post-code-change-panel: ran, single-agent-review (rationale: <trivial-change reason>)` in the ledger.
 - **Pre-PR-create draft-state ask** - before any `gh pr create` (or equivalent PR-creation tool call), the agent MUST `ask_user` whether the PR should be created as `draft` or `ready for review`. The default option in the form should match the user's prior session-wide preference if one was set; otherwise default to `ready`. Recorded in the `pr_creation:` field of the `PRE-COMMIT GATE PASSED` block (see Step 3 schema) - `pr_creation: deferred` if this commit is not a PR-creation point; `pr_creation: draft` / `pr_creation: ready` if it is.
 - **Ack-file sync (HARD GATE)** - if `pr-quality-gate/pattern-catalog.md` is in the staged diff (`git diff --cached --name-only` shows it), then `pr-quality-gate/HIGH-TIER-SLUGS.md` MUST ALSO be staged AND match the catalog state. Run `pwsh -File scripts/sync-critical-rules.ps1` to regenerate, then `git add .github/pr-quality-gate/HIGH-TIER-SLUGS.md`. The `.githooks/pre-commit` hook (installed via `setup.ps1`/`setup.sh` setting `core.hooksPath .githooks`) enforces this automatically; the CI workflow `.github/workflows/catalog-sync-check.yml` is the backstop for `--no-verify` bypass. Full design in `pr-quality-gate/panel-policy.md` §"Catalog-edit + ack-sync invariant". Process violation if commit lands with drift; tracked in `panel-misses.csv` under `catalog-ack-drift`.
 
@@ -27,7 +27,7 @@ Before any `git commit` (including `git commit --amend`, `git cherry-pick`, `git
 
 ```
 PRE-COMMIT GATE PASSED
-gate|diff_shown=yes:t<N>|diff_approved=yes:t<N+M>:"<approval phrase>"|staged_diff_verified=<yes:(N files,+X/-Y)matches-shown | no:<discrepancy>>|profile=<full|lite|full-default>|author_identity=<name> <<email>>(scope:<local|global|env-override>)|commit_ownership=<agent|user>|rule_coverage_passed=<bool>|pr_creation=<deferred|draft|ready>
+gate|diff_shown=yes:t<N>|diff_approved=yes:t<N+M>:"<approval phrase>"|staged_diff_verified=<yes:(N files,+X/-Y)matches-enumerated | no:<discrepancy>>|profile=<full|lite|full-default>|author_identity=<name> <<email>>(scope:<local|global|env-override>)|commit_ownership=<agent|user>|rule_coverage_passed=<bool>|pr_creation=<deferred|draft|ready>
 subject|proposed_subject="<exact -m string>"|subject_approved=yes:t<K>:"<phrase|edited to:...>"|format_check=single_line:yes,co_authored_by_trailer:no,body:no,conventional_commit_prefix:no,subject_length_chars:<int>
 comment_audit|audit_file_staged=<yes:.github/pr-quality-gate/audits/last.md | no-not-adopted(no pr-gate-check.yml AND no check-comment-audit.ps1 AND no audit file in main) | no-FAILS(adopted but missing)>|parent_sha=<literal SHA from audit header = git rev-parse HEAD at write time; EMPTY_TREE for root>|new_or_rewritten=<int>|approval_entries=<int valid approval_turn bullets>|schema_source="comment-protocol.md §Persisted audit file + post-code-change.md §2.6"
 core_rules_acknowledged:   # caveman one-line-per-slug per post-code-change.md §"core_rules_acknowledged - chat-emission form (caveman)"; enumerate EVERY HIGH-tier review-pass-only slug; aggregate counts INVALID
@@ -47,13 +47,13 @@ staged_files:   # per-path enumeration (STAYS); "git add ." / "-A" / "--all" for
 
 ### Field requirements
 
-- **`diff_shown` / `diff_approved`** - record the actual turn numbers (or message indices) in the current conversation. If the diff was shown but never explicitly approved by the user, `diff_approved: no` MUST appear and the commit MUST NOT proceed.
+- **`diff_shown` / `diff_approved`** - the commit-approval `ask_user` that prints the enumerated staged set (the user staged the code as review; this `ask_user` is the sign-off). Record the actual turn numbers. If the staged set was presented but never explicitly approved, `diff_approved: no` MUST appear and the commit MUST NOT proceed.
 - **`author_identity`** - verbatim output of `git var GIT_AUTHOR_IDENT` (name + email). For amend / cherry-pick / rebase operations, the preserved author on the replay target must ALSO be verified to be a non-automation identity per `AGENTS.md` §4.1; that verification result goes in a separate `replay_author_identity:` line.
 - **`commit_ownership`** - must be either `agent` or `user`. If `user`, the agent must STOP at this gate and let the user run `git commit` themselves - no chain-through to `git push`.
 - **`proposed_subject`** - the EXACT string that will be passed to `git commit -m`. Not a summary; the literal value.
 - **`subject_approved`** - record the user response that approved the proposed subject. If the user edited the subject during approval, `proposed_subject` must reflect the edited version, and `subject_approved` should quote the edit.
 - **`format_check`** - five boolean sub-fields. Any `no` on `single_line` / `subject_length_chars > 72` / etc. that contradicts the playbook's format rules MUST cause the agent to revise the message before re-emitting the block.
-- **`comment_audit`** - runs after the diff is approved by the user but before `git add`. Procedure: (1) for each file in the staged additions, use the per-extension comment-syntax map from `comment-protocol.md` §Scope to count NEW or substantively-rewritten comment lines (NOT pre-existing comments that happen to live in modified files); (2) for each counted comment, classify per `comment-protocol.md` (clarity-check → rename-check → step-3 `ask_user` OR an exempt category from the canonical 6); (3) tracking format depends on adoption (see `comment-protocol.md` §Persisted audit file - adoption gate): **(adopted repos)** write the §2.6 audit block to `.github/pr-quality-gate/audits/last.md` with `parent_sha:` set to `git rev-parse HEAD` (the commit's about-to-be parent), `commit_subject:` set to the proposed commit subject, and one bullet per NEW or substantively-rewritten comment; stage the audit file via explicit `git add .github/pr-quality-gate/audits/last.md` (enumerated in `staged_files`). Meta-changes with zero source-code edits still write the audit file with the zero-count template - the file's presence is invariant on adopted repos. **(non-adopted repos)** DO NOT create the audit file; record the dispositions INLINE in this `comment_audit` block (counts + per-comment approval-turn citations from the session's `ask_user` history). The `comment_audit` block records the audit-file status + counts + the parent_sha used (when applicable); on adopted repos, mismatch between the audit's parent_sha and the actual commit parent fails `pr-gate-check.yml` post-push.
+- **`comment_audit`** - runs AFTER the user stages the code, BEFORE `git commit`. (1) For each staged file, count NEW or substantively-rewritten comment lines per `comment-protocol.md` §Scope (not pre-existing comments in modified files); (2) classify each per `comment-protocol.md` (clarity-check -> rename-check -> step-3 `ask_user` OR a canonical-6 exempt category); when the user's staged edits added comments, surface them in a narrow `ask_user` at ledger-authoring time and cite that turn (there is no `staged-by-user` exemption). (3) Tracking by adoption (`comment-protocol.md` §Persisted audit file): **adopted** - write the §2.6 block to `.github/pr-quality-gate/audits/last.md` (`parent_sha:` = `git rev-parse HEAD`, `commit_subject:` = proposed subject, one bullet per comment) and stage it (enumerated in `staged_files`); zero-count template when there are no source edits. **non-adopted** - do NOT create the file; record dispositions inline in this block. On adopted repos a mismatch between the audit `parent_sha` and the actual commit parent fails `pr-gate-check.yml` post-push.
 - **`core_rules_acknowledged`** - REQUIRED enumeration of every HIGH-tier review-pass-only catalog slug. Schema and verification semantics are canonical in `panel-policy.md` §Per-rule acknowledgement; chat emits the caveman one-line-per-slug form (`post-code-change.md` §"core_rules_acknowledged - chat-emission form (caveman)"). Per-site citations are MANDATORY for `status:applied`; aggregate counts alone are INVALID. **Forcing-function recipe** for the most common HIGH-tier slugs:
     - `comment-necessity`: cite per-bullet `approval_turn:` value from the §2.6 ledger (paste from `.github/pr-quality-gate/audits/last.md` on adopted repos OR from the inline `comment_audit` block on non-adopted repos). Valid forms: (i) real `ask_user` turn/message ref + `allowed-case` (non-obvious invariant | external constraint | trade-off); (ii) `n/a - exempt: <category from canonical 6>` (`typo` | `deletion` | `stale-comment-fix-per-§3.9/§3.10` | `generated` | `vendored` | `THROWAWAY-header`); (iii) `n/a - degraded-mode-drop`; (iv) `n/a - no-response-drop`; (v) `deleted (per protocol step-3 rejection | rename-first resolution)`. Any other value = violation. On adopted repos, the audit file MUST be staged via explicit `git add .github/pr-quality-gate/audits/last.md` (enumerated in `staged_files`); on non-adopted repos, the audit file is NOT created and the citations live in the inline block.
     - `prefer-async-suffix`: paste output of `git diff --cached -U0 | grep -nE '^\+.*\.(Open|SaveChanges|Read|Write|Flush|Send|Dispose|CreateDbContext)\(' | grep -v '^\+\+\+'` then cite per site (used-async-overload / no-async-overload-on-receiver / sync-justified:<reason>). If choosing sync where Async exists, MUST justify.
@@ -67,8 +67,8 @@ staged_files:   # per-path enumeration (STAYS); "git add ." / "-A" / "--all" for
     - `draft` - `gh pr create --draft` was approved by the user via `ask_user` in this session for this PR.
     - `ready` - `gh pr create` (no `--draft` flag) was approved by the user via `ask_user` in this session for this PR.
   The `ask_user` prompt MUST present both options (`draft` / `ready`) and record the user's response verbatim in the `PR-CREATION GATE PASSED` block (see `pr-creation.md` for the full schema if one exists, else this `pr_creation` field captures the decision inline). For amends/force-pushes to an EXISTING PR, `pr_creation: deferred` is correct because no new PR is being created.
-- **`staged_files`** - enumerated list. `git add .`, `git add -A`, `git add --all` are forbidden per §0; the staged files list must come from an explicit `git add <path>` per file.
-- **`staged_diff_verified`** - after running `git add <paths>` and BEFORE running `git commit`, the agent MUST run `git diff --cached --stat` and compare the output against the diff shown to the user in `diff_shown`. If the staged-diff file list or line-count differs from the shown-diff, the commit is FORBIDDEN until the agent investigates the divergence and either re-stages or reverts. Recorded in the `PRE-COMMIT GATE PASSED` block as `staged_diff_verified: yes (staged stat: <N files, +X/-Y>) matches shown-diff` or `staged_diff_verified: no - <discrepancy details>`. Catches files edited in working tree that fail to make it into the commit. Tracked as `fix-silently-lost-between-shown-diff-and-commit` in `pr-quality-gate/data/panel-misses.csv`.
+- **`staged_files`** - the enumerated staged set (user-code + agent-artifacts) from `git diff --cached --name-status`. `git add .` / `-A` / `--all` forbidden per §0; the user stages code, the agent stages only artifacts.
+- **`staged_diff_verified`** - the Revalidate step (Procedure step 4): immediately before `git commit`, run `git diff --cached --stat` and confirm it matches the enumerated staged set approved at commit-message time. Record `staged_diff_verified: yes (staged stat: <N files, +X/-Y>) matches enumerated set` or `no - <discrepancy>`. A divergence FORBIDS the commit until investigated (re-stage or revert). Catches the `fix-silently-lost-between-shown-diff-and-commit` class (`pr-quality-gate/data/panel-misses.csv`).
 
 ### Falsification is a higher-severity failure than skipping
 
@@ -92,24 +92,24 @@ Bundle these in one prompt:
 
 ## Procedure
 
-### 1. Show the diff
+### 1. Classify the working tree (the inverted staging model)
 
-Render the diff for the user. Cover:
+The user reviews code by STAGING it; the agent classifies the working tree and NEVER auto-stages code. This is a PROSE rule (git has no pre-add hook); its mechanical BACKSTOP is the commit-approval `ask_user` (step 4), which prints the enumerated staged set so an auto-staged or over-broad set is visible before anything ships.
 
-- Files touched (count + names).
-- For each file: a brief summary of what changed and why.
-- Anything notable that might surprise the reviewer (rename, file move, new dependency, new config knob).
-- Anything intentionally NOT changed but reviewer might expect to be (so they don't waste a review cycle wondering).
+1. **Classify first.** `git status --porcelain` (+ `git diff --cached --name-status`) - allowed before the PRE-GIT SENTINEL. Note any rename, file move, new dependency, or new config knob in the staged set.
+2. **Staged = the user's reviewed SCOPE.** Commit AS-IS; do NOT re-diff / re-flag / re-`ask_user` about staged code, even if it differs from what the agent last wrote (the delta is the user's review edits). Staging is the SCOPE signal, NOT the sign-off (the commit-approval is the sign-off).
+3. **Stashed changes do not count** (stash != staged); note a non-empty `git stash list`, never treat as approval.
 
-### 2. Wait for explicit approval
+### 2. Resolve unstaged changes (the pause)
 
-Do not commit until the user says "approved" / "looks good" / "go ahead" / equivalent. Silence is not approval.
+Unstaged / untracked entries are unreviewed. PAUSE and `ask_user` (batched), per file:
 
-If the user requests revisions:
+- **review-now** - show `git diff -- <path>`; the user then stages it.
+- **stage-for-me** - stage that path ONLY after the user says so, AND re-run `git diff -- <path>` immediately before `git add` to confirm it is unchanged since shown; if it changed, pause again (closes the TOCTOU "fix lost between shown-diff and commit" gap).
+- **skip-file** - leave unstaged, exclude from this commit.
+- **abort** - stop.
 
-- Apply the revisions.
-- Return to `post-code-change.md` for build + tests if the revision touched code.
-- Re-show the updated diff.
+The agent NEVER auto-stages an unstaged change. If the user requests revisions, apply them, return to `post-code-change.md` for build + tests if code changed, then re-classify. Silence is not approval.
 
 ### 3. Verify commit author identity, then confirm commit ownership
 
@@ -229,19 +229,11 @@ Default to the user. Many of the user's workflows involve manual review, splitti
 
 ### 4. If the agent commits
 
-#### Show the diff and wait for approval
+(Working tree already classified per steps 1-2: staged = the user's reviewed scope; unstaged resolved via the pause. Applies equally to fresh commits, amends, fixups, and any other commit-producing operation.)
 
-Before ANY `git add` or `git commit` (including `--amend`), the agent MUST:
+#### Confirm the commit message + the staged set (the human sign-off)
 
-1. Show the diff to the user (`git --no-pager diff` for unstaged changes, or `git --no-pager diff --cached` if already staged).
-2. Wait for explicit user approval ("approved" / "looks good" / "go ahead" / equivalent).
-3. Only then proceed to staging and committing.
-
-This applies to fresh commits, amends, fixups, and any other commit-producing operation. The user must see every change before it enters the git history. Silence is not approval.
-
-#### Confirm the commit message
-
-Before staging or running `git commit`, the agent MUST present the proposed commit message to the user via `ask_user` and wait for explicit approval. The agent does NOT run `git commit` until the user has seen and approved the exact message text. This is a **separate prompt** from the ownership prompt in step 3b - never bundle them.
+This `ask_user` is the load-bearing human sign-off (staging was only review SCOPE). It runs after artifact staging + enumeration: present the message AND the enumerated staged set (user-code vs artifacts, unexpected paths flagged); do NOT `git commit` until approved. **Separate prompt** from the step-3b ownership prompt - never bundle them.
 
 ```yaml
 message: |
@@ -249,13 +241,19 @@ message: |
 
       <proposed single-line message>
 
-  Approve this message, or provide an alternative.
+  Staged set (exactly what will be committed):
+    user-code:  <path, ...>
+    artifacts:  <path, ...>
+    flagged (unexpected): <path, ... | none>
+  Unstaged tracked code (left OUT of this commit): <path, ... | none>
+
+  Approve this message + staged set, or provide an alternative.
 
 requestedSchema:
   properties:
     approved:
       type: boolean
-      title: "Approve this commit message?"
+      title: "Approve this commit message + staged set?"
       default: true
     alternativeMessage:
       type: string
@@ -264,15 +262,13 @@ requestedSchema:
   required: [approved]
 ```
 
-If the user provides an alternative, use that instead. If the user declines without providing an alternative, ask again with a revised proposal.
+If the user provides an alternative, use that instead. If the user declines without providing an alternative, ask again with a revised proposal. If the user flags a staged path as unwanted, the agent does NOT unstage it silently - the user controls the index.
 
-#### Stage only touched files
+#### Agent stages ONLY gate artifacts; then enumerate + revalidate
 
-```powershell
-git add <path1> <path2> <path3>
-```
+The agent's ONLY `git add` paths are its gate artifacts (`audits/last.md`, regenerated `pattern-catalog.md` + `HIGH-TIER-SLUGS.md`, `panel-misses.csv`); `git add .` / `-A` / `--all` forbidden (§0). Regenerate from the WORKING TREE (the scripts + CI checkers read it, not blobs) ONLY when the source has no unstaged delta - else BLOCK and pause, so the staged artifact matches what CI recomputes. If the user staged or edited an artifact output, do NOT overwrite - pause and let the user choose.
 
-Never `git add .` or `git add -A` - picks up stray files.
+Then: **enumerate** the staged set (`git diff --cached --name-status`), FLAG any path that is neither touched-by-this-flow nor an artifact, and give the commit-approval AGAINST that list. **Revalidate** immediately before `git commit`; if the staged set changed (user staged / unstaged mid-flow), STOP and re-confirm. FORBIDDEN: an artifact-only commit while tracked code is unstaged (the ledger would cover uncommitted code) - the commit-approval prints the `Unstaged tracked code` line so this case is visible at sign-off. User staged nothing -> no invented code commit (only an explicit user-confirmed artifact commit).
 
 #### Commit message rules (from `AGENTS.md` §2)
 

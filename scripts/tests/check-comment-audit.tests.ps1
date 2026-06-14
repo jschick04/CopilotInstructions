@@ -49,9 +49,9 @@ Assert-True (Test-IsNewCommentLine -Content '/// <summary>' -FilePath 'src/Foo.c
 Assert-True (Test-IsNewCommentLine -Content '    var x = 0; // running total' -FilePath 'src/Foo.cs') 'C# inline trailing //'
 Assert-True (Test-IsNewCommentLine -Content '    var x = 0; /* trailing block */' -FilePath 'src/Foo.cs') 'C# inline trailing /* (R4-MAJOR-3 fix)'
 Assert-True (Test-IsNewCommentLine -Content '<div></div> <!-- trailing html -->' -FilePath 'app.html') 'HTML inline trailing <!-- (R4-MAJOR-3 fix)'
-Assert-True (Test-IsNewCommentLine -Content 'var x=0;/*tight comment*/' -FilePath 'src/Foo.cs') 'C# inline tight /* (no whitespace) — R5-BLOCKING-1 fix'
-Assert-True (Test-IsNewCommentLine -Content '<div></div><!--tight-->' -FilePath 'app.html') 'HTML inline tight <!-- (no whitespace) — R5-BLOCKING-1 fix'
-Assert-True (Test-IsNewCommentLine -Content '$x=1;<#tight#>' -FilePath 'script.ps1') 'PS1 inline tight <# (no whitespace) — R5-BLOCKING-1 fix'
+Assert-True (Test-IsNewCommentLine -Content 'var x=0;/*tight comment*/' -FilePath 'src/Foo.cs') 'C# inline tight /* (no whitespace) - R5-BLOCKING-1 fix'
+Assert-True (Test-IsNewCommentLine -Content '<div></div><!--tight-->' -FilePath 'app.html') 'HTML inline tight <!-- (no whitespace) - R5-BLOCKING-1 fix'
+Assert-True (Test-IsNewCommentLine -Content '$x=1;<#tight#>' -FilePath 'script.ps1') 'PS1 inline tight <# (no whitespace) - R5-BLOCKING-1 fix'
 Assert-False (Test-IsNewCommentLine -Content '#region foo' -FilePath 'src/Foo.cs') 'C# #region excluded'
 Assert-False (Test-IsNewCommentLine -Content '#pragma warning disable' -FilePath 'src/Foo.cs') 'C# #pragma excluded'
 Assert-False (Test-IsNewCommentLine -Content 'var url = "http://example.com";' -FilePath 'src/Foo.cs') 'C# URL inside string is NOT comment'
@@ -70,13 +70,13 @@ Assert-True (Test-IsNewCommentLine -Content '# python comment' -FilePath 'app.py
 Assert-True (Test-IsNewCommentLine -Content '    # indented' -FilePath 'app.py') 'Python indented #'
 Assert-False (Test-IsNewCommentLine -Content '#!/usr/bin/env python' -FilePath 'app.py') 'Python shebang excluded (R4-BLOCKING-6)'
 Assert-False (Test-IsNewCommentLine -Content '#!/bin/bash' -FilePath 'script.sh') 'Bash shebang excluded (R4-BLOCKING-6)'
-Assert-True (Test-IsNewCommentLine -Content '#! real comment text without slash' -FilePath 'app.py') 'Python "#! " without slash IS still a comment (R5 tightening — only #!/ excluded)'
+Assert-True (Test-IsNewCommentLine -Content '#! real comment text without slash' -FilePath 'app.py') 'Python "#! " without slash IS still a comment (R5 tightening - only #!/ excluded)'
 
 Assert-False (Test-IsNewCommentLine -Content '#region foo' -FilePath 'script.ps1') 'PS1 #region excluded'
 Assert-False (Test-IsNewCommentLine -Content '#endregion' -FilePath 'script.ps1') 'PS1 #endregion excluded'
 Assert-False (Test-IsNewCommentLine -Content '#Requires -Version 5.1' -FilePath 'script.ps1') 'PS1 #Requires -Version excluded (R4-BLOCKING-6)'
 Assert-False (Test-IsNewCommentLine -Content '#Requires -Module Pester' -FilePath 'script.psm1') 'PSM1 #Requires -Module excluded (R4-BLOCKING-6)'
-Assert-True (Test-IsNewCommentLine -Content '#Requires more thought' -FilePath 'script.ps1') 'PS1 "#Requires" without -param IS still a comment (R5 tightening — only #Requires - excluded)'
+Assert-True (Test-IsNewCommentLine -Content '#Requires more thought' -FilePath 'script.ps1') 'PS1 "#Requires" without -param IS still a comment (R5 tightening - only #Requires - excluded)'
 Assert-True (Test-IsNewCommentLine -Content '# comment' -FilePath 'script.ps1') 'PS1 regular #'
 
 Assert-False (Test-IsNewCommentLine -Content '--primary: #fff;' -FilePath 'style.css') 'CSS custom property is NOT comment'
@@ -145,18 +145,23 @@ Assert-False $shape.Valid 'Approved WITHOUT justification is invalid (R4-MAJOR-1
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17'
 Assert-False $shape.Valid 'Approved without allowed-case is invalid'
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a — exempt: typo'
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - exempt: typo'
 Assert-Equal 'exempt' $shape.Form 'Exempt with canonical token is valid'
 Assert-True $shape.Valid 'Exempt typo bullet valid=true'
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a — exempt: it-was-obvious'
+# Legacy em-dash separator is tolerated (backward-compat with ledgers committed before the ASCII migration).
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a $([char]0x2014) exempt: generated"
+Assert-Equal 'exempt' $shape.Form 'Legacy em-dash exempt separator is tolerated'
+Assert-True $shape.Valid 'Legacy em-dash exempt bullet valid=true'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - exempt: it-was-obvious'
 Assert-False $shape.Valid 'Non-canonical exempt category is invalid'
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a — degraded-mode-drop'
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a $([char]0x2014) degraded-mode-drop"
 Assert-Equal 'degraded-mode-drop' $shape.Form 'Degraded mode disposition'
 Assert-True $shape.Valid 'Degraded mode valid=true'
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a — no-response-drop'
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a $([char]0x2014) no-response-drop"
 Assert-Equal 'no-response-drop' $shape.Form 'No-response disposition'
 Assert-True $shape.Valid 'No-response valid=true'
 
@@ -164,7 +169,7 @@ $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: deleted (per protoc
 Assert-Equal 'deleted' $shape.Form 'Deleted disposition'
 Assert-True $shape.Valid 'Deleted valid=true'
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a — made-up-reason'
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a $([char]0x2014) made-up-reason"
 Assert-False $shape.Valid 'Unknown n/a disposition is invalid'
 
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: bogus'
@@ -189,7 +194,7 @@ $auditLines = @(
     'commit_subject: Add bar',
     'Comment audit: ...',
     '- src/Foo.cs:42: approval_turn: bogus',
-    '- src/Foo.cs:43: approval_turn: n/a — exempt: not-canonical'
+    '- src/Foo.cs:43: approval_turn: n/a - exempt: not-canonical'
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'abc1234567890def0987654321abcdef12345678'
 Assert-False $result.Valid 'Audit with invalid bullets is invalid'
@@ -254,7 +259,7 @@ Write-Host "=== Get-CoveredCommentCount (R4-BLOCKING-5 regression) ===" -Foregro
 $result = [PSCustomObject]@{
     ApprovedCount = 3; ExemptCount = 2; DegradedCount = 1; NoResponseCount = 1; DeletedCount = 5
 }
-Assert-Equal 5 (Get-CoveredCommentCount -AuditResult $result) 'Covered count = approved + exempt ONLY (drops + deleted excluded — R4-BLOCKING-5 regression)'
+Assert-Equal 5 (Get-CoveredCommentCount -AuditResult $result) 'Covered count = approved + exempt ONLY (drops + deleted excluded - R4-BLOCKING-5 regression)'
 
 $result = [PSCustomObject]@{
     ApprovedCount = 0; ExemptCount = 0; DegradedCount = 10; NoResponseCount = 10; DeletedCount = 10

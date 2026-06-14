@@ -102,9 +102,9 @@ echo ""
 echo "=== Configuring git hooks path ==="
 
 if [ ! -d "$REPO_ROOT/.git" ]; then
-    echo "WARNING: .git directory not found at $REPO_ROOT/.git. Skipping hooks config — not running inside a git clone."
+    echo "WARNING: .git directory not found at $REPO_ROOT/.git. Skipping hooks config - not running inside a git clone."
 elif [ ! -d "$REPO_ROOT/.githooks" ]; then
-    echo "WARNING: .githooks/ directory not found. Skipping hooks config — the committed hook directory is missing."
+    echo "WARNING: .githooks/ directory not found. Skipping hooks config - the committed hook directory is missing."
 else
     # `git config --get core.hooksPath` walks system → global → local → worktree,
     # so it returns whatever scope wins. Using --local-only would miss global / system shadowing.
@@ -135,13 +135,14 @@ else
         echo "Set core.hooksPath = .githooks (local scope)."
         echo "  Pre-commit hook will verify HIGH-TIER-SLUGS.md stays in sync with pattern-catalog.md."
     fi
-    # Defensive: ensure the hook is executable. On Unix, Git skips non-executable hooks
-    # silently — without this chmod the safeguard appears configured but never fires.
-    HOOK_FILE="$REPO_ROOT/.githooks/pre-commit"
-    if [ -f "$HOOK_FILE" ] && [ ! -x "$HOOK_FILE" ]; then
-        chmod +x "$HOOK_FILE"
-        echo "  Set executable bit on $HOOK_FILE."
-    fi
+    # Defensive: ensure every hook is executable. On Unix, Git skips non-executable hooks
+    # silently - without this chmod the safeguard appears configured but never fires.
+    for HOOK_FILE in "$REPO_ROOT/.githooks"/*; do
+        if [ -f "$HOOK_FILE" ] && [ ! -x "$HOOK_FILE" ]; then
+            chmod +x "$HOOK_FILE"
+            echo "  Set executable bit on $HOOK_FILE."
+        fi
+    done
 fi
 
 echo ""

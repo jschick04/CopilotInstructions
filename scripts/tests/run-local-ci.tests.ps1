@@ -62,6 +62,11 @@ Assert-True ($null -eq (Test-ScriptInvocation './scripts/x.ps1 && git diff --exi
 Assert-True ($null -eq (Test-ScriptInvocation './scripts/x.ps1 | grep foo')) "piped extra logic is rejected"
 Assert-True ($null -eq (Test-ScriptInvocation 'echo hello')) "non-script command is rejected"
 Assert-True ($null -eq (Test-ScriptInvocation 'git diff --exit-code')) "inline git check is rejected"
+Assert-True ($null -eq (Test-ScriptInvocation 'echo scripts/foo.ps1')) "a script path only as an argument (echo bypass) is rejected"
+Assert-True ($null -eq (Test-ScriptInvocation 'cat scripts/foo.sh')) "a script path passed to cat (not executed) is rejected"
+Assert-True ((Test-ScriptInvocation 'pwsh -NoProfile -File scripts/foo.ps1') -eq 'scripts/foo.ps1') "pwsh with multiple flags before -File still resolves"
+Assert-True ($null -eq (Test-ScriptInvocation './scripts/../foo.ps1')) "path traversal (scripts/../foo.ps1 escapes scripts/) is rejected"
+Assert-True ($null -eq (Test-ScriptInvocation 'pwsh -File scripts/sub/../../etc/foo.ps1')) "deeper traversal out of scripts/ is rejected"
 
 Write-Host ""
 Write-Host "=== Test-MirrorCoverage (PASS baseline) ===" -ForegroundColor Cyan

@@ -111,24 +111,24 @@ The agent MAY:
 
 **How to detect a process violation in practice**: if the agent has emitted a synthesis of panel findings + a "approve this revised plan?" `ask_user` without a fresh panel slate launch between the two, the iteration discipline was bypassed. The user can call this out at any point and the agent MUST re-launch the panel before any further implementation work.
 
-## User diff-approval after panel READY - MANDATORY
+## User commit-approval after panel READY - MANDATORY
 
-The pre-PR-creation panel (and any pre-implementation panel run on uncommitted working-tree changes) certifies the code from a multi-model technical-review perspective. **On project (non-instruction) repositories**, this does NOT substitute for the user's diff-approval gate in `pre-commit.md`.
+The pre-PR-creation panel (and any pre-implementation panel run on uncommitted working-tree changes) certifies the code from a multi-model technical-review perspective. **On project (non-instruction) repositories**, this does NOT substitute for the user's commit-approval gate in `pre-commit.md`.
 
 When a panel returns `unanimous READY` on uncommitted project-repo work, the agent MUST NOT:
 
-- **Substitute panel READY for the `pre-commit.md` diff-approval gate.** Panel verdict is necessary but NOT sufficient. The `pre-commit.md` flow (show diff, `ask_user` for approval, emit `PRE-COMMIT GATE PASSED` block) MUST still fire before any commit-producing tool call (`git commit`, `git commit --amend`, `git cherry-pick`, `git rebase`-driven replay, `git am`, or any other tool call that produces a new commit object), `git push`, or PR-creation tool call. The narrow `pre-commit.md` §"Skip conditions" remain available where their stated conditions apply - they govern when the `PRE-COMMIT GATE PASSED` block may be omitted (e.g., mechanical `--amend --no-edit` after a clean rebase) and are NOT a generic "panel READY covers diff-approval" waiver.
-- **Chain panel READY into commit-producing tool calls, `git push`, or `gh pr create`.** This skips two independent gates (user diff-approval AND the `PRE-COMMIT GATE PASSED` block) by treating the panel as both technical-review and user-review. The two are independent: the panel reviews technical correctness; the user reviews scope, intent, and approves the resulting commit.
+- **Substitute panel READY for the `pre-commit.md` user-review gate.** Panel verdict is necessary but NOT sufficient. The `pre-commit.md` flow (classify the staged set, commit-approval `ask_user`, emit `PRE-COMMIT GATE PASSED` block) MUST still fire before any commit-producing tool call (`git commit`, `git commit --amend`, `git cherry-pick`, `git rebase`-driven replay, `git am`, or any other tool call that produces a new commit object), `git push`, or PR-creation tool call. The narrow `pre-commit.md` §"Skip conditions" remain available where their stated conditions apply - they govern when the `PRE-COMMIT GATE PASSED` block may be omitted (e.g., mechanical `--amend --no-edit` after a clean rebase) and are NOT a generic "panel READY covers user-review" waiver.
+- **Chain panel READY into commit-producing tool calls, `git push`, or `gh pr create`.** This skips two independent gates (user commit-approval AND the `PRE-COMMIT GATE PASSED` block) by treating the panel as both technical-review and user-review. The two are independent: the panel reviews technical correctness; the user reviews scope, intent, and approves the resulting commit.
 - **Treat a panel run on uncommitted changes as "post-commit review".** A panel on the working tree is a *pre-commit* technical review; commit gates still apply afterward.
 
 The agent MAY:
 
-- Surface panel READY to the user as informational status (e.g., "4/4 panel READY; ready to show diff for your approval").
-- Show the diff via `git --no-pager diff` (or equivalent) immediately after panel convergence to enable the user-review step.
+- Surface panel READY to the user as informational status (e.g., "4/4 panel READY; stage the files you've reviewed").
+- After panel convergence, let the user review by STAGING (the user-review step); the agent does NOT auto-stage code.
 
-**Instruction-repo scope**: §0 git safety gates (`ask_user` before every `git add` / `git commit` / `git push`) apply in ALL repos. The panel certification waives ONLY the EXTRA §1B working-tree-diff-review step for instruction-repo edits (see `review-workflow-gates.md` §1B), never §0.
+**Instruction-repo scope**: §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repos. The panel certification waives ONLY the EXTRA §1B working-tree-review step for instruction-repo edits (see `review-workflow-gates.md` §1B), never §0.
 
-**How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) - regardless of how many panels converged READY beforehand - the diff-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
+**How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) - regardless of how many panels converged READY beforehand - the commit-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
 
 ## Fix-iteration cap
 

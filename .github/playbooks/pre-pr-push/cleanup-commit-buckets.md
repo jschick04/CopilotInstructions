@@ -2,7 +2,7 @@
 
 ## Purpose
 
-After the branch-wide sweep produces changes, decide HOW to commit them. There are three buckets — pick the **strictest matching one**. Bucket choice depends on whether any rename-first action crossed interface / implementation boundaries, and on whether the branch has already been pushed (the amend-safety invariant).
+After the branch-wide sweep produces changes, decide HOW to commit them. There are three buckets - pick the **strictest matching one**. Bucket choice depends on whether any rename-first action crossed interface / implementation boundaries, and on whether the branch has already been pushed (the amend-safety invariant).
 
 ## Hard gates
 
@@ -15,32 +15,32 @@ After the branch-wide sweep produces changes, decide HOW to commit them. There a
 Bundle these in one prompt:
 
 1. **What did the sweep change?** Comment-only deletions / a symbol rename / both? If renames: how many files touched and does any rename cross an interface or change a signature?
-2. **Has this branch been pushed already?** And if yes — only to a personal sandbox no one else watches, OR to a feature branch / draft PR / shared branch that someone else may have pulled?
+2. **Has this branch been pushed already?** And if yes - only to a personal sandbox no one else watches, OR to a feature branch / draft PR / shared branch that someone else may have pulled?
 
-## Default grouping — coarser is better
+## Default grouping - coarser is better
 
 Before reaching for the three cleanup-specific buckets below, apply the **default commit grouping**: one commit per **natural unit**. Per-finding micro-commits are appropriate only when each finding has (a) independent rollback semantics OR (b) independent reviewer ownership; otherwise default to coarser bundling. Reviewer panels work better at "diff per natural unit" than at 20 tiny mechanical commits.
 
-**Natural unit definitions** (ordered for non-circular reading — each definition uses only prior-defined terms):
+**Natural unit definitions** (ordered for non-circular reading - each definition uses only prior-defined terms):
 
-- **File rewrite** — all edits within one file.
-- **SUT family** — all edits to one type and its direct test mirror.
-- **Lens** — all findings from one `codebase-architecture-audit/lens-*.md` sub-file (state-predicates, deferred-mutations, recurring-smells, project-layout, vertical-slice-clean-arch).
-- **Audit category** — union of lens / step / sweep outputs from a single audit run (typically aggregates ≥1 lens plus related findings from non-lens sweeps).
-- **Slice** — all changes within one vertical slice / feature boundary.
+- **File rewrite** - all edits within one file.
+- **SUT family** - all edits to one type and its direct test mirror.
+- **Lens** - all findings from one `codebase-architecture-audit/lens-*.md` sub-file (state-predicates, deferred-mutations, recurring-smells, project-layout, vertical-slice-clean-arch).
+- **Audit category** - union of lens / step / sweep outputs from a single audit run (typically aggregates ≥1 lens plus related findings from non-lens sweeps).
+- **Slice** - all changes within one vertical slice / feature boundary.
 
 **Per-finding micro-commits allowed only when**:
 
-- Each finding has independent **rollback** semantics — reverting one must not require reverting the others.
-- OR each finding has independent **reviewer ownership** — different reviewers are on the hook for different findings (rare; typically only on stacked PRs that distribute review responsibility).
+- Each finding has independent **rollback** semantics - reverting one must not require reverting the others.
+- OR each finding has independent **reviewer ownership** - different reviewers are on the hook for different findings (rare; typically only on stacked PRs that distribute review responsibility).
 
-**Staging-sprawl guard**: coarser commits still require **explicit path staging** (`git add <path>`) per `pre-commit.md`'s hard gate. **Never `git add .` / `git add -A` / glob staging.** Coarser does not mean indiscriminate — every path staged must be intentional and justified by the natural-unit grouping above.
+**Staging-sprawl guard**: coarser commits still require **explicit path staging** (`git add <path>`) per `pre-commit.md`'s hard gate. **Never `git add .` / `git add -A` / glob staging.** Coarser does not mean indiscriminate - every path staged must be intentional and justified by the natural-unit grouping above.
 
 ## The three buckets
 
-Pick the **strictest matching bucket** (listed lightest to strictest — bucket 1 is lightest, bucket 3 is strictest). When in doubt, escalate one bucket up.
+Pick the **strictest matching bucket** (listed lightest to strictest - bucket 1 is lightest, bucket 3 is strictest). When in doubt, escalate one bucket up.
 
-### Bucket 1 — No renames anywhere
+### Bucket 1 - No renames anywhere
 
 **Criteria:** Sweep changes are comment-only deletions / re-wordings / additions. **Zero** symbol renames anywhere in the diff.
 
@@ -49,11 +49,11 @@ Pick the **strictest matching bucket** (listed lightest to strictest — bucket 
 - Amend the changes into the final work commit.
 - Run `post-code-change.md` step 1 (import / using hygiene) on the touched files.
 - Run `post-code-change.md` step 6 (build + tests).
-- Run `pre-commit.md` (show diff, get approval).
+- Run `pre-commit.md` (classify the staged set, commit-approval).
 
-This is the lightest bucket. Use only when truly nothing renamed — even a single symbol rename disqualifies this bucket; escalate to bucket 2 (single-scope) or bucket 3 (cross-boundary).
+This is the lightest bucket. Use only when truly nothing renamed - even a single symbol rename disqualifies this bucket; escalate to bucket 2 (single-scope) or bucket 3 (cross-boundary).
 
-### Bucket 2 — Single-scope rename, no boundary crossings
+### Bucket 2 - Single-scope rename, no boundary crossings
 
 **Criteria:** Exactly one rename (or a tightly-related cluster of renames), confined to one file or a small same-package cluster, that does NOT cross an interface / implementation boundary, and does NOT change any signature.
 
@@ -69,9 +69,9 @@ This is the lightest bucket. Use only when truly nothing renamed — even a sing
   - Trace / log strings
 - Confirm "0 matches" before amending.
 - **Any non-zero grep hit disqualifies this bucket.** Escalate to bucket 3 (or ask the user).
-- If grep is clean: amend into the final work commit and run the same post-amend steps as bucket 1 (import hygiene + build + tests + diff approval).
+- If grep is clean: amend into the final work commit and run the same post-amend steps as bucket 1 (import hygiene + build + tests + commit approval).
 
-### Bucket 3 — Large or cross-boundary
+### Bucket 3 - Large or cross-boundary
 
 **Criteria:** Spans many files, OR the rename-first protocol triggered any symbol rename that:
 
@@ -82,7 +82,7 @@ This is the lightest bucket. Use only when truly nothing renamed — even a sing
 **Action:**
 
 - Commit it **separately** (do NOT amend into the work commit).
-- Run the **full** workflow on the cleanup commit: `pre-implementation.md` → `post-code-change.md` (especially the multi-model review at step 2 — the cross-file rename consistency rules in `AGENTS.md` §3.6 are exactly what step 3 *Anti-anchoring rules* asks the reviewer panel to check) → `pre-commit.md`.
+- Run the **full** workflow on the cleanup commit: `pre-implementation.md` → `post-code-change.md` (especially the multi-model review at step 2 - the cross-file rename consistency rules in `AGENTS.md` §3.6 are exactly what step 3 *Anti-anchoring rules* asks the reviewer panel to check) → `pre-commit.md`.
 
 This is the strictest bucket because cross-boundary renames are the highest-risk class of comment-cleanup change. The multi-model review pass is non-negotiable here.
 
@@ -99,7 +99,7 @@ Apply the standard `AGENTS.md` §2 single-line commit message rules. Examples sp
 
 ## Amend-safety invariant
 
-"Amend the final work commit" above (buckets 1 and 2) assumes the branch is NOT yet under review on a shared remote. The matrix below is the full force-push approval gate — apply by the recorded booleans (`isFirstReviewExposurePush`, `remoteExposureExists` — see `pre-pr-push.md` *Two independent state booleans*). The gate fires **lazily** — only at the moment a history-rewriting operation (amend, rebase, force-push) is about to be applied, NOT preemptively at intake.
+"Amend the final work commit" above (buckets 1 and 2) assumes the branch is NOT yet under review on a shared remote. The matrix below is the full force-push approval gate - apply by the recorded booleans (`isFirstReviewExposurePush`, `remoteExposureExists` - see `pre-pr-push.md` *Two independent state booleans*). The gate fires **lazily** - only at the moment a history-rewriting operation (amend, rebase, force-push) is about to be applied, NOT preemptively at intake.
 
 | `isFirstReviewExposurePush` | `remoteExposureExists` | Amend behavior |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ Apply the standard `AGENTS.md` §2 single-line commit message rules. Examples sp
 
 **Explicit force-push approval choices** (used by `(false, true)` always, and by `(true, true)` on a no/unsure sandbox confirmation). Ask the user (`ask_user`) to choose one:
 
-1. **Force-push the amend.** Acceptable on a draft PR or feature branch the user owns — but the user must confirm no one else has it pulled.
+1. **Force-push the amend.** Acceptable on a draft PR or feature branch the user owns - but the user must confirm no one else has it pulled.
 2. **Add a separate hygiene commit instead.** Always safe.
 3. **Defer the hygiene to the next push cycle.** Record the deferred sweep in canonical session todos (per AGENTS.md Phase-state tracking convention).
 
@@ -120,9 +120,9 @@ The pre-push pass is designed to run BEFORE the first push intended for review (
 
 After cleanup commits are made (any bucket), record in the pre-PR-push phase-state record (per `AGENTS.md` Phase-state tracking convention):
 
-- `cleanupBucketOutcomes` — for each cleanup commit: bucket chosen (1 / 2 / 3), reason, and whether amend-safety required force-push approval.
-- `branchWideSweepStatus` — set to `done-cleanup-committed` (initial sweep cycle) or `rerun-done-cleanup-committed` (re-run sweep cycle) per the canonical enumeration in AGENTS.
-- `sandboxPriorExposureConfirmation` — `confirmed-private` / `denied-or-unsure` / `not-needed`. Written when the `(true, true)` conditional sandbox-exemption gate fires AND an amend was actually attempted; otherwise leave as `not-needed`. Canonical field lives in `AGENTS.md` *Per-phase additional fields*.
+- `cleanupBucketOutcomes` - for each cleanup commit: bucket chosen (1 / 2 / 3), reason, and whether amend-safety required force-push approval.
+- `branchWideSweepStatus` - set to `done-cleanup-committed` (initial sweep cycle) or `rerun-done-cleanup-committed` (re-run sweep cycle) per the canonical enumeration in AGENTS.
+- `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written when the `(true, true)` conditional sandbox-exemption gate fires AND an amend was actually attempted; otherwise leave as `not-needed`. Canonical field lives in `AGENTS.md` *Per-phase additional fields*.
 
 ## What "strictest" means
 

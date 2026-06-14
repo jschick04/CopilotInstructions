@@ -1,0 +1,29 @@
+name: smart-punctuation-check
+
+# Enforce the AGENTS.md 3.14 ban on em-dash (U+2014) / en-dash (U+2013) in repo text.
+# A shrinking allowlist (.github/pr-quality-gate/data/smart-punctuation-allowlist.txt) holds the
+# not-yet-purged backlog; a separate PR purges those + de-lists them. No paths filter: a banned
+# character can appear in any tracked text file.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smart-punctuation-check:
+    name: No banned smart punctuation (em/en-dash)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - name: Check for banned em/en-dashes outside the allowlist
+        shell: pwsh
+        run: ./scripts/check-no-smart-punctuation.ps1
+      - name: Run check-no-smart-punctuation unit tests
+        shell: pwsh
+        run: ./scripts/tests/check-no-smart-punctuation.tests.ps1

@@ -4,8 +4,9 @@
   scripts/sync-critical-rules.sh produce byte-identical output (so the two implementations never drift).
 
   Exit contract: 0 = identical; 1 = DRIFT (the real violation); 2 = environment (the bash side could not be run here -
-  e.g. a Windows machine whose only `bash` is WSL with a CRLF working tree). CI (ubuntu, real bash, LF) always gets 0/1;
-  run-local-ci treats a local exit 2 as a skip (the catalog-sync CI workflow is the authoritative gate).
+  e.g. a Windows machine whose only `bash` is WSL with a CRLF working tree); 3 = the pwsh generator itself failed (a
+  hard, NON-skippable error - never an environment skip). CI (ubuntu, real bash, LF) always gets 0/1; run-local-ci
+  treats ONLY a local exit 2 as a skip (the catalog-sync CI workflow is the authoritative gate).
 #>
 [CmdletBinding()]
 param(
@@ -14,7 +15,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$ExitOk = 0; $ExitDrift = 1; $ExitEnv = 2
+$ExitOk = 0; $ExitDrift = 1; $ExitEnv = 2; $ExitFail = 3
 $pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 
 $tmpPwsh = [System.IO.Path]::GetTempFileName()
@@ -25,7 +26,7 @@ try {
         & $pwshExe -NoProfile -File (Join-Path $RepoRoot 'scripts/sync-critical-rules.ps1') -OutputPath $tmpPwsh | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::check-sync-parity: the pwsh sync generator failed (exit $LASTEXITCODE)"
-            exit $ExitEnv
+            exit $ExitFail
         }
 
         # bash side (relative invocation, proven on CI). On Windows/WSL the CRLF .sh yields no output -> reported as ENVIRONMENT below, not drift.

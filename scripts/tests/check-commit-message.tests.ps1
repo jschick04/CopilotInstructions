@@ -93,6 +93,11 @@ Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "plain body para
 $r = Invoke-Checker (Track (New-MsgRepo @("Add a thing`n")))
 Assert-True ($r.ExitCode -eq 0) "single-line subject with a trailing newline passes"
 
+$r = Invoke-Checker (Track (New-MsgRepo @("Add a thing`n`n")))
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "subject + a blank second line fails (single line and nothing else)"
+$r = Invoke-Checker (Track (New-MsgRepo @("Add a thing`n   ")))
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "subject + a whitespace-only second line fails"
+
 foreach ($bad in @('fix: correct the thing', 'fix:correct the thing', 'feat(scope): add', 'feat!: breaking', 'wip:')) {
     $r = Invoke-Checker (Track (New-MsgRepo @($bad)))
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'conventional-commit-prefix') "CC prefix '$bad' fails"
@@ -107,6 +112,8 @@ $r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging to parser`"`n`nT
 Assert-True ($r.ExitCode -eq 0) "genuine revert (subject + 'This reverts commit <hex>.') is exempt"
 $r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging`"`n`nThis reverts commit cafe1234.`nCo-authored-by: x <y>")))
 Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "revert with a smuggled trailer is NOT exempt (no-body fires)"
+$r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging`".")))
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'trailing-period') "single-line Revert without 'This reverts commit' body is NOT exempt (trailing-period fires)"
 
 $r = Invoke-Checker (Track (New-MsgRepo -Messages @('Add a clean thing') -Merge))
 Assert-True ($r.ExitCode -eq 0) "merge commit's git-generated body is skipped (--no-merges)"
@@ -122,6 +129,41 @@ $r = Invoke-Checker $repo -Base 'feature' -Head 'feature'
 Assert-True ($r.ExitCode -eq 0) "empty range passes in local mode"
 $r = Invoke-Checker $repo -Base 'feature' -Head 'feature' -Extra @('-CiMode')
 Assert-True ($r.ExitCode -eq 2) "empty range fails closed under -CiMode"
+
+Write-Host ""
+Write-Host "=== -MessageFile mode (commit-msg hook path) ===" -ForegroundColor Cyan
+$msgFiles = New-Object System.Collections.Generic.List[string]
+function Invoke-MsgFile {
+    param([string] $Content)
+    $f = Join-Path ([System.IO.Path]::GetTempPath()) ("ccm-msg-" + [guid]::NewGuid().ToString('N').Substring(0, 8) + ".txt")
+    [System.IO.File]::WriteAllText($f, $Content, (New-Object System.Text.UTF8Encoding($false)))
+    $msgFiles.Add($f)
+    $out = & $pwshExe @('-NoProfile', '-File', $checkerPath, '-MessageFile', $f) 2>&1 | Out-String
+    return [pscustomobject]@{ Output = $out; ExitCode = $LASTEXITCODE }
+}
+$r = Invoke-MsgFile "Add a clean subject"
+Assert-True ($r.ExitCode -eq 0) "message file: clean subject passes"
+$r = Invoke-MsgFile "Add a thing`n"
+Assert-True ($r.ExitCode -eq 0) "message file: subject + single terminating newline passes"
+$r = Invoke-MsgFile "Add a thing`n`n"
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "message file: trailing blank second line fails (no-body)"
+$r = Invoke-MsgFile "Add a thing`n`nCo-authored-by: Copilot <x@y>"
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "message file: Co-authored-by trailer fails"
+$r = Invoke-MsgFile "Add a thing."
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'trailing-period') "message file: trailing period fails"
+$r = Invoke-MsgFile "fix: do the thing"
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'conventional-commit-prefix') "message file: CC prefix fails"
+# Editor commit: git-appended '#' comment lines must be stripped before checking (else a false no-body).
+$r = Invoke-MsgFile "Add a thing`n`n# Please enter the commit message for your changes. Lines starting`n# with '#' will be ignored, and an empty message aborts the commit."
+Assert-True ($r.ExitCode -eq 0) "message file: editor '#' comment lines are stripped (no false no-body)"
+# Verbose commit: everything after the '>8' scissors line is ignored.
+$r = Invoke-MsgFile "Add a thing`n# ------------------------ >8 ------------------------`n# Do not modify this line`ndiff --git a/x b/x"
+Assert-True ($r.ExitCode -eq 0) "message file: verbose scissors section is ignored"
+$r = Invoke-MsgFile "Revert `"Add logging`"`n`nThis reverts commit cafe1234."
+Assert-True ($r.ExitCode -eq 0) "message file: genuine revert is exempt"
+$r = Invoke-MsgFile "Revert `"Add logging`"."
+Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'trailing-period') "message file: single-line Revert without revert-commit body is NOT exempt"
+foreach ($f in $msgFiles) { if (Test-Path -LiteralPath $f) { Remove-Item -Force -LiteralPath $f -ErrorAction SilentlyContinue } }
 
 foreach ($p in $repos) { if (Test-Path -LiteralPath $p) { Remove-Item -Recurse -Force -LiteralPath $p -ErrorAction SilentlyContinue } }
 
