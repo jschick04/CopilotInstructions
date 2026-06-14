@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bash twin of scripts/sync-critical-rules.ps1.
 #
-# REQUIRES bash, not sh — uses bash arrays. Invoke as `bash scripts/sync-critical-rules.sh`,
+# REQUIRES bash, not sh - uses bash arrays. Invoke as `bash scripts/sync-critical-rules.sh`,
 # NEVER `sh scripts/sync-critical-rules.sh` (some systems have /bin/sh = dash).
 #
 # Must produce BYTE-IDENTICAL output to the PowerShell version. CI parity job
@@ -73,7 +73,7 @@ fi
 
 # ---- extract HIGH-tier review-pass-only slugs ----------------------------
 # Logic mirrors PowerShell version: parse table rows where cell[5]=HIGH AND cell[1]=review-pass-only.
-# Pipe inside JSON params is escaped as \| in the source — split on (?<!\\)\| in pwsh; in awk we'll
+# Pipe inside JSON params is escaped as \| in the source - split on (?<!\\)\| in pwsh; in awk we'll
 # use a placeholder-substitution trick.
 parse_slugs() {
     printf '%s\n' "$CATALOG_CONTENT" | awk '

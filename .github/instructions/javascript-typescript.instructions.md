@@ -27,7 +27,7 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 - **Parameters:** camelCase (`userRecord`, `callbackFn`).
 - **Type parameters:** prefix with `T`, PascalCase (`TResult`, `TItem`).
 - **File names:** camelCase or kebab-case (`userRepository.ts` or `user-repository.ts`).
-- **Abbreviations:** same as C# — two-letter uppercase, three+ letter PascalCase.
+- **Abbreviations:** same as C# - two-letter uppercase, three+ letter PascalCase.
 
 ### Code Formatting
 

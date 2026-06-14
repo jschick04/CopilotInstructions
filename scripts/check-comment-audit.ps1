@@ -85,7 +85,7 @@ foreach ($commitSha in $commitsForward) {
     $shortSha = $commitSha.Substring(0, 8)
 
     if ($commitSha -eq $firstAuditCommit) {
-        Write-Host "Commit ${shortSha}: BOOTSTRAP — first-ever add of $AuditPath; skipping ledger verification for this commit only"
+        Write-Host "Commit ${shortSha}: BOOTSTRAP - first-ever add of $AuditPath; skipping ledger verification for this commit only"
         continue
     }
 
@@ -110,7 +110,7 @@ foreach ($commitSha in $commitsForward) {
             $violations += "Commit ${shortSha}: $err"
         }
         foreach ($bad in $check.InvalidBullets) {
-            $violations += "Commit ${shortSha}: invalid bullet '$($bad.Line)' — $($bad.Reason)"
+            $violations += "Commit ${shortSha}: invalid bullet '$($bad.Line)' - $($bad.Reason)"
         }
         continue
     }
@@ -132,7 +132,7 @@ foreach ($commitSha in $commitsForward) {
             $violations += "  comment at $($site.File):$($site.Line)"
         }
     } else {
-        Write-Host "Commit ${shortSha}: $newCount new comment(s), $coveredCount covered audit entries — OK"
+        Write-Host "Commit ${shortSha}: $newCount new comment(s), $coveredCount covered audit entries - OK"
     }
 }
 

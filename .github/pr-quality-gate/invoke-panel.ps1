@@ -54,7 +54,7 @@ if ($expectedToken) {
 }
 
 # ===== Drift-safeguard: verify HIGH-TIER-SLUGS.md is in sync with pattern-catalog.md =====
-# Must run in ALL modes including lint-only — placed BEFORE the lint-only short-circuit.
+# Must run in ALL modes including lint-only - placed BEFORE the lint-only short-circuit.
 # Panel-time secondary defense (primary is the .githooks/pre-commit hook). Catches stale clones.
 $syncScript = Join-Path $clone 'scripts/sync-critical-rules.ps1'
 if (Test-Path -LiteralPath $syncScript) {
@@ -74,8 +74,8 @@ if ($Mode -eq 'lint-only') {
 PANEL CONVERGED
   panel_invoked: false
   slate_mode: lint-only
-  slate: lint-only — no panel
-  convergence_model: n/a — no panel invoked
+  slate: lint-only - no panel
+  convergence_model: n/a - no panel invoked
   convergence_result: n/a
   panel_mode_receipt:
     ask_user_call_ref: $AskUserCallRef
@@ -111,7 +111,7 @@ function Get-PolicyBlockquote {
 }
 $systemPromptPreambleLines = Get-PolicyBlockquote -Path $policyPath -SectionHeading 'System-prompt-rule enforcement'
 if (-not $systemPromptPreambleLines -or $systemPromptPreambleLines.Count -eq 0) {
-    Exit-Launcher 2 "panel-policy.md is missing the '## System-prompt-rule enforcement' section's `> ...` blockquote — cannot emit reviewer preamble. Verify policy file integrity."
+    Exit-Launcher 2 "panel-policy.md is missing the '## System-prompt-rule enforcement' section's `> ...` blockquote - cannot emit reviewer preamble. Verify policy file integrity."
 }
 
 # ===== Build review-pass-only prompts to forward to reviewers (tier-filtered by mode) =====
@@ -158,7 +158,7 @@ if ($PrRef) {
     }
 }
 
-# ===== Slate construction (delegated to orchestrator — script reports REQUIRED slate, doesn't launch agents itself) =====
+# ===== Slate construction (delegated to orchestrator - script reports REQUIRED slate, doesn't launch agents itself) =====
 # This script is a CONTRACT-emitter, not an agent launcher. The orchestrator (the main agent running this in
 # a Copilot CLI session) reads the panel-policy.md, satisfies the slate-floor, launches the reviewer agents
 # via the task tool, collects verdicts, and emits PANEL CONVERGED itself. This script's job is to validate
@@ -200,7 +200,7 @@ PANEL LAUNCH CONTRACT (triage)
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch 1 code-review-role reviewer agent via the task tool (cheap model OK; output cap NOT enforced)
     2. Forward all review_pass_only_prompts above to the reviewer
-    3. Forward the anti_recidivism_preamble above (if present) — reviewer MUST emit verified-no-recurrence per slug
+    3. Forward the anti_recidivism_preamble above (if present) - reviewer MUST emit verified-no-recurrence per slug
     4. Forward the same_state_recheck_preamble above
     5. Forward the system_prompt_rule_preamble above
     6. Collect the verdict (must include core_rules_acknowledged per panel-policy.md §Per-rule acknowledgement)
@@ -302,7 +302,7 @@ foreach ($l in $systemPromptPreambleLines) { "      $l" }
   ORCHESTRATOR_ACTIONS_REQUIRED:
     1. Launch reviewer agents via the task tool satisfying the slate_floor (typically 4-6 agents in parallel)
     2. Forward all review_pass_only_prompts to each reviewer
-    3. Forward the anti_recidivism_preamble to each reviewer (if present) — each reviewer MUST emit verified-no-recurrence per slug
+    3. Forward the anti_recidivism_preamble to each reviewer (if present) - each reviewer MUST emit verified-no-recurrence per slug
     4. Forward the same_state_recheck_preamble to each reviewer
     5. Forward the system_prompt_rule_preamble to each reviewer
     6. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)

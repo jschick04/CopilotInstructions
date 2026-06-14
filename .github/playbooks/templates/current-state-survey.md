@@ -6,7 +6,7 @@ This is a **reference skeleton** for the current-state-survey mode of the design
 
 A current-state survey describes what exists today. It does NOT propose changes. If the user wants a change spec, use `design-change-request.md` instead.
 
-Replace every `<placeholder>` with verified information from the source. Mark unverified claims as `*(ASSUMED — not verified in source)*`.
+Replace every `<placeholder>` with verified information from the source. Mark unverified claims as `*(ASSUMED - not verified in source)*`.
 
 ---
 
@@ -24,11 +24,11 @@ A key/value list at the top of the doc, formatted as bold-key followed by value:
 
 ### 1. Purpose
 
-What this system exists to do. One paragraph + 3–5 bullets covering its concrete responsibilities.
+What this system exists to do. One paragraph + 3-5 bullets covering its concrete responsibilities.
 
 Example structure:
 
-> The `<system>` provides `<core capability>` for `<consumers>`. It is the `<role — e.g. "primary integration point", "system of record", "edge cache">` between `<upstream>` and `<downstream>`.
+> The `<system>` provides `<core capability>` for `<consumers>`. It is the `<role - e.g. "primary integration point", "system of record", "edge cache">` between `<upstream>` and `<downstream>`.
 >
 > Concrete responsibilities:
 > - `<responsibility 1>`
@@ -43,7 +43,7 @@ Explicit in / out list. Which systems / components / behaviors are surveyed in t
 | --- | --- |
 | In scope | `<component or behavior>` |
 | In scope | `<component or behavior>` |
-| Out of scope | `<component or behavior>` — `<reason or pointer to other doc>` |
+| Out of scope | `<component or behavior>` - `<reason or pointer to other doc>` |
 
 ### 3. System Context
 
@@ -130,8 +130,8 @@ Failure-mode table. Where to look for runtime debugging.
 
 Numbered list with brief notes. Skip this section entirely if intake said "strictly describe what's there".
 
-1. `<issue>` — `<brief notes>`
-2. `<issue>` — `<brief notes>`
+1. `<issue>` - `<brief notes>`
+2. `<issue>` - `<brief notes>`
 
 ### 11. File / Artifact Inventory
 
@@ -153,22 +153,22 @@ Domain-specific terms, acronyms, IDs the reader will encounter. Sorted alphabeti
 
 Links to source code, prior docs, runbooks, related work items. Include real URLs / repo paths / ADO IDs.
 
-- `<source file>` — `<repo:path>`
-- `<runbook>` — `<URL>`
-- `<related ADO item>` — `<ADO #123>`
+- `<source file>` - `<repo:path>`
+- `<runbook>` - `<URL>`
+- `<related ADO item>` - `<ADO #123>`
 
 ### 14. Open Questions
 
-Anything you couldn't determine from the source. Distinct from §10 Known Issues — this is "I don't know yet" rather than "I know it's broken".
+Anything you couldn't determine from the source. Distinct from §10 Known Issues - this is "I don't know yet" rather than "I know it's broken".
 
-1. `<question>` — `<context / where I looked / who might know>`
+1. `<question>` - `<context / where I looked / who might know>`
 
 ---
 
 ## Notes for the agent
 
 - **Strictly current-state.** Do not propose changes. If you find yourself wanting to recommend a fix, that's a signal to switch to `design-change-request.md` (and confirm with the user).
-- **Ground every claim.** Use `grep` / `view` / `explore`. Mark unverified claims as `*(ASSUMED — not verified in source)*`.
-- **Reuse the header block format** even when sections below are slim — the header block is the most-used section by readers skimming the doc.
+- **Ground every claim.** Use `grep` / `view` / `explore`. Mark unverified claims as `*(ASSUMED - not verified in source)*`.
+- **Reuse the header block format** even when sections below are slim - the header block is the most-used section by readers skimming the doc.
 - **Prefer tables over prose** for any structured list (components, parameters, failure modes, files, glossary).
-- **Cite real identifiers** — don't invent GUIDs, connection IDs, resource names, or repo paths.
+- **Cite real identifiers** - don't invent GUIDs, connection IDs, resource names, or repo paths.

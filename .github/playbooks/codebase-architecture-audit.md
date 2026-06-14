@@ -16,7 +16,7 @@ triggers:
 
 Read-only audit of an existing codebase (or one project / subsystem) against established practices: state predicates (§3.7), deferred state mutations (§3.8), recurring code smells (§3.10), project layout conventions (§3.11), and vertical-slice + clean-architecture overlay (§3.12). Produces a **ranked list of improvement opportunities** with `file:line` citations. The user picks proposals to act on; each picked proposal becomes a normal change going through the standard phase playbook chain.
 
-**Does NOT produce a durable design doc** — that's `design-spec.md`. Strong-trigger discriminator: *"audit"* / *"review"* / *"find debt"* / *"where is X weak"* → here; *"design spec for"* / *"document current architecture of"* / *"architect review of"* → `design-spec.md`.
+**Does NOT produce a durable design doc** - that's `design-spec.md`. Strong-trigger discriminator: *"audit"* / *"review"* / *"find debt"* / *"where is X weak"* → here; *"design spec for"* / *"document current architecture of"* / *"architect review of"* → `design-spec.md`.
 
 ## Hard gates
 
@@ -28,7 +28,7 @@ Read-only audit of an existing codebase (or one project / subsystem) against est
 
 ## Phase enforcement
 
-OFFERED (informational) — NOT catalog-enforced in cycle-3. The originally-planned `pre-impl-skipped-codebase-architecture-audit-on-unfamiliar-code` rule was DROPPED because the proposed detection mechanism (`session_files` SQL cross-check) was unreliable: `session_files` records only edit/create operations, lives in the DuckDB cloud session store, and is empty post-compact. `pre-implementation.md` G6 may informally surface a codebase-architecture-audit offer when the plan touches unfamiliar code areas, but no `trigger-detected-codebase-architecture-audit` / `playbook-decision-codebase-architecture-audit` LEDGER line is required and no catalog rule fires on its absence.
+OFFERED (informational) - NOT catalog-enforced in cycle-3. The originally-planned `pre-impl-skipped-codebase-architecture-audit-on-unfamiliar-code` rule was DROPPED because the proposed detection mechanism (`session_files` SQL cross-check) was unreliable: `session_files` records only edit/create operations, lives in the DuckDB cloud session store, and is empty post-compact. `pre-implementation.md` G6 may informally surface a codebase-architecture-audit offer when the plan touches unfamiliar code areas, but no `trigger-detected-codebase-architecture-audit` / `playbook-decision-codebase-architecture-audit` LEDGER line is required and no catalog rule fires on its absence.
 
 ## Intake questions
 
@@ -36,7 +36,7 @@ Bundle in one `ask_user` prompt:
 
 1. **Scope**: whole solution / one project / one subsystem / one folder. Required.
 2. **Lens selection**: all 5 (default) OR a subset. Lens names: `state-predicates`, `deferred-mutations`, `recurring-smells`, `project-layout`, `vertical-slice-clean-arch`.
-3. **Risk tolerance**: surface-all (every finding ranked, including style-adjacent) OR substantive-only (default — bugs, leaks, intent-obscuring naming, structural debt).
+3. **Risk tolerance**: surface-all (every finding ranked, including style-adjacent) OR substantive-only (default - bugs, leaks, intent-obscuring naming, structural debt).
 4. **Output destination**: chat-only (default) or save to a doc (ask for destination if save).
 
 ## Scoped invocation as a commit gate (the `vsa-audit` ledger row)
@@ -57,19 +57,19 @@ Output is the `vsa-audit` ledger row (review-workflow-gates-sweeps.md §2B): `ra
 
 ## Procedure
 
-1. **Greenfield pre-check** — `grep` / `view` to confirm in-scope code exists. If empty, surface and stop.
-2. **Lens dispatch** — for each selected lens, fetch the corresponding `codebase-architecture-audit/lens-*.md` sub-file and run its procedure. Each sub-file emits a per-lens evidence-gate output (findings count + citations + zero-count justification).
-3. **Aggregate findings** — collect findings from each lens; flag cross-lens overlaps (a single `file:line` flagged by multiple lenses); rank by severity (blocker > major > minor) within each lens.
+1. **Greenfield pre-check** - `grep` / `view` to confirm in-scope code exists. If empty, surface and stop.
+2. **Lens dispatch** - for each selected lens, fetch the corresponding `codebase-architecture-audit/lens-*.md` sub-file and run its procedure. Each sub-file emits a per-lens evidence-gate output (findings count + citations + zero-count justification).
+3. **Aggregate findings** - collect findings from each lens; flag cross-lens overlaps (a single `file:line` flagged by multiple lenses); rank by severity (blocker > major > minor) within each lens.
 4. **Aggregated evidence-gate output** (chat-visible before the ranked list):
 
    ```
    Architecture audit: scope=<project/solution path>, lenses=<list applied>, L lenses checked, F findings total.
-   - <lens>: N findings (severity: B blocking / M major / N minor) — top citations: <file:line list>
-   - <lens>: N findings — (zero-count justification when 0: "0 findings — scope <X> scanned by <command>, no §3.Y violations")
-   - cross-lens overlaps: D — <list of file:line flagged by multiple lenses>
+   - <lens>: N findings (severity: B blocking / M major / N minor) - top citations: <file:line list>
+   - <lens>: N findings - (zero-count justification when 0: "0 findings - scope <X> scanned by <command>, no §3.Y violations")
+   - cross-lens overlaps: D - <list of file:line flagged by multiple lenses>
    ```
 
-5. **Ranked findings list** (chat-rendered) — one section per lens, findings ordered severity-descending. Each finding:
+5. **Ranked findings list** (chat-rendered) - one section per lens, findings ordered severity-descending. Each finding:
 
    ```
    - **<finding title>** (severity: <B/M/N>)
@@ -80,8 +80,8 @@ Output is the `vsa-audit` ledger row (review-workflow-gates-sweeps.md §2B): `ra
      - Related: <other findings if any>
    ```
 
-6. **User selection** — user picks which proposals to act on. Picked proposals become NEW changes through the phase playbook chain; deferred proposals routed via `ask_user` per the cross-cutting *Pre-existing issues* rule (fix now / defer to issue / dismiss with source-grounded rationale).
-7. **Save (optional)** — if user wants the report saved, ask for destination; `create` only after explicit approval.
+6. **User selection** - user picks which proposals to act on. Picked proposals become NEW changes through the phase playbook chain; deferred proposals routed via `ask_user` per the cross-cutting *Pre-existing issues* rule (fix now / defer to issue / dismiss with source-grounded rationale).
+7. **Save (optional)** - if user wants the report saved, ask for destination; `create` only after explicit approval.
 
 ## Output
 

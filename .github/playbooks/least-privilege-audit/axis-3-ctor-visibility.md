@@ -1,4 +1,4 @@
-# Axis 3 — Constructor visibility
+# Axis 3 - Constructor visibility
 
 ## Goal
 

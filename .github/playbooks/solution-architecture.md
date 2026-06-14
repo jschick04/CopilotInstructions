@@ -162,7 +162,7 @@ When the class has no external consumers -- handler classes auto-discovered by a
 
 ### DI registration after a split
 
-- **Framework-discovered classes** (e.g., MediatR handlers, any framework that scans assemblies for types via reflection) are auto-discovered by framework scanning. No manual entry needed. Note: ASP.NET Core hosted services (`IHostedService` / `BackgroundService`) are **not** auto-discovered — register them explicitly with `services.AddHostedService<T>()`.
+- **Framework-discovered classes** (e.g., MediatR handlers, any framework that scans assemblies for types via reflection) are auto-discovered by framework scanning. No manual entry needed. Note: ASP.NET Core hosted services (`IHostedService` / `BackgroundService`) are **not** auto-discovered - register them explicitly with `services.AddHostedService<T>()`.
 - **Non-discovered split classes** need explicit registration. For singletons that also implement an interface:
 
   ```csharp
@@ -348,7 +348,7 @@ Audit periodically -- at minimum when a library is restructured or a test projec
 
 ## 8. Dependency graph rules
 
-The csproj `<ProjectReference>` graph is the reviewable enforcement boundary for dependency direction. Compilation alone does not validate layering — a project can reference any other project and still compile. The rules below define which references are allowed; review `<ProjectReference>` entries against these rules to catch violations.
+The csproj `<ProjectReference>` graph is the reviewable enforcement boundary for dependency direction. Compilation alone does not validate layering - a project can reference any other project and still compile. The rules below define which references are allowed; review `<ProjectReference>` entries against these rules to catch violations.
 
 ### Layering
 

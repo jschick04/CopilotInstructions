@@ -30,17 +30,17 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 
 | Tier id | Current model | Notes |
 | --- | --- | --- |
-| `heavy-claude-xhigh` | `claude-opus-4.7-xhigh` | — |
-| `heavy-claude-standard` | `claude-opus-4.8` | — |
+| `heavy-claude-xhigh` | `claude-opus-4.7-xhigh` | - |
+| `heavy-claude-standard` | `claude-opus-4.8` | - |
 | `heavy-claude-cross-version` | `claude-opus-4.7` | Different version line from `heavy-claude-standard`. |
-| `heavy-gpt-premium` | `gpt-5.5` | — |
-| `heavy-gpt-codex` | `gpt-5.3-codex` | — |
+| `heavy-gpt-premium` | `gpt-5.5` | - |
+| `heavy-gpt-codex` | `gpt-5.3-codex` | - |
 | `heavy-gpt-cross-version` | `gpt-5.4` | Different reasoning profile from gpt-5.5. |
-| `light-claude` | `claude-haiku-4.5` | — |
+| `light-claude` | `claude-haiku-4.5` | - |
 | `light-gpt` | `gpt-5.4-mini` | Updated cycle 5 to newer mini-tier version line. |
-| `light-claude-balanced` | `claude-sonnet-4.6` | — |
+| `light-claude-balanced` | `claude-sonnet-4.6` | - |
 | `heavy-gemini-premium` | `gemini-3.1-pro-preview` | Third-vendor family; required slate-floor slot. |
-| `light-gemini` | `gemini-3.5-flash` | — |
+| `light-gemini` | `gemini-3.5-flash` | - |
 | `light-mai-code` | `mai-code-1-flash-internal` | Internal MAI-Code family; code-specialized light tier. |
 
 ## Runtime fallback rule

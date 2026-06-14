@@ -25,12 +25,12 @@ Procedure runs ≥3 reviewers in parallel across different model families, requi
 
 ## Hard gates
 
-- **≥3 reviewers minimum** across different model families (e.g., one Claude family + one GPT family + one Gemini family) — single-model panels miss the cross-family diversity that surfaces blind spots.
+- **≥3 reviewers minimum** across different model families (e.g., one Claude family + one GPT family + one Gemini family) - single-model panels miss the cross-family diversity that surfaces blind spots.
 - **Each reviewer emits a `VERDICT:` line** at output end. Reviewers that omit the verdict line are re-prompted once for the verdict; if still missing, their input is dropped and a replacement reviewer is launched.
 - **Sub-agent prompts include**: comprehensive context (file paths, not inline content); critique focus areas; the required `VERDICT:` directive; tooling discipline (NO `ask_user`, NO file modifications, NO sub-agent launches).
 - **Completion-wait via notifications**, NOT polling. Use the runtime's "agent finished" notifications to drive synthesis; do not call `read_agent` in a tight loop.
 - **Convergence per chosen model** before declaring done (see `multi-model-review/convergence-models.md`).
-- **C2 findings disposition required** between rounds — every reviewer finding is routed via the C2 status enum (`fixed | routed-now | routed-deferred | dismissed-source-grounded`) before the next round launches. **Target-type exception**: for `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), C2 routing is DEFERRED to the caller's Step 11A (after user report approval); the engine records `C2 dispositions this round: deferred-to-caller-step-11A` sentinel in evidence emission. See `multi-model-review/procedure.md` step 11 target-type variation for full semantics.
+- **C2 findings disposition required** between rounds - every reviewer finding is routed via the C2 status enum (`fixed | routed-now | routed-deferred | dismissed-source-grounded`) before the next round launches. **Target-type exception**: for `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), C2 routing is DEFERRED to the caller's Step 11A (after user report approval); the engine records `C2 dispositions this round: deferred-to-caller-step-11A` sentinel in evidence emission. See `multi-model-review/procedure.md` step 11 target-type variation for full semantics.
 - **Max-loop escalation**: when the configured max-loop count is reached without convergence, surface remaining dissent to the user via `ask_user`. Do NOT silently loop past max-loop.
 - **Evidence-gate output per round** (see `multi-model-review/evidence-gate-spec.md`).
 
@@ -52,4 +52,4 @@ See `multi-model-review/evidence-gate-spec.md` for the per-round logging format,
 
 ## Output
 
-Final synthesis + cumulative evidence-gate log + C2 dispositions + convergence verdict. When invoked by `post-code-change.md` as a hard gate, returns "panel passed" or "panel did not converge — escalation required" to the calling phase.
+Final synthesis + cumulative evidence-gate log + C2 dispositions + convergence verdict. When invoked by `post-code-change.md` as a hard gate, returns "panel passed" or "panel did not converge - escalation required" to the calling phase.

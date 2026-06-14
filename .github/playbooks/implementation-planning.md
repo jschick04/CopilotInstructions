@@ -34,8 +34,8 @@ Deep planning for a specific code change, **codebase-aware**. Reads the modules 
 
 REQUIRED-decision-recorded class. Detected at `pre-implementation.md` G6 step when the proposed change is non-trivial (closed-enumeration triviality: NOT in `{single-line typo, single-property/single-config-key tweak, comment-only edit, formatting-only edit}` AND has any other change in diff). Enforced by TWO catalog rules:
 
-- `pre-impl-missed-implementation-planning-on-nontrivial-change` (HIGH, pre-impl) — fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.implementation-planning` is missing OR `not-applicable` / `offered-and-declined` / `not-required-trigger-not-detected`. Valid values: `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`.
-- `implementation-planning-required-on-nontrivial-final-diff` (HIGH, post-impl) — companion that catches the scope-grew-during-implementation bypass: when `git diff <base>..HEAD` (final state) is non-trivial AND the ledger still says `not-required-trigger-not-detected`, fire. Satisfiability: the agent re-enters G6 per `pre-implementation.md` *G6 re-entry clause* and updates the LEDGER decision line.
+- `pre-impl-missed-implementation-planning-on-nontrivial-change` (HIGH, pre-impl) - fires when G6 detected the trigger but POST-CODE-CHANGE LEDGER `gates.pre-impl-playbook-decisions.implementation-planning` is missing OR `not-applicable` / `offered-and-declined` / `not-required-trigger-not-detected`. Valid values: `invoked` OR `required-but-skipped: "<safety-critical re-confirmation per User-skip policy>"`.
+- `implementation-planning-required-on-nontrivial-final-diff` (HIGH, post-impl) - companion that catches the scope-grew-during-implementation bypass: when `git diff <base>..HEAD` (final state) is non-trivial AND the ledger still says `not-required-trigger-not-detected`, fire. Satisfiability: the agent re-enters G6 per `pre-implementation.md` *G6 re-entry clause* and updates the LEDGER decision line.
 
 ## Intake questions
 
@@ -49,31 +49,31 @@ Bundle in one `ask_user` prompt:
 
 ## Procedure
 
-1. **Greenfield pre-check** — if the user-stated change scope has no in-scope code yet, branch:
+1. **Greenfield pre-check** - if the user-stated change scope has no in-scope code yet, branch:
    - **Empty repo / no prior code**: output one-line not-applicable; offer `scope-planning.md` instead. Stop.
    - **New module in established repo**: continue, using sibling-module conventions (per AGENTS.md §3.6 *dominant or closest-in-purpose*) for the greenfield structure. Surface those conventions explicitly in the plan.
-2. **Read change scope** — `view` / `grep` the named modules / files. Build a working list of:
+2. **Read change scope** - `view` / `grep` the named modules / files. Build a working list of:
    - Public API entry points.
    - Direct callers (cross-module / cross-project).
    - Tightly-coupled siblings (shared state, shared types, ordering dependencies).
    - Undocumented invariants discoverable from the code (state predicates, deferred mutations, framework-mandated visibility).
 3. **Vocab gap pass**:
-   - **Vocab doc exists** — read it; map every project-specific term in the change scope to a vocab entry; flag terms with no entry as "vocab gaps".
-   - **Vocab doc missing (degraded mode)** — build an inline glossary of project-specific terms encountered in the change scope; mark each term as "unresolved — risk" so downstream readers know the meaning may drift. Offer `project-vocabulary.md` as a follow-up workflow.
-4. **Decision surface** — identify decisions the change forces (naming, structural placement, breaking-change vs additive, public vs internal, sync vs async, error model). For each: choice + one-sentence rationale + alternatives considered. Source decisions in the plan; promote to ADRs (at the chosen destination) only on explicit user approval.
-5. **Behaviors-to-cover** — enumerate testable behaviors the change must produce. This populates the `behaviors_to_cover` output field that triggers `intent-driven-testing.md` prospective mode. Each entry: behavior name + observable assertion + would-fail-if condition (per AGENTS.md §3.4 Direction A: *"what real regression would this catch?"*).
+   - **Vocab doc exists** - read it; map every project-specific term in the change scope to a vocab entry; flag terms with no entry as "vocab gaps".
+   - **Vocab doc missing (degraded mode)** - build an inline glossary of project-specific terms encountered in the change scope; mark each term as "unresolved - risk" so downstream readers know the meaning may drift. Offer `project-vocabulary.md` as a follow-up workflow.
+4. **Decision surface** - identify decisions the change forces (naming, structural placement, breaking-change vs additive, public vs internal, sync vs async, error model). For each: choice + one-sentence rationale + alternatives considered. Source decisions in the plan; promote to ADRs (at the chosen destination) only on explicit user approval.
+5. **Behaviors-to-cover** - enumerate testable behaviors the change must produce. This populates the `behaviors_to_cover` output field that triggers `intent-driven-testing.md` prospective mode. Each entry: behavior name + observable assertion + would-fail-if condition (per AGENTS.md §3.4 Direction A: *"what real regression would this catch?"*).
 6. **Evidence-gate output** (chat-visible before the plan draft):
 
    ```
    Implementation plan audit: scope=<modules read, method=grep|view|callgraph>, C callers verified, D decisions surfaced, V vocab gaps, B behaviors-to-cover.
    - modules: <list with file:line>
-   - callers: C verified (method: <X>) — <file:line citations OR "none — zero-count justification: scope has no cross-module consumers per <command>">
-   - decisions: D items — <list with one-line rationale>
-   - vocab gaps: V terms — <list with codebase citations OR "none — zero-count justification: every term in scope has vocab entry per <path>">
-   - behaviors-to-cover: B behaviors — <list OR "none — zero-count justification: change is pure refactor with no observable behavior delta per <reason>">
+   - callers: C verified (method: <X>) - <file:line citations OR "none - zero-count justification: scope has no cross-module consumers per <command>">
+   - decisions: D items - <list with one-line rationale>
+   - vocab gaps: V terms - <list with codebase citations OR "none - zero-count justification: every term in scope has vocab entry per <path>">
+   - behaviors-to-cover: B behaviors - <list OR "none - zero-count justification: change is pure refactor with no observable behavior delta per <reason>">
    ```
 
-7. **Plan draft** (chat-rendered) — four output-schema sections:
+7. **Plan draft** (chat-rendered) - four output-schema sections:
 
    ```
    ## implementation_plan
@@ -89,8 +89,8 @@ Bundle in one `ask_user` prompt:
    - <new term>: <one-sentence definition> (citation: <file:line>)
    ```
 
-8. **User approval** — wait for explicit approval before any file write (ADRs, vocab updates).
-9. **Handoff** — confirm the plan is ready to feed `pre-implementation` phase (B9 diagnose + G3 approach-selection + G5 safety-critical-skip evaluation + rubber-duck verification + benchmark/repro if applicable, per Decision #32 numbered ordering).
+8. **User approval** - wait for explicit approval before any file write (ADRs, vocab updates).
+9. **Handoff** - confirm the plan is ready to feed `pre-implementation` phase (B9 diagnose + G3 approach-selection + G5 safety-critical-skip evaluation + rubber-duck verification + benchmark/repro if applicable, per Decision #32 numbered ordering).
 
 ## Output
 

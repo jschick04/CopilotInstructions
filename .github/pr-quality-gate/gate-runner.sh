@@ -61,7 +61,7 @@ fi
 
 # ===== Drift-safeguard: verify HIGH-TIER-SLUGS.md is in sync with pattern-catalog.md =====
 # Panel-time secondary defense (primary is the .githooks/pre-commit hook).
-# Pure-bash verify via the sync-critical-rules.sh twin — does NOT shell out to pwsh
+# Pure-bash verify via the sync-critical-rules.sh twin - does NOT shell out to pwsh
 # (preserves the bash gate-runner's no-pwsh-required contract).
 SYNC_BASH="$CLONE/scripts/sync-critical-rules.sh"
 if [[ -f "$SYNC_BASH" ]]; then
@@ -276,7 +276,7 @@ fi
 
 # ===== Emit QUALITY GATE block =====
 GATE_STATUS='READY'
-[[ $TOTAL_REAL_FINDINGS -gt 0 ]] && GATE_STATUS='BLOCKED — findings present'
+[[ $TOTAL_REAL_FINDINGS -gt 0 ]] && GATE_STATUS='BLOCKED - findings present'
 
 cat <<EOF
 QUALITY GATE
