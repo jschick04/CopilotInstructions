@@ -1,12 +1,12 @@
 # Generate pattern-catalog.md from sources.
 #
-# Phase P2 identity-preserving pipeline: reads source files from
+# Phase P2 pipeline: reads source files from
 # .github/pr-quality-gate/pattern-catalog.sources/ and emits the canonical
 # flat .github/pr-quality-gate/pattern-catalog.md.
 #
 # For now (pre-split), the single source is 00-catalog.md which contains
-# the full catalog verbatim. The generator concatenates all source files
-# in sorted order. The committed flat catalog MUST remain byte-identical.
+# the full catalog verbatim. The generator prepends an advisory banner then
+# concatenates the sources; the committed flat catalog MUST equal that output.
 #
 # Usage:
 #   ./scripts/generate-pattern-catalog.ps1              # regenerate in place
@@ -33,8 +33,10 @@ if ($sourceFiles.Count -eq 0) {
     throw "No .md source files found in $SourceDir"
 }
 
-# Concatenate sources (identity pipeline: single file -> byte-identical output)
-$generated = ''
+# Concatenate sources. The generator prepends a generated-file banner (advisory; the mechanical
+# catalog-generator-check is the real protection), then identity-concatenates the sources.
+$banner = "<!-- GENERATED from pattern-catalog.sources/ - edit the source, then run scripts/generate-pattern-catalog.ps1 -->`n`n"
+$generated = $banner
 foreach ($f in $sourceFiles) {
     $content = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
     $generated += $content

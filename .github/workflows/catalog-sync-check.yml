@@ -32,8 +32,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - name: Run sync -Verify (pwsh)
         shell: pwsh
-        run: |
-          ./scripts/sync-critical-rules.ps1 -Verify
+        run: ./scripts/sync-critical-rules.ps1 -Verify
 
   parity:
     name: Verify pwsh sync == bash sync (byte-identical output)
@@ -41,23 +40,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - name: Generate via pwsh
+      - name: Run sync parity (pwsh vs bash)
         shell: pwsh
-        run: |
-          ./scripts/sync-critical-rules.ps1 -OutputPath /tmp/sync.pwsh.md
-      - name: Generate via bash
-        run: |
-          bash ./scripts/sync-critical-rules.sh -OutputPath /tmp/sync.bash.md
-      - name: Compare outputs byte-by-byte
-        run: |
-          if ! cmp -s /tmp/sync.pwsh.md /tmp/sync.bash.md; then
-            echo "ERROR: pwsh and bash sync implementations produce different output." >&2
-            echo "--- pwsh hash ---"
-            git hash-object /tmp/sync.pwsh.md
-            echo "--- bash hash ---"
-            git hash-object /tmp/sync.bash.md
-            echo "--- diff (truncated) ---"
-            diff -u /tmp/sync.pwsh.md /tmp/sync.bash.md | head -40
-            exit 1
-          fi
-          echo "OK: pwsh and bash sync outputs are byte-identical."
+        run: ./scripts/check-sync-parity.ps1
