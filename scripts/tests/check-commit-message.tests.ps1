@@ -28,6 +28,8 @@ function New-MsgRepo {
         git init -q
         git config user.email 't@t'; git config user.name 't'
         git config commit.gpgsign false; git config core.autocrlf false
+        New-Item -ItemType Directory -Path (Join-Path $repo 'scripts') -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $repo 'scripts/check-commit-message.ps1'), "# anchor stub`n", $utf8)
         [System.IO.File]::WriteAllText((Join-Path $repo 'base.txt'), "base`n", $utf8)
         git add -A | Out-Null; git commit -qm 'base' | Out-Null
         git branch -m main | Out-Null; git checkout -q -b feature

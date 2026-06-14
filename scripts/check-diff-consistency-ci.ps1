@@ -8,11 +8,18 @@
 param(
     [Parameter(Mandatory)] [string] $BaseRef,
     [string] $FetchBranch,
-    [string] $RepoRoot = (Get-Location).Path,
+    [string] $RepoRoot = '',
     [switch] $CiMode
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-diff-consistency-ci.ps1') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 if ($FetchBranch) {
     & git -C $RepoRoot fetch origin $FetchBranch 2>$null | Out-Null

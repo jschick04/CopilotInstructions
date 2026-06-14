@@ -10,10 +10,17 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path
+    [string] $RepoRoot = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/sync-critical-rules.ps1')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 3
+}
 
 $ExitOk = 0; $ExitDrift = 1; $ExitEnv = 2; $ExitFail = 3
 $pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }

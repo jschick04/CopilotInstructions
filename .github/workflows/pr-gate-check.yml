@@ -81,6 +81,15 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-commit-message.tests.ps1
 
+
+  repo-root-tests:
+    name: repo-root resolver unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/repo-root.tests.ps1
+
   local-ci-coverage:
     name: Local-CI mirror coverage (every workflow check is a mirrored script)
     runs-on: ubuntu-latest

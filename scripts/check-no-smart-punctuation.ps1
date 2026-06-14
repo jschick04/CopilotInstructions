@@ -12,10 +12,17 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path
+    [string] $RepoRoot = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('.github/pr-quality-gate/data/smart-punctuation-allowlist.txt')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $script:ExitOk = 0
 $script:ExitViolation = 1

@@ -29,6 +29,9 @@ function New-FixtureRepo {
         git init -q
         git config user.email 't@t'; git config user.name 't'
         git config commit.gpgsign false; git config core.autocrlf false
+        New-Item -ItemType Directory -Path (Join-Path $repo 'scripts') -Force | Out-Null
+        $anchorEncoding = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText((Join-Path $repo 'scripts/check-diff-consistency.ps1'), "# anchor stub`n", $anchorEncoding)
         [System.IO.File]::WriteAllText((Join-Path $repo 'base.yml'), "name: base`n", (New-Object System.Text.UTF8Encoding($false)))
         git add -A | Out-Null; git commit -qm base | Out-Null
         git branch -m main | Out-Null; git checkout -q -b feature
@@ -126,13 +129,15 @@ New-Item -ItemType Directory -Path (Join-Path $rootRepo '.github/pr-quality-gate
 $enc2 = New-Object System.Text.UTF8Encoding($false)
 Push-Location $rootRepo
 git init -q; git config user.email 't@t'; git config user.name 't'; git config commit.gpgsign false; git config core.autocrlf false
+New-Item -ItemType Directory -Path (Join-Path $rootRepo 'scripts') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $rootRepo 'scripts/check-diff-consistency.ps1'), "# anchor stub`n", $enc2)
 [System.IO.File]::WriteAllText((Join-Path $rootRepo 'a.cs'), "class A {}`n", $enc2)
 [System.IO.File]::WriteAllText((Join-Path $rootRepo 'b.cs'), "class B {}`n", $enc2)
-[System.IO.File]::WriteAllText((Join-Path $rootRepo '.github/pr-quality-gate/audits/post-code-change-last.md'), "LEDGER`n  files-touched: 2`n", $enc2)
+[System.IO.File]::WriteAllText((Join-Path $rootRepo '.github/pr-quality-gate/audits/post-code-change-last.md'), "LEDGER`n  files-touched: 3`n", $enc2)
 git add -A | Out-Null; git commit -qm root | Out-Null
 Pop-Location
 $rr = Invoke-Checker -Repo $rootRepo -Base '' -Head 'HEAD' -Extra @('-Mode', 'commit')
-Assert-True ($rr.ExitCode -eq 0) 'root commit + -Mode commit: no crash (empty-tree base) AND receipt files-touched:2 == 2 non-audit (--root denominator)'
+Assert-True ($rr.ExitCode -eq 0) 'root commit + -Mode commit: no crash (empty-tree base) AND receipt files-touched:3 == 3 non-audit (--root denominator)'
 Remove-Item -Recurse -Force $rootRepo
 
 $ren = Join-Path ([System.IO.Path]::GetTempPath()) ("ddc-ren-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
@@ -140,6 +145,8 @@ New-Item -ItemType Directory -Path (Join-Path $ren '.github/pr-quality-gate/audi
 $enc3 = New-Object System.Text.UTF8Encoding($false)
 Push-Location $ren
 git init -q; git config user.email 't@t'; git config user.name 't'; git config commit.gpgsign false; git config core.autocrlf false
+New-Item -ItemType Directory -Path (Join-Path $ren 'scripts') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $ren 'scripts/check-diff-consistency.ps1'), "# anchor stub`n", $enc3)
 [System.IO.File]::WriteAllText((Join-Path $ren 'old.cs'), "class Old {}`n", $enc3)
 git add -A | Out-Null; git commit -qm base | Out-Null; git branch -m main | Out-Null; git checkout -q -b feature
 git mv old.cs new.cs

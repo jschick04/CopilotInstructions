@@ -7,16 +7,19 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot,
+    [string] $RepoRoot = '',
     [string] $RegistryPath
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
-if (-not $RepoRoot) {
-    $top = & git rev-parse --show-toplevel 2>$null
-    $RepoRoot = if ($LASTEXITCODE -eq 0 -and $top) { $top.Trim() } else { (Get-Location).Path }
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('.github/pr-quality-gate')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
 }
+
 if (-not $RegistryPath) { $RegistryPath = Join-Path $RepoRoot '.github/pr-quality-gate/data/checker-registry.tsv' }
 if (-not (Test-Path -LiteralPath $RegistryPath)) { Write-Host "checker-registry parity: FAIL - registry not found: $RegistryPath" -ForegroundColor Red; exit 1 }
 

@@ -1,9 +1,16 @@
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path
+    [string] $RepoRoot = ''
 )
 
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('.github/playbooks') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $script:ExitInvocation = 2
 $script:ExitViolation = 1
@@ -12,11 +19,6 @@ $script:ExitOk = 0
 function Write-Invocation { param([string] $Msg) Write-Host "::error::INVOCATION_FAILED:$Msg" }
 function Write-Violation { param([string] $Msg) Write-Host "::error::VIOLATION:$Msg" }
 
-$gitDir = Join-Path $RepoRoot '.git'
-if (-not (Test-Path -LiteralPath $gitDir)) {
-    Write-Invocation "$RepoRoot is not a git repository"
-    exit $script:ExitInvocation
-}
 
 $playbookFolder = Join-Path $RepoRoot '.github/playbooks'
 if (-not (Test-Path -LiteralPath $playbookFolder)) {

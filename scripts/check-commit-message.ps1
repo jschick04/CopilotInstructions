@@ -13,7 +13,7 @@
 param(
     [string] $BaseRef,
     [string] $HeadRef = 'HEAD',
-    [string] $RepoRoot = (Get-Location).Path,
+    [string] $RepoRoot = '',
     [string] $FetchBranch,
     [string] $MessageFile,
     [switch] $CiMode,
@@ -21,6 +21,13 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-commit-message.ps1') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $script:ExitOk = 0
 $script:ExitViolation = 1

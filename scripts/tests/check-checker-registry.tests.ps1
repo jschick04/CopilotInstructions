@@ -24,6 +24,13 @@ function New-TempRegistry { param([string] $Body)
     [System.IO.File]::WriteAllText($p, ($Body -replace "`r`n", "`n"), (New-Object System.Text.UTF8Encoding($false)))
     return $p
 }
+function New-RegistryAnchorRoot {
+    $root = Join-Path ([System.IO.Path]::GetTempPath()) ("reg-anchor-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
+    $dataDir = Join-Path $root '.github/pr-quality-gate/data'
+    New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $dataDir 'checker-registry.tsv'), "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`n", (New-Object System.Text.UTF8Encoding($false)))
+    return $root
+}
 
 Write-Host ""
 Write-Host "=== checker-registry parity ===" -ForegroundColor Cyan
@@ -33,10 +40,12 @@ Assert-True ($r1.ExitCode -eq 0) 'real registry => PASS (exit 0)'
 Assert-True ($r1.Output -match 'PASS') 'real registry => prints PASS'
 
 $broken = New-TempRegistry "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`nbogus-slug`tbogus`tscripts/does-not-exist.ps1`tscripts/tests/nope.ps1`thard-fail`n"
-$r2 = Invoke-Parity -RegistryPath $broken -Root ([System.IO.Path]::GetTempPath())
+$anchorRoot = New-RegistryAnchorRoot
+$r2 = Invoke-Parity -RegistryPath $broken -Root $anchorRoot
 Assert-True ($r2.ExitCode -eq 1) 'missing checker/fixtures => FAIL (exit 1)'
 Assert-True ($r2.Output -match 'missing') 'missing checker => reports "missing"'
 Remove-Item -Force $broken
+Remove-Item -Recurse -Force $anchorRoot
 
 $drift = New-TempRegistry "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`nreceipt-numeric-claim-drift`tcheck-diff-consistency`tscripts/check-diff-consistency.ps1`tscripts/tests/check-diff-consistency.tests.ps1`thard-fail`n"
 $r3 = Invoke-Parity -RegistryPath $drift
@@ -48,8 +57,9 @@ Write-Host ""
 Write-Host "=== catalog<->registry parity ===" -ForegroundColor Cyan
 $tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("regroot-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Path (Join-Path $tmpRoot 'scripts/tests') -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $tmpRoot '.github/pr-quality-gate') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $tmpRoot '.github/pr-quality-gate/data') -Force | Out-Null
 $enc = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText((Join-Path $tmpRoot '.github/pr-quality-gate/data/checker-registry.tsv'), "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot 'scripts/check-diff-consistency.ps1'), "Add-Finding 'slug-a' x`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot 'scripts/tests/fix.ps1'), "# fixtures`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot '.github/pr-quality-gate/pattern-catalog.md'), "| slug-a | checker-scoped | {""checker_id"":""check-diff-consistency""} |  |  | LOW |`n", $enc)
@@ -60,14 +70,17 @@ Assert-True ($rc.Output -match 'NO checker-scoped row') 'reports the missing cat
 Remove-Item -Force $reg; Remove-Item -Recurse -Force $tmpRoot
 
 $dup = New-TempRegistry "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`ndup-x`tc`ts.ps1`tf.ps1`tadvisory`ndup-x`tc`ts.ps1`tf.ps1`tadvisory`n"
-$rdup = Invoke-Parity -RegistryPath $dup -Root ([System.IO.Path]::GetTempPath())
+$dupAnchorRoot = New-RegistryAnchorRoot
+$rdup = Invoke-Parity -RegistryPath $dup -Root $dupAnchorRoot
 Assert-True ($rdup.Output -match 'duplicate slug') 'duplicate slug row in registry => FAIL loud'
 Assert-True ($rdup.ExitCode -eq 1) 'duplicate slug => exit 1'
 Remove-Item -Force $dup
+Remove-Item -Recurse -Force $dupAnchorRoot
 
 $tmpRoot2 = Join-Path ([System.IO.Path]::GetTempPath()) ("regroot2-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 New-Item -ItemType Directory -Path (Join-Path $tmpRoot2 'scripts/tests') -Force | Out-Null
-New-Item -ItemType Directory -Path (Join-Path $tmpRoot2 '.github/pr-quality-gate') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $tmpRoot2 '.github/pr-quality-gate/data') -Force | Out-Null
+[System.IO.File]::WriteAllText((Join-Path $tmpRoot2 '.github/pr-quality-gate/data/checker-registry.tsv'), "slug`tchecker_id`tchecker_script`tfixtures`tmaturity`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot2 'scripts/check-diff-consistency.ps1'), "x`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot2 'scripts/tests/fix.ps1'), "x`n", $enc)
 [System.IO.File]::WriteAllText((Join-Path $tmpRoot2 '.github/pr-quality-gate/pattern-catalog.md'), "| slug-a | checker-scoped | {""checker_id"":""AAA""} |  |  | LOW |`n", $enc)
