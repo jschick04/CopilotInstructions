@@ -11,10 +11,11 @@
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)] [string] $BaseRef,
+    [string] $BaseRef,
     [string] $HeadRef = 'HEAD',
     [string] $RepoRoot = (Get-Location).Path,
     [string] $FetchBranch,
+    [string] $MessageFile,
     [switch] $CiMode,
     [switch] $Json
 )
@@ -39,86 +40,100 @@ function Invoke-Git {
 $ccPrefix = '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|wip)(\([^)]+\))?!?:'
 # Genuine-revert body line: blank or "This reverts commit <hex>." (no Conflicts: allowance - cleanup=strip drops it; it would let a trailer be smuggled).
 $revertBodyLine = '^This reverts commit [0-9a-f]{7,40}\.?$'
-# Trailer names - for a clearer diagnostic only; the no-body rule (any non-whitespace body line) is the real boundary.
+# Trailer names - for a clearer diagnostic only; the no-body rule (any line after the subject) is the real boundary.
 $trailerRegex = '^(Co-authored-by|Signed-off-by|Reviewed-by|Acked-by|Co-developed-by|Tested-by|Reported-by|Suggested-by|Cc|Fixes|Closes|Refs):'
 
-if ($FetchBranch) { Invoke-Git @('fetch', 'origin', $FetchBranch) | Out-Null }
-
-$commits = @(Invoke-Git @('rev-list', '--reverse', '--no-merges', "$BaseRef..$HeadRef") | Where-Object { $_ })
-if ($commits.Count -eq 0) {
-    if ($CiMode) {
-        Write-Host "::error::no commits found in $BaseRef..$HeadRef; refusing to pass without checking"
-        exit $script:ExitInvocation
-    }
-    if (-not $Json) { Write-Host "check-commit-message: PASS (0 commits in range $BaseRef..$HeadRef)" -ForegroundColor Green }
-    else { [pscustomobject]@{ checker = 'check-commit-message'; base_ref = $BaseRef; head_ref = $HeadRef; commits = 0; finding_count = 0; status = 'pass'; findings = @() } | ConvertTo-Json -Depth 5 }
-    exit $script:ExitOk
-}
-
-$findings = New-Object System.Collections.Generic.List[object]
-function Add-Finding {
-    param([string] $Sha, [string] $Rule, [string] $Message)
-    $findings.Add([pscustomobject]@{ Sha = $Sha; Rule = $Rule; Message = $Message })
-}
-
-foreach ($sha in $commits) {
-    $raw = Invoke-Git @('show', '-s', '--format=%B', $sha)
-    # Normalize %B (a string or string[]) and strip CR so a CRLF `Subject.\r` cannot escape the trailing-period rule.
-    $text = ((@($raw) -join "`n") -replace "`r", '')
-    $lines = @($text -split "`n")
-    # Drop the trailing empty line(s) %B leaves (the final newline), but KEEP interior blanks (subject/body separator).
-    while ($lines.Count -gt 1 -and $lines[-1] -eq '') { $lines = @($lines[0..($lines.Count - 2)]) }
+function Get-MessageFindings {
+    param([string] $Text, [string] $Label)
+    $result = New-Object System.Collections.Generic.List[object]
+    $norm = ($Text -replace "`r", '')
+    $lines = @($norm -split "`n")
+    # Strip exactly ONE trailing terminator newline; ANY remaining line after the subject (blank or content) is a
+    # body/footer/trailer and fails the single-line rule - git's cleanup does not reliably strip a trailing blank line.
+    if ($lines.Count -gt 1 -and $lines[-1] -eq '') { $lines = @($lines[0..($lines.Count - 2)]) }
     $subject = if ($lines.Count -ge 1) { $lines[0] } else { '' }
-    $bodyLines = if ($lines.Count -ge 2) { @($lines[1..($lines.Count - 1)]) } else { @() }
-    $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
+    $bodyLines = @(if ($lines.Count -ge 2) { $lines[1..($lines.Count - 1)] })
 
     if ($subject -cmatch '^Revert "') {
         $allTemplate = $true
+        $hasRevertLine = $false
         foreach ($bodyLine in $bodyLines) {
-            if ($bodyLine.Trim() -ne '' -and $bodyLine -notmatch $revertBodyLine) { $allTemplate = $false; break }
+            if ($bodyLine.Trim() -eq '') { continue }
+            if ($bodyLine -match $revertBodyLine) { $hasRevertLine = $true }
+            else { $allTemplate = $false; break }
         }
-        if ($allTemplate) { continue }
+        # A genuine git revert ALWAYS carries the "This reverts commit <hex>." body line. Without it (e.g. a single-line
+        # `Revert "x".`), an EMPTY body vacuously satisfies "all template" - do NOT exempt; fall through so trailing-period
+        # / subject-too-long / CC-prefix still apply.
+        if ($allTemplate -and $hasRevertLine) { return $result }
     }
-
     if ($subject.Trim() -eq '') {
-        Add-Finding $short 'empty-subject' "commit $short has an empty or whitespace-only subject line"
-        continue
+        $result.Add([pscustomobject]@{ Rule = 'empty-subject'; Message = "$Label has an empty or whitespace-only subject line" }); return $result
     }
-    $bodyOffender = $bodyLines | Where-Object { $_.Trim() -ne '' } | Select-Object -First 1
-    if ($null -ne $bodyOffender) {
-        $diag = if ($bodyOffender -match $trailerRegex) { " (looks like a '$($matches[1])' trailer)" } else { '' }
-        Add-Finding $short 'no-body' "commit $short has a body/footer/trailer$diag; the message must be a single line. First offending line: '$($bodyOffender.Trim())'"
+    if ($bodyLines.Count -gt 0) {
+        $contentLine = $bodyLines | Where-Object { $_.Trim() -ne '' } | Select-Object -First 1
+        $shown = if ($null -ne $contentLine) { $contentLine.Trim() } else { '(blank line)' }
+        $diag = if ($null -ne $contentLine -and $contentLine -match $trailerRegex) { " (looks like a '$($matches[1])' trailer)" } else { '' }
+        $result.Add([pscustomobject]@{ Rule = 'no-body'; Message = "$Label has a body/footer/trailer$diag; the message must be a single line. First offending line: '$shown'" })
     }
-    if ($subject.Length -gt 72) {
-        Add-Finding $short 'subject-too-long' "commit $short subject is $($subject.Length) chars (max 72): '$subject'"
+    if ($subject.Length -gt 72) { $result.Add([pscustomobject]@{ Rule = 'subject-too-long'; Message = "$Label subject is $($subject.Length) chars (max 72): '$subject'" }) }
+    if ($subject -cmatch $ccPrefix) { $result.Add([pscustomobject]@{ Rule = 'conventional-commit-prefix'; Message = "$Label subject uses a Conventional-Commit prefix (not allowed): '$subject'" }) }
+    if ($subject.EndsWith('.')) { $result.Add([pscustomobject]@{ Rule = 'trailing-period'; Message = "$Label subject ends with a period: '$subject'" }) }
+    return $result
+}
+
+$findings = New-Object System.Collections.Generic.List[object]
+
+if ($MessageFile) {
+    # commit-msg hook path: check a single in-progress message file (the commit does not exist yet).
+    if (-not (Test-Path -LiteralPath $MessageFile)) {
+        Write-Host "::error::INVOCATION_FAILED: message file not found: $MessageFile"; exit $script:ExitInvocation
     }
-    if ($subject -cmatch $ccPrefix) {
-        Add-Finding $short 'conventional-commit-prefix' "commit $short subject uses a Conventional-Commit prefix (not allowed): '$subject'"
+    $msgLines = @(([System.IO.File]::ReadAllText($MessageFile) -replace "`r", '') -split "`n")
+    # Replicate git's default cleanup before checking: drop the verbose `>8` scissors section and everything after it,
+    # then drop comment lines (git strips lines whose first char is the comment char), then leading blanks ONLY.
+    # Do NOT strip trailing blanks: a blank second line is an (empty) body and MUST fail strict no-body. Get-MessageFindings
+    # strips exactly one terminating newline, so `Subject\n` passes while `Subject\n\n` fails.
+    $scissors = @($msgLines | Select-String -SimpleMatch '------------------------ >8' | Select-Object -First 1)
+    if ($scissors.Count -gt 0 -and $scissors[0].LineNumber -gt 1) { $msgLines = @($msgLines[0..($scissors[0].LineNumber - 2)]) }
+    $cleaned = ((@($msgLines | Where-Object { $_ -notmatch '^#' }) -join "`n").TrimStart("`n"))
+    foreach ($finding in (Get-MessageFindings -Text $cleaned -Label 'commit message')) { $findings.Add($finding) }
+}
+else {
+    if (-not $BaseRef) { Write-Host "::error::INVOCATION_FAILED: provide -BaseRef (range mode) or -MessageFile (single-message mode)"; exit $script:ExitInvocation }
+    if ($FetchBranch) { Invoke-Git @('fetch', 'origin', $FetchBranch) | Out-Null }
+    $commits = @(Invoke-Git @('rev-list', '--reverse', '--no-merges', "$BaseRef..$HeadRef") | Where-Object { $_ })
+    if ($commits.Count -eq 0) {
+        if ($CiMode) { Write-Host "::error::no commits found in $BaseRef..$HeadRef; refusing to pass without checking"; exit $script:ExitInvocation }
+        if (-not $Json) { Write-Host "check-commit-message: PASS (0 commits in range $BaseRef..$HeadRef)" -ForegroundColor Green }
+        else { [pscustomobject]@{ checker = 'check-commit-message'; scope = "$BaseRef..$HeadRef"; finding_count = 0; status = 'pass'; findings = @() } | ConvertTo-Json -Depth 5 }
+        exit $script:ExitOk
     }
-    if ($subject.EndsWith('.')) {
-        Add-Finding $short 'trailing-period' "commit $short subject ends with a period: '$subject'"
+    foreach ($sha in $commits) {
+        $raw = Invoke-Git @('show', '-s', '--format=%B', $sha)
+        $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
+        foreach ($finding in (Get-MessageFindings -Text (@($raw) -join "`n") -Label "commit $short")) { $findings.Add($finding) }
     }
 }
 
 $exitCode = if ($findings.Count -gt 0) { $script:ExitViolation } else { $script:ExitOk }
+$scope = if ($MessageFile) { "message file" } else { "$BaseRef..$HeadRef" }
 if ($Json) {
     [pscustomobject]@{
         checker       = 'check-commit-message'
-        base_ref      = $BaseRef
-        head_ref      = $HeadRef
-        commits       = $commits.Count
+        scope         = $scope
         finding_count = $findings.Count
         status        = if ($findings.Count -gt 0) { 'fail' } else { 'pass' }
-        findings      = @($findings | ForEach-Object { [pscustomobject]@{ sha = $_.Sha; rule = $_.Rule; message = $_.Message } })
+        findings      = @($findings | ForEach-Object { [pscustomobject]@{ rule = $_.Rule; message = $_.Message } })
     } | ConvertTo-Json -Depth 5
 }
 else {
     if ($findings.Count -eq 0) {
-        Write-Host "check-commit-message: PASS (0 findings) over $($commits.Count) commit(s) [$BaseRef..$HeadRef]" -ForegroundColor Green
+        Write-Host "check-commit-message: PASS (0 findings) [$scope]" -ForegroundColor Green
     }
     else {
-        Write-Host "check-commit-message: $($findings.Count) finding(s) over $($commits.Count) commit(s) [$BaseRef..$HeadRef]" -ForegroundColor Yellow
-        $findings | ForEach-Object { Write-Host ("  ::error::[{0}] {1} {2}" -f $_.Rule, $_.Sha, $_.Message) }
+        Write-Host "check-commit-message: $($findings.Count) finding(s) [$scope]" -ForegroundColor Yellow
+        $findings | ForEach-Object { Write-Host ("  ::error::[{0}] {1}" -f $_.Rule, $_.Message) }
     }
 }
 exit $exitCode

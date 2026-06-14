@@ -1,13 +1,13 @@
 # Playbook discoverability manifest
 #
 # Sibling-of-the-router index. Generated / derived from each trigger-fired playbook's frontmatter.
-# Consulted ONLY AFTER the AGENTS.md router has selected or shortlisted a workflow — does NOT
+# Consulted ONLY AFTER the AGENTS.md router has selected or shortlisted a workflow - does NOT
 # drive initial trigger detection. The AGENTS.md semantic discriminator stays canonical for
 # detection. This manifest carries optional `discrimination` prose with examples for ambiguous
 # trigger pairs that router rows alone cannot disambiguate.
 #
 # Keep in sync when a playbook's frontmatter changes. Phase playbooks have no frontmatter
-# (they fire from workflow state, not from trigger detection) — their entries here are
+# (they fire from workflow state, not from trigger detection) - their entries here are
 # authored inline.
 
 playbooks:
@@ -49,8 +49,9 @@ playbooks:
     path: .github/playbooks/pre-commit.md
     classification: phase
     description: >-
-      Run after user approves the diff: commit ownership, single-line message,
-      no `Co-authored-by` trailer, stage only touched files (`git add <path>`; never glob).
+      Run at the implementation->git boundary: the user stages reviewed code (the agent
+      never auto-stages code; it pauses on unstaged changes), commit ownership, single-line
+      message, no `Co-authored-by` trailer; the agent stages only its gate artifacts.
     triggers: []
     status: active
 
@@ -62,7 +63,7 @@ playbooks:
       per-commit comment audit, branch-wide rename-first sweep, branch-wide
       least-privilege audit (when applicable), §2D pre-PR-creation multi-model review
       (via `pre-pr-creation-review.md`), 11-field state predicate read-back (12-line block).
-      INDEX — dispatches to sub-files under `pre-pr-push/`.
+      INDEX - dispatches to sub-files under `pre-pr-push/`.
     triggers: []
     status: active
 
@@ -109,9 +110,9 @@ playbooks:
     status: active
     discrimination: >-
       Adjacent to `implementation-planning` and `design-spec`. scope-planning is for the
-      WHAT (problem space) — no codebase reading. implementation-planning is for the HOW
-      (solution space) — reads the codebase. design-spec is for a DURABLE artifact (spec /
-      survey / design change request) — produces a saved doc that survives the session.
+      WHAT (problem space) - no codebase reading. implementation-planning is for the HOW
+      (solution space) - reads the codebase. design-spec is for a DURABLE artifact (spec /
+      survey / design change request) - produces a saved doc that survives the session.
 
   - name: project-vocabulary
     path: .github/playbooks/project-vocabulary.md
@@ -146,7 +147,7 @@ playbooks:
     discrimination: >-
       Middle stage of the planning chain: scope-planning (WHAT) → implementation-planning
       (HOW) → pre-implementation (verify + rubber-duck). Each fires independently; chain
-      only when the change warrants the depth. Distinct from design-spec — implementation
+      only when the change warrants the depth. Distinct from design-spec - implementation
       plans are session-scoped chat output, not durable docs.
 
   - name: system-framing
@@ -187,7 +188,7 @@ playbooks:
       produces a ranked FINDINGS LIST (audit / review / find-debt). design-spec produces
       a DURABLE ARTIFACT (current-state survey / design-change request / dev design spec).
       `least-privilege-audit` is a NARROWER audit covering only the 6-axis visibility /
-      mutability surface — invoke it specifically when the user asks for API tightening
+      mutability surface - invoke it specifically when the user asks for API tightening
       or visibility audit. codebase-architecture-audit's lenses do NOT duplicate the
       least-privilege axes.
 
@@ -209,9 +210,9 @@ playbooks:
     status: active
     discrimination: >-
       Companion to `performance-comparison`. design-exploration is for DESIGN THEORIES
-      (architectural alternatives, UI variations) — qualitative trade-offs.
+      (architectural alternatives, UI variations) - qualitative trade-offs.
       performance-comparison is for PERFORMANCE METRICS (latency / throughput /
-      allocations) — quantitative numbers with a benchmark harness. Both share the
+      allocations) - quantitative numbers with a benchmark harness. Both share the
       throwaway-hardening discipline.
 
   - name: performance-comparison
@@ -251,8 +252,8 @@ playbooks:
     status: active
     discrimination: >-
       Adjacent to `codebase-architecture-audit`. design-spec produces a DURABLE ARTIFACT
-      (the spec / survey / design change request) — saved to disk. codebase-architecture-audit
-      produces a RANKED FINDINGS LIST — chat output that becomes follow-up changes through
+      (the spec / survey / design change request) - saved to disk. codebase-architecture-audit
+      produces a RANKED FINDINGS LIST - chat output that becomes follow-up changes through
       the phase playbook chain.
 
   - name: ado-task-planning
@@ -260,7 +261,7 @@ playbooks:
     classification: domain
     description: >-
       Use when user wants to draft a NEW Azure DevOps work item or its content
-      (task / story / feature / epic / bug). Produces two paired outputs — a markdown
+      (task / story / feature / epic / bug). Produces two paired outputs - a markdown
       summary + an ADO-field-formatted block (Title / Description / Acceptance Criteria /
       Definition of Done / Tags).
     triggers:
@@ -303,7 +304,7 @@ playbooks:
     status: active
     discrimination: >-
       Adjacent to `ado-task-planning`. ado-task-planning is for INTERACTIVE SINGLE-ITEM
-      drafting (any process template — Agile/Scrum/CMMI). github-to-ado-replication is
+      drafting (any process template - Agile/Scrum/CMMI). github-to-ado-replication is
       for BATCH CREATION from a GitHub issue source into the OS process template with
       OS-template conventions. The discriminator is the SOURCE: if the user mentions
       GitHub issues / repo as the source, route here. If the user is drafting a new ADO
@@ -406,7 +407,7 @@ playbooks:
       visibility, setter, field hygiene) plus the G6 dead-code default-delete clause.
       codebase-architecture-audit's lenses cover state predicates (§3.7), deferred mutations
       (§3.8), recurring smells (§3.10), project layout (§3.11), and vertical-slice + clean
-      architecture (§3.12) — no overlap with the LPA axes.
+      architecture (§3.12) - no overlap with the LPA axes.
 
   - name: cross-file-bug-investigation
     path: .github/playbooks/cross-file-bug-investigation.md
@@ -451,7 +452,7 @@ playbooks:
       pass (codebase-architecture-audit: 5 lenses; least-privilege-audit: 6 axes); code-review
       sub-agent and multi-model-review target-type=diff review CHANGES (diffs), not unchanged
       code. Bare unpaired "review" / "audit" / "trace this through the code" remain
-      ambiguous-clarify per AGENTS — this playbook fires only on artifact-shaped phrases
+      ambiguous-clarify per AGENTS - this playbook fires only on artifact-shaped phrases
       (cross-file qualifier required for review/audit forms).
 
   # ─── Sub-step (auto-fires within a phase) ───
@@ -461,7 +462,7 @@ playbooks:
     classification: sub-step
     description: >-
       Phase-sub-step that operationalizes AGENTS.md §3.4 (intent over coverage; gap audit
-      in both directions). Two firing behaviors — prospective in pre-implementation (when
+      in both directions). Two firing behaviors - prospective in pre-implementation (when
       implementation-planning emits non-empty `behaviors_to_cover`) and retrospective in
       post-code-change (when the diff has new test files or SUT branch / API delta).
       Inherits §3.4 checklist verbatim.

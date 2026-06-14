@@ -95,7 +95,7 @@ This is the failure mode that landed on this branch: `PANEL CONVERGED` was emitt
 
 ### Rule
 
-Before ANY `git add` (or `git commit --amend` that re-stages files, or `git stash pop` that resolves into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, `git add` is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary.
+Before ANY `git commit` (incl. `--amend`, or a `git stash pop` / cherry-pick / rebase resolving into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, the commit is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary. The user stages code; the agent stages only gate artifacts.
 
 ### Ledger format
 
@@ -242,17 +242,17 @@ The ledger does NOT replace each gate's own required output (e.g. §2.5 sweep st
 
 ### When this gate fires
 
-Every `git add` of files staged for a commit. Specifically:
+Every `git commit` of the user's staged set. Specifically:
 
-1. Fresh commits (`git add` → `git commit`).
-2. Amend commits (`git add` → `git commit --amend`) when files are re-staged after edits.
-3. Conflict resolution after `git stash pop` / `git merge` / `git rebase` IF the resolution results in a `git add` to mark conflicts resolved AND a commit is intended in the same turn.
-4. Cherry-pick / rebase operations that resolve conflicts and stage the resolved state.
+1. Fresh commits (user stages -> `git commit`).
+2. Amend commits (`git commit --amend`) when files are re-staged after edits.
+3. Conflict resolution after `git stash pop` / `git merge` / `git rebase` IF the resolution is committed in the same turn.
+4. Cherry-pick / rebase operations that commit a resolved state.
 
 **Carve-outs (no ledger required):**
 
-- `git add` to mark conflicts as resolved when **no commit will follow in the current turn**  -  i.e. the user has explicitly directed leaving the resolved state in the working tree for their own review before any commit.
-- `git add` followed by `git stash push` (preparing to stash, not commit).
+- A `git add` to mark conflicts resolved when **no commit will follow in the current turn**  -  i.e. the user has explicitly directed leaving the resolved state in the working tree for their own review before any commit.
+- `git stash push` (preparing to stash, not commit).
 - `git restore --staged <path>` (unstaging  -  no commit pathway).
 
 ### Skip conditions
@@ -264,7 +264,7 @@ A gate row may be `N/A: <reason>` when:
 - **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
 - **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A: pure re-commit of already-reviewed content, 0 behavioral delta`.
-- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which hard-blocks `git add` per `comment-protocol.md` §Recording. On **adopted repos** (per `comment-protocol.md` §Persisted audit file, adoption gate), missing `.github/pr-quality-gate/audits/last.md` ALSO produces `failed`. On **non-adopted repos**, the audit file is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block, missing-file is NOT a failure in that mode.
+- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which forbids the commit per `comment-protocol.md` §Recording. On **adopted repos** (per `comment-protocol.md` §Persisted audit file, adoption gate), missing `.github/pr-quality-gate/audits/last.md` ALSO produces `failed`. On **non-adopted repos**, the audit file is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block, missing-file is NOT a failure in that mode.
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root
@@ -279,7 +279,7 @@ A gate row may be `N/A: <reason>` when:
 
 ### Why this exists
 
-The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git add` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
+The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git commit` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
 
 The ledger is also the audit trail: when a future review (post-merge, retrospective, or PR review on the open PR) discovers that a gate slipped, the ledger explicitly records *which* gate was skipped and *why*. No more reconstructing intent from chat history.
 

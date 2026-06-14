@@ -67,7 +67,7 @@ Self-similarity sweep for <pattern>: <N> sites found, <K> already-fixed, <J> nee
   - file2.cs:line - ...
 ```
 
-This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask_user` diff-approval gate fires. If the sweep finds 0 sister sites, the report is still emitted with `0 sister sites; pattern is single-instance in this diff` - explicit-by-design, not implied. Skipping the sweep on the rationale "the bot flagged only one site so probably just one site needs fixing" is a process violation tracked under `self-similarity-sweep-incomplete-after-bot-finding` in `pr-quality-gate/data/panel-misses.csv`.
+This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask_user` commit-approval gate fires. If the sweep finds 0 sister sites, the report is still emitted with `0 sister sites; pattern is single-instance in this diff` - explicit-by-design, not implied. Skipping the sweep on the rationale "the bot flagged only one site so probably just one site needs fixing" is a process violation tracked under `self-similarity-sweep-incomplete-after-bot-finding` in `pr-quality-gate/data/panel-misses.csv`.
 
 **Pattern recognition primer**: the most common recurring shapes bot reviewers flag in this corpus are: (a) entry-`ThrowIfCancellationRequested` missing at one method of N CT-accepting methods; (b) defensive catch missing at one callback of N callbacks; (c) lock convention mismatch at some sites but not others; (d) XML doc staleness when interface gets new members; (e) comment-vs-code drift after method extraction. Always sweep for these patterns regardless of which single instance the bot cited.
 

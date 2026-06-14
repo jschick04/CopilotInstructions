@@ -31,7 +31,7 @@ Editing ANY file in the instruction-set repo. Non-exhaustive: `AGENTS.md`, `.git
 2. Regenerate the flat catalog: `pwsh -File scripts/generate-pattern-catalog.ps1`.
 3. Verify sync: `pwsh -File scripts/verify-pattern-catalog.ps1`.
 4. Regenerate the derived ack index: `pwsh -File scripts/sync-critical-rules.ps1` (updates `HIGH-TIER-SLUGS.md`; `.githooks/pre-commit` + `.github/workflows/catalog-sync-check.yml` enforce sync).
-5. Stage the source(s) + generated `pattern-catalog.md` + `HIGH-TIER-SLUGS.md` together.
+5. The user stages the reviewed source(s); the agent stages the generated `pattern-catalog.md` + `HIGH-TIER-SLUGS.md` (artifacts) - regenerated only when the source has no unstaged delta.
 
 **Slug quality bar (every slug must clear this; existing catalog entries are the floor):** name (a) the specific code pattern checked, (b) the specific failure mode, (c) the specific verification step, and (d) a bright-line PASS/FAIL criterion - enough that a reviewer can give a definitive per-site answer on a diff. Mechanically-detectable findings get a regex/audit method; judgment findings get a `review_pass_only_prompt` that meets (a)-(d). A vague prompt ("review X for issues") is REJECTED - it bloats `core_rules_acknowledged` with un-citable sites (checkbox theater).
 

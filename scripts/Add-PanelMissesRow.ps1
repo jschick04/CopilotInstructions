@@ -26,6 +26,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# panel-misses.csv requires ISO-8601 UTC timestamps (ending in Z); reject a local-offset timestamp so tooling that
+# assumes UTC does not break. Fractional seconds are allowed; the canonical generator is
+# (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ') (seconds precision).
+if ($Timestamp -notmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$') {
+    throw "Timestamp must be ISO-8601 UTC ending in Z (e.g. 2026-06-14T04:34:47Z or 2026-06-14T04:34:47.123Z); got '$Timestamp'."
+}
+
 if (-not (Test-Path -LiteralPath $CsvPath)) { throw "panel-misses.csv not found at $CsvPath" }
 
 # Append as a PSCustomObject so Export-Csv handles RFC 4180 quoting.

@@ -8,14 +8,14 @@ triggers: []
 
 ## Purpose
 
-Codifies the mandatory review workflow that prevents wasted cycles — both in the pre-implementation panel process and in PR review loops. Every rule here is a hard gate; skipping any stage requires explicit user approval with documented justification.
+Codifies the mandatory review workflow that prevents wasted cycles - both in the pre-implementation panel process and in PR review loops. Every rule here is a hard gate; skipping any stage requires explicit user approval with documented justification.
 
 This playbook is referenced by:
-- `pre-implementation.md` — for the two-stage review before code changes
-- `post-code-change.md` — for the prior-PR-review sweep
-- `post-pr-review.md` — for PR comment root-cause analysis
-- `pre-pr-push.md` — for the prior-PR-review sweep before push
-- `AGENTS.md` cross-cutting rules — for scope reduction sign-off and panel-gate hard stops
+- `pre-implementation.md` - for the two-stage review before code changes
+- `post-code-change.md` - for the prior-PR-review sweep
+- `post-pr-review.md` - for PR comment root-cause analysis
+- `pre-pr-push.md` - for the prior-PR-review sweep before push
+- `AGENTS.md` cross-cutting rules - for scope reduction sign-off and panel-gate hard stops
 
 ---
 
@@ -29,10 +29,10 @@ A rubber-duck critique is cheap (one agent, fast turnaround) and catches blind s
 
 ### Procedure
 
-1. **Stage 1 — Rubber-duck critique.** Launch a single rubber-duck agent with the plan/design/implementation. Receive findings.
+1. **Stage 1 - Rubber-duck critique.** Launch a single rubber-duck agent with the plan/design/implementation. Receive findings.
 2. **Triage rubber-duck findings.** Adopt findings that clearly prevent bugs or test failures. Set aside findings that would significantly complicate the implementation without clear benefit. Document the triage rationale.
 3. **Incorporate adopted findings** into the plan/design before Stage 2.
-4. **Stage 2 — Full multi-model panel.** Launch the panel per `multi-model-review.md` with the rubber-duck-improved plan. Iterate until unanimous convergence.
+4. **Stage 2 - Full multi-model panel.** Launch the panel per `multi-model-review.md` with the rubber-duck-improved plan. Iterate until unanimous convergence.
 
 ### When to apply
 
@@ -43,7 +43,7 @@ A rubber-duck critique is cheap (one agent, fast turnaround) and catches blind s
 
 Skipping either stage requires **all three**:
 
-1. Explicit user approval via `ask_user` — not implicit silence.
+1. Explicit user approval via `ask_user` - not implicit silence.
 2. A documented justification stronger than "low risk" or "simple change." Acceptable justifications: "user explicitly directed immediate implementation," "change is a mechanical rename with no behavioral delta and automated refactoring tool output."
 3. The skip recorded in the session state so future review can audit the decision.
 
@@ -72,7 +72,7 @@ PANEL CONVERGED
   artifact: <path or description, e.g. plan.md>
   artifact-hash: <SHA256 of artifact content, first 8 chars>
   artifact-bytes: <byte count>
-  artifact-revision: <revision marker, e.g. "R3 — added Part 5 banner fix">
+  artifact-revision: <revision marker, e.g. "R3 - added Part 5 banner fix">
   panel-round: <round number when convergence was reached>
   verdicts: <list of reviewer ids that returned SOUND>
   unanimous: yes
@@ -80,7 +80,7 @@ PANEL CONVERGED
 
 The certification block:
 1. Is emitted ONCE per artifact version, after Round N convergence.
-2. Is invalid if the artifact changes after emission — agent must re-panel on the changed artifact and emit a new certification.
+2. Is invalid if the artifact changes after emission - agent must re-panel on the changed artifact and emit a new certification.
 3. Sub-decision panels (single library placement, single naming choice, etc.) do NOT satisfy a plan-level gate. They certify ONLY the sub-decision; the plan-level gate is separate and requires its own certification.
 
 **Lite trivial fast-path cert.** When the lite profile's trivial fast-path applies (§1 Profile-aware fast-path), the single `triage` reviewer's result IS the artifact-binding certification: emit the `PANEL CONVERGED` block with `convergence_model: single-reviewer` and `unanimous: yes` (1 of 1 reviewer SOUND is structurally unanimous), bound to the artifact hash + base/head SHA, citing the `triage-acknowledged` receipt. It satisfies §1A/§1B for THAT change only, and never for safety-critical or governance/instruction artifacts (those always take the full slate on both profiles).
@@ -103,15 +103,15 @@ When the agent is uncertain whether a panel is sub-decision-scope or plan-scope,
 
 The following tools MUST NOT be called for implementation purposes until a current artifact-binding certification (per §1A) is present in the conversation:
 
-- `create` — any file creation
-- `edit` — any file edit, including instruction files and configuration
+- `create` - any file creation
+- `edit` - any file edit, including instruction files and configuration
 - `powershell` / `bash` with any of:
-  - `mkdir`, `New-Item`, `md` — directory creation
-  - `Set-Content`, `Add-Content`, `Out-File`, `>`, `>>` — file write
-  - `Move-Item`, `Rename-Item`, `cp`, `mv` — file moves
-  - `dotnet new`, `cargo new`, `npm init`, `git init` — project scaffolding
-  - `git add` — stage changes (additionally requires `POST-CODE-CHANGE LEDGER` per §2B and, for project repos, the diff-approval gate below)
-  - `git commit` — finalize commit (additionally requires `PRE-COMMIT GATE PASSED` block emitted in the current turn per `pre-commit.md`; the block records diff approval, ownership confirmation, message approval, format check, and staged-files list)
+  - `mkdir`, `New-Item`, `md` - directory creation
+  - `Set-Content`, `Add-Content`, `Out-File`, `>`, `>>` - file write
+  - `Move-Item`, `Rename-Item`, `cp`, `mv` - file moves
+  - `dotnet new`, `cargo new`, `npm init`, `git init` - project scaffolding
+  - `git add` (agent stages ONLY gate artifacts; the user stages code) - additionally requires `POST-CODE-CHANGE LEDGER` per §2B and, for project repos, the staging-as-review gate below
+  - `git commit` - finalize commit (additionally requires `PRE-COMMIT GATE PASSED` block emitted in the current turn per `pre-commit.md`; the block records commit approval, ownership confirmation, message approval, format check, and staged-files list)
 - Sub-agent launches with implementation intent (the sub-agent itself would edit files)
 
 ### Exceptions
@@ -126,7 +126,7 @@ The following are NOT implementation tools and remain available without certific
 
 ### Why this list is enumerated explicitly
 
-A general rule like "no implementation until panel ran" leaves room for the agent to rationalize: "I'm just creating a folder, that's not really implementation." The enumeration removes that escape hatch — any of these tools called for implementation purposes without certification is a hard violation.
+A general rule like "no implementation until panel ran" leaves room for the agent to rationalize: "I'm just creating a folder, that's not really implementation." The enumeration removes that escape hatch - any of these tools called for implementation purposes without certification is a hard violation.
 
 ### `exit_plan_mode`, plan-summary approval, and "proceed with implementation" runtime messages are NOT certifications
 
@@ -143,68 +143,57 @@ If the agent has:
 
 ...but has NOT run the panel and emitted `PANEL CONVERGED` in the current turn, implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
 
-The skip-escalation in §1 (the "user explicitly directed immediate implementation" justification) requires both (a) an explicit `ask_user` whose body contains the phrase "skip the panel" or equivalent unambiguous skip-the-review directive, AND (b) recording the skip in the session state per the §1 skip-escalation rule. A generic "approved" / "proceed" / "exit plan mode" response is NOT a panel-skip directive — it's scope approval.
+The skip-escalation in §1 (the "user explicitly directed immediate implementation" justification) requires both (a) an explicit `ask_user` whose body contains the phrase "skip the panel" or equivalent unambiguous skip-the-review directive, AND (b) recording the skip in the session state per the §1 skip-escalation rule. A generic "approved" / "proceed" / "exit plan mode" response is NOT a panel-skip directive - it's scope approval.
 
 ### Instruction-repo edits are §1B tool calls (no exemption for "meta-work")
 
-Editing files in the instruction repository — `.github/playbooks/**/*.md`, `.github/instructions/**/*.instructions.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/playbooks/manifest.yaml`, or any other governance / instruction artifact in this repo or downstream repos that consume it — is **explicitly a §1B tool call** subject to the same `PANEL CONVERGED` certification as code-repo edits. The §1B enumeration above already says "any file edit, including instruction files and configuration" — this subsection exists to defeat the rationalization that instruction edits are "meta-work" or "small tweaks" or "plan-level work" exempt from the gate.
+Editing files in the instruction repository - `.github/playbooks/**/*.md`, `.github/instructions/**/*.instructions.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/playbooks/manifest.yaml`, or any other governance / instruction artifact in this repo or downstream repos that consume it - is **explicitly a §1B tool call** subject to the same `PANEL CONVERGED` certification as code-repo edits. The §1B enumeration above already says "any file edit, including instruction files and configuration" - this subsection exists to defeat the rationalization that instruction edits are "meta-work" or "small tweaks" or "plan-level work" exempt from the gate.
 
 Meta-changes to the instruction set carry **higher** long-term risk than code changes: bad code is reverted in one commit; bad instructions corrupt future agent behavior across many sessions until someone notices and reverts. The required certification scrutiny is the same or higher for instruction edits, not lower.
 
 When the panel reviews an instruction-set change, its prompt MUST include explicit focus on:
 
-1. **Self-consistency** — does the new rule conflict with existing rules? Overlap in enforcement domains?
+1. **Self-consistency** - does the new rule conflict with existing rules? Overlap in enforcement domains?
 2. **Escape-hatch analysis**: what could a future agent do to skip the rule? Vague language, optional conditional skips, ambiguous "N/A: reason" clauses are red flags.
-3. **Enforcement mechanism** — is the rule self-policing (a literal block emission that §1B can hard-stop on)? Or norm-based and easily forgotten?
-4. **Reviewer slate / model / path stability** — do specific model names, tool names, or external system references have a deprecation story?
-5. **Project-agnosticism** — does the rule leak project-specific names, paths, or domain concepts that would be wrong in other consuming repos?
+3. **Enforcement mechanism** - is the rule self-policing (a literal block emission that §1B can hard-stop on)? Or norm-based and easily forgotten?
+4. **Reviewer slate / model / path stability** - do specific model names, tool names, or external system references have a deprecation story?
+5. **Project-agnosticism** - does the rule leak project-specific names, paths, or domain concepts that would be wrong in other consuming repos?
 
-The plan-file edit carve-out below applies ONLY to session `plan.md` files in `~/.copilot/session-state/<id>/`. It does NOT apply to instruction-repo files. The "implementation-intent vs preparation-intent" distinction below does NOT apply to instruction-repo files either — there is no "preparation" carve-out for instruction edits.
+The plan-file edit carve-out below applies ONLY to session `plan.md` files in `~/.copilot/session-state/<id>/`. It does NOT apply to instruction-repo files. The "implementation-intent vs preparation-intent" distinction below does NOT apply to instruction-repo files either - there is no "preparation" carve-out for instruction edits.
 
 ### Plan-file edit carve-out
 
-Editing the session plan file (`plan.md` in the session-state folder) BEFORE the panel runs is allowed and expected — that's how the plan reaches a reviewable state. Editing the plan file AFTER the panel runs invalidates the certification and requires a new panel (per §1A).
+Editing the session plan file (`plan.md` in the session-state folder) BEFORE the panel runs is allowed and expected - that's how the plan reaches a reviewable state. Editing the plan file AFTER the panel runs invalidates the certification and requires a new panel (per §1A).
 
 ### Implementation-intent vs preparation-intent
 
 `powershell` calls to create a worktree, configure git identity, install tools, or set up the environment are PREPARATION, not implementation, and remain available without certification. The discriminator: does this tool call materially advance the work the panel reviewed? If yes, certification is required.
 
-### Pushing changes to project (non-instruction) repos requires explicit user diff approval BEFORE staging (HARD GATE)
+### Project (non-instruction) repos: the user reviews by STAGING (HARD GATE)
 
-After a `PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But before any `git add` to a project repository, the user MUST see the actual working-tree diff (or a faithful summary of it) and explicitly approve.**
+After a `PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But the agent does NOT stage project code.** Under the inverted staging model (`AGENTS.md` §0 + `pre-commit.md`), the USER reviews by STAGING each file; staged content is the user's reviewed scope, and the agent commits only what the user staged.
 
-This gate is asymmetric between repo types, but ONLY for the working-tree-diff review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git add` / `git commit` / `git push`) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA pre-`git add` working-tree-diff-review step below (the panel already reviewed the change); it does NOT waive §0. Project-repo changes additionally require the user to review the working-tree diff at the staging boundary (the rest of this section).
+This gate is asymmetric between repo types, but ONLY for the working-tree review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA working-tree review (the panel already reviewed the change); it does NOT waive §0.
 
-**Why pre-`git add` and not pre-`git push`?**
+**Why staging-as-review (not a pre-push gate)?**
 
-Earlier is better. A pre-push gate means the change is already staged, committed, and message-authored; reversing it requires `git reset` + history rewrite or `git commit --amend` + force-push. A pre-staging gate means the change is just files on disk; reversing it is `git restore` (or simply editing again). The earlier gate trades a slightly noisier review experience (user sees raw working-tree diff, not a polished commit) for cheaper reversal cost AND for a much harder skip path — if `git add` is gated, then `git commit` and `git push` can't run on un-approved changes by construction, eliminating the "I'll just push and ask for forgiveness" failure mode.
+Earlier is better, and a harder skip path. If the agent honors the never-auto-stage rule, `git commit` and `git push` operate ONLY on what the USER staged - the "I'll just push and ask for forgiveness" failure mode loses its default path. Nothing mechanically prevents `git add -A` (git has no pre-add hook); the backstop is the commit-approval `ask_user`, which prints the enumerated staged set so an over-broad or auto-staged set is visible before anything ships. Reversing an un-staged change is just `git restore` (or editing again), not a history rewrite.
 
-**Procedure before any `git add` (or equivalent staging command: `git stage`, `git add -A`, `git add -p`, `git add .`, etc.) in a project repo:**
+**Procedure in a project repo:**
 
-1. Run `git --no-pager diff` (working tree vs HEAD) and surface the output to the user, plus a short summary of what each hunk does.
-2. Call `ask_user` with the diff summary, asking for one of: approve / amend / discard.
-3. Wait for the user response BEFORE running `git add`.
-
-Once the user approves the diff, the orchestrator may run `git add` for that change without re-showing the diff. The §0 per-operation gates on `git commit` (message approval) and `git push` are independent and still apply - diff-approval is not a blanket waiver of §0.
+1. Classify the working tree (`git status --porcelain`). Staged = the user's reviewed scope; commit it as-is.
+2. For each unstaged / untracked change, `ask_user`: review-now / stage-for-me / skip-file / abort (`pre-commit.md` step 2). The agent NEVER auto-stages code.
+3. The agent's commit-approval `ask_user` prints the enumerated staged set (the mechanical backstop); the §0 `git commit` + `git push` gates are independent and still apply.
 
 **Skip conditions (none apply unless explicitly documented this session):**
 
-- The user has stated in THIS session: "auto-stage for `<repo>` is fine" / "you can `git add` project changes without asking" / equivalent unambiguous opt-out for that specific project repo.
-- The change being staged is a `git restore` / revert of working-tree state the user just asked to be reverted.
-- The change is a trivially mechanical fix (single file, ≤10 line delta, fixing a clearly identified review comment) AND the orchestrator already showed the user the planned change in the same turn.
+- The change is a `git restore` / revert of working-tree state the user just asked to be reverted.
 
 **What about instruction-repo pushes?**
 
-Pushes to the instruction-set repo do NOT require this pre-`git add` working-tree-diff-review gate - the panel certification covers the technical review. The §0 per-operation `ask_user` gates (stage / commit / push) still apply. The diff-review asymmetry exists because:
+Same inverted model (the user stages what enters history). The panel certification covers the TECHNICAL review; it does NOT waive the never-auto-stage rule or the §0 per-operation `ask_user` gates (commit / push). The diff-review asymmetry exists because the user's plan-stage approval + the panel's review already cover the instruction change's shape, whereas project-repo pushes affect a long-lived shared repo with multiple consumers.
 
-- The user's plan-stage approval covers the instruction strategy.
-- Instruction edits are typically narrow and structural (delta proposals).
-- The panel's review of an instruction artifact IS a review of the user-visible shape (no rendered output, no UX impact).
-- Project-repo pushes affect a long-lived shared repo with multiple consumers; instruction-repo pushes only affect the agent's own behavior in future sessions and are reverted by another commit.
-
-If the user explicitly states a preference for auto-staging project commits as well, this gate is relaxed for the duration of the session (record the override in the session state).
-
-**Failure mode if skipped:** the agent presents a "shipped!" summary to the user before the user has seen the code; the user discovers an issue post-push; revert/amend cycle inflates round count and erodes trust in the gate process. The pre-`git add` placement is specifically chosen so that the agent's normal "build → test → stage → commit → push" cadence cannot proceed past the staging step without the user in the loop.
+**Failure mode if skipped:** the agent auto-stages and presents a "shipped!" summary before the user has reviewed; the user discovers an issue post-push; the revert/amend cycle inflates round count and erodes trust. The never-auto-stage-code rule is the prose discipline that keeps the agent's "build -> test -> commit -> push" cadence from proceeding past staging without the user in the loop; the commit-approval `ask_user` (enumerated staged set) is the mechanical backstop that makes a bypass visible.
 
 ---
 
@@ -212,7 +201,7 @@ If the user explicitly states a preference for auto-staging project commits as w
 
 ### Rule
 
-When a panel, audit, or review identifies work items and the agent or sub-agents recommend deferring, dropping, or descoping any item — regardless of rationale — the recommendation **must** be presented to the user via `ask_user` with:
+When a panel, audit, or review identifies work items and the agent or sub-agents recommend deferring, dropping, or descoping any item - regardless of rationale - the recommendation **must** be presented to the user via `ask_user` with:
 
 1. **The item** being deferred/dropped.
 2. **The rationale** for deferral (YAGNI, low priority, compliance theater, borderline finding, etc.).
@@ -251,7 +240,7 @@ Only the user can decide what is deferred vs. what is done. The agent's role is 
 
 ### Convergence criteria
 
-- **Required: unanimous SOUND** from all panel members. There is no "acceptable partial consensus" — 4/5 SOUND is not convergence.
+- **Required: unanimous SOUND** from all panel members. There is no "acceptable partial consensus" - 4/5 SOUND is not convergence.
 - **Disagreements go to the user.** When panel members disagree and iteration cannot resolve it, the user is the tie-breaker. Present each contested point via `ask_user` with the arguments from both sides.
 - **Not acceptable:** declaring convergence with any reviewer still at NEEDS_ANOTHER_ROUND, regardless of how trivial the remaining issue appears to the agent.
 
@@ -278,15 +267,15 @@ Document these learnings for future panel configurations.
 
 ## Appendix: relationship to other playbooks
 
-- `pre-implementation.md` — invokes §1 (two-stage review), §1A (artifact-binding), §1B (hard-stop tool list), and §4 (panel convergence) during the plan review gate.
-- `post-code-change.md` — invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §4 (panel convergence) during the multi-model reviewer panel.
-- `pre-commit.md` — invokes §2B (post-code-change ledger) before any `git add` / `git commit` / `git commit --amend`.
-- `post-pr-review.md` — invokes §2 (root-cause analysis) when processing reviewer comments.
-- `pre-pr-push.md` — invokes §2A (prior-PR-review sweep, branch-wide scope) and §2D (pre-PR-creation multi-model review) before push.
-- `multi-model-review.md` — owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
-- `multi-model-review/pr-creation-mirror-prompt.md` — shared 11-category Copilot-mirror prompt template used by §2D's heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
-- `pre-pr-creation-review.md` — owns the §2D heavy pre-PR-creation review gate procedure (invocation modes, ancestry-based re-run triggers, panel + synthesis + fix loop, LEDGER emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
-- `AGENTS.md` cross-cutting rules — references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (pre-PR-creation multi-model review), and §3 (scope reduction sign-off) as hard gates.
+- `pre-implementation.md` - invokes §1 (two-stage review), §1A (artifact-binding), §1B (hard-stop tool list), and §4 (panel convergence) during the plan review gate.
+- `post-code-change.md` - invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §4 (panel convergence) during the multi-model reviewer panel.
+- `pre-commit.md` - invokes §2B (post-code-change ledger) before any `git commit` / `git commit --amend`.
+- `post-pr-review.md` - invokes §2 (root-cause analysis) when processing reviewer comments.
+- `pre-pr-push.md` - invokes §2A (prior-PR-review sweep, branch-wide scope) and §2D (pre-PR-creation multi-model review) before push.
+- `multi-model-review.md` - owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
+- `multi-model-review/pr-creation-mirror-prompt.md` - shared 11-category Copilot-mirror prompt template used by §2D's heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
+- `pre-pr-creation-review.md` - owns the §2D heavy pre-PR-creation review gate procedure (invocation modes, ancestry-based re-run triggers, panel + synthesis + fix loop, LEDGER emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
+- `AGENTS.md` cross-cutting rules - references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (pre-PR-creation multi-model review), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 

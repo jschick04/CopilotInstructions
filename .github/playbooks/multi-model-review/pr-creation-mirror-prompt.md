@@ -202,8 +202,8 @@ when a commit applies a remediation pattern P that has at least one branch-exist
 or branch-new sister site (per Delta G + Delta J), the commit's POST-CODE-CHANGE
 LEDGER's `delta-g-sweeps:` row (defined in `review-workflow-gates-sweeps.md` §2B's LEDGER
 format) MUST be `ran, N patterns swept, M sites enumerated` with a structurally-valid
-entry per pattern. Absence or structural invalidity of the row blocks `git add` per
-§2B's existing `git add` block - no new tool-gate is introduced.
+entry per pattern. Absence or structural invalidity of the row blocks the commit per
+§2B's existing LEDGER gate - no new tool-gate is introduced.
 
 `sites:` membership: the site(s) where the current commit APPLIES P MUST be listed
 under `sites:` with `status: applied`, alongside any branch-existing or branch-new

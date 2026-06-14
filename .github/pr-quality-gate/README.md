@@ -10,8 +10,8 @@ Reduce the ~1500-line playbook/catalog/FP/schema/Step 2.5/Deltas surface to ~400
 
 - **§1B forbidden-tools gate** (PR-creation, draft-state mutation) - still gated by a block in current turn
 - **§1A artifact-binding** - `PANEL CONVERGED` block format preserved; slate-mode carve-out added
-- **`PRE-COMMIT GATE PASSED` block** - commit-message + git-add approval; amended to include preferences compliance check
-- **Pre-`git add` user approval** for project repos - §1B explicitly enforces `pre_git_add_user_approval: present`
+- **`PRE-COMMIT GATE PASSED` block** - commit-message + staged-set commit-approval; amended to include preferences compliance check
+- **User commit-approval on the staged set** for project repos - §1B explicitly enforces `commit_approval: present` (the user stages reviewed code; the agent never auto-stages)
 - **Multi-reviewer panel** - auto-invoked for `full` mode (default); `triage` and `lint-only` are user-acknowledged exceptions
 - **All coding preferences** - extracted to dedicated `coding-preferences.md`
 - **§2B `POST-CODE-CHANGE LEDGER`** equivalents - folded into the QUALITY GATE block's per-finding fields
@@ -91,7 +91,7 @@ QUALITY GATE
     panel_rounds: <N>
     fix_iteration_count: <N>
     must_fix_unresolved: <count>
-  pre_git_add_user_approval: present | not-applicable
+  commit_approval: present
   same_state_recheck: passed | not-yet-rechecked
   gate_status: READY | BLOCKED - <reason>
 ```
@@ -118,7 +118,7 @@ QUALITY GATE
   - For `panel_mode: triage|lint-only`: `panel_mode_receipt` MUST be present, with `ask_user` call-ref and quoted user-response containing the literal mode-acknowledgment token
   - For `panel_mode: lint-only`: `panel` section absent (consistent with no-panel-invoked carve-out)
   - `preferences_compliance` has no `violated` entries with `severity: blocking` (waived via `ask_user` if needed)
-  - **`pre_git_add_user_approval: present` is REQUIRED for project repos (any repo other than CopilotInstructions/main itself); `not-applicable` ONLY for CopilotInstructions auto-push** (Slot 2 #5)
+  - **`commit_approval: present` is REQUIRED in ALL repos** - the §0 commit-approval gate applies everywhere, including the instruction repo; only the extra §1B diff-review is waived for panel-certified instruction-repo edits (Slot 2 #5)
 
 ## findings.csv schema (global, file-locked, no project identifier)
 

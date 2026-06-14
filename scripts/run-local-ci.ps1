@@ -19,8 +19,11 @@ param(
     [string] $BaseBranch = 'main',
     [switch] $CoverageOnly
 )
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
+# Only enable strict mode + stop-on-error when INVOKED, not when dot-sourced by tests (else they leak into the caller scope).
+if ($MyInvocation.InvocationName -ne '.') {
+    Set-StrictMode -Version Latest
+    $ErrorActionPreference = 'Stop'
+}
 
 $pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 $baseRef = "origin/$BaseBranch"
@@ -36,6 +39,8 @@ $mirror = @(
     [pscustomobject]@{ Name = 'commit-message format';       Script = 'scripts/check-commit-message.ps1';              LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'commit-message unit tests';   Script = 'scripts/tests/check-commit-message.tests.ps1';  LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'markdown size budgets';       Script = 'scripts/check-md-size.ps1';                     LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'smart-punctuation ban';       Script = 'scripts/check-no-smart-punctuation.ps1';        LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'smart-punctuation unit tests'; Script = 'scripts/tests/check-no-smart-punctuation.tests.ps1'; LocalArgs = @();                EnvSkippable = $false }
     [pscustomobject]@{ Name = 'profile invariants';          Script = 'scripts/check-profile-invariants.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'critical-rules sync verify';  Script = 'scripts/sync-critical-rules.ps1';               LocalArgs = @('-Verify');            EnvSkippable = $false }
     [pscustomobject]@{ Name = 'sync pwsh==bash parity';      Script = 'scripts/check-sync-parity.ps1';                 LocalArgs = @();                     EnvSkippable = $true }
@@ -57,9 +62,11 @@ function Test-ScriptInvocation {
     param([string] $Cmd)
     $t = $Cmd.Trim()
     if ($t -match '&&|\|\||;|\|') { return $null }   # chained / piped extra logic is not a clean single invocation
-    $m = [regex]::Match($t, '(?:^|\s)(?:\./)?(scripts/[A-Za-z0-9_./-]+\.(?:ps1|sh))(?:\s|$)')
+    $m = [regex]::Match($t, '^(?:(?:pwsh|pwsh\.exe|powershell|powershell\.exe|bash|sh)\s+(?:-\S+\s+)*)?(?:\./)?(scripts/[A-Za-z0-9_./-]+\.(?:ps1|sh))(?:\s|$)')
     if (-not $m.Success) { return $null }
-    return ($m.Groups[1].Value -replace '\\', '/')
+    $path = $m.Groups[1].Value -replace '\\', '/'
+    if (($path -split '/') -contains '..') { return $null }   # reject path traversal (scripts/../foo.ps1 escapes scripts/)
+    return $path
 }
 
 function Test-MirrorCoverage {
@@ -96,7 +103,7 @@ function Test-MirrorCoverage {
         for ($i = 0; $i -lt $lines.Count; $i++) {
             $ln = $lines[$i]
             if ($ln -match '^\s*---\s*$' -and $i -gt 0) { $failures.Add("${rel}: multi-document YAML (---) is not supported - fail-closed"); $bad = $true; break }
-            if ($ln -match "`t") { $failures.Add("${rel}:$($i+1): tab in indentation is not supported - fail-closed"); $bad = $true; break }
+            if ($ln -match "`t") { $failures.Add("${rel}:$($i+1): tab character is not supported anywhere on the line (the structure scan is column-based; use spaces) - fail-closed"); $bad = $true; break }
             if ($ln -match ':\s+[&*][A-Za-z0-9_]') { $failures.Add("${rel}:$($i+1): YAML anchor/alias is not supported - fail-closed"); $bad = $true; break }
         }
         if ($bad) { continue }

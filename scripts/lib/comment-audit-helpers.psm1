@@ -189,19 +189,19 @@ function Test-AuditBulletShape {
     if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*deleted\s*\(") {
         return [PSCustomObject]@{ Form = 'deleted'; Valid = $true }
     }
-    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+—\s+exempt:\s*($exemptCatPattern)\s*$") {
+    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+[-\u2014]\s+exempt:\s*($exemptCatPattern)\s*$") {
         return [PSCustomObject]@{ Form = 'exempt'; Valid = $true; Category = $matches[1] }
     }
-    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+—\s+exempt:\s*(\S+)") {
+    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+[-\u2014]\s+exempt:\s*(\S+)") {
         return [PSCustomObject]@{ Form = 'exempt'; Valid = $false; Reason = "non-canonical exempt category: $($matches[1])" }
     }
-    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+—\s+degraded-mode-drop\s*$") {
+    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+[-\u2014]\s+degraded-mode-drop\s*$") {
         return [PSCustomObject]@{ Form = 'degraded-mode-drop'; Valid = $true }
     }
-    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+—\s+no-response-drop\s*$") {
+    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+[-\u2014]\s+no-response-drop\s*$") {
         return [PSCustomObject]@{ Form = 'no-response-drop'; Valid = $true }
     }
-    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+—\s+(\S+)") {
+    if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*n/a\s+[-\u2014]\s+(\S+)") {
         return [PSCustomObject]@{ Form = 'na-other'; Valid = $false; Reason = "unknown n/a disposition: $($matches[1])" }
     }
     if ($BulletLine -cmatch "^\s*-\s+\S.*?:\s*approval_turn:\s*\S.+?\|\s*allowed-case:\s*($allowedCasePattern)\s*\|\s*justification:\s*\S") {

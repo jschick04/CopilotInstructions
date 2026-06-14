@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+# commit-msg hook: enforce the repo's commit-message format at COMMIT time (fail-fast), not only in CI / at push.
+# $1 is the path to the in-progress commit message. Bypassable via `git commit --no-verify`; CI + the pre-push
+# mirror remain the backstop. Wired by core.hooksPath=.githooks (setup.ps1 / setup.sh).
+
+if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/check-commit-message.ps1 -MessageFile "$1"; then
+        echo "" >&2
+        echo "ERROR: commit message violates the repo format (single line; no body/footer/trailer incl. Co-authored-by;" >&2
+        echo "       <=72 chars; no Conventional-Commit prefix; no trailing period). Fix it, or bypass at your own risk:" >&2
+        echo "       git commit --no-verify (CI + the pre-push mirror still verify)." >&2
+        exit 1
+    fi
+else
+    echo "WARNING: pwsh not found; skipping the local commit-message gate. CI is the authoritative gate." >&2
+fi

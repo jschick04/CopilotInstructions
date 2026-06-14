@@ -19,7 +19,7 @@ CopilotInstructions/
 │       ├── manifest.yaml                               # discoverability index - generated/derived from playbook frontmatter; consulted AFTER router shortlists; never drives initial detection
 │       ├── pre-implementation.md                       # deepened diagnose + G3 approach-selection + G5 safety-critical-skip + rubber-duck (phase)
 │       ├── post-code-change.md                         # hygiene + LPA + recurring-pattern sweep + §3.1 comment audit gate + multi-model-review (utility) + verify-the-fix + builds/tests (phase)
-│       ├── pre-commit.md                               # diff approval + commit hygiene (phase)
+│       ├── pre-commit.md                               # commit-approval + commit hygiene (phase)
 │       ├── pre-pr-push.md                              # INDEX - runs intake then dispatches to sub-files (phase)
 │       ├── pre-pr-push/                                # heaviest phase playbook split into 4 sub-files
 │       │   ├── per-commit-micro-hygiene.md

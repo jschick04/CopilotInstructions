@@ -1,6 +1,6 @@
 # Copilot Instructions - Core
 
-> **READ FIRST:** Before responding to any code-change request, re-read §0 (Git Safety Gates) AND the "Mandatory Workflow for Code Changes" section below. Do not skip either. §0 gates are NOT substituted by PR-quality-gate ack blocks - both run on every git command. The most common bypass pattern: "tests pass + ack block emitted -> commit/push". If you find yourself there, STOP and re-enter §0 via the PRE-GIT SENTINEL.
+> **READ FIRST:** Before responding to any code-change request, re-read §0 (Git Safety Gates) AND the "Mandatory Workflow for Code Changes" section below. Do not skip either. §0 gates are NOT substituted by PR-quality-gate ack blocks - both run on every git command. Bypass pattern + recovery: §0's PRE-GIT SENTINEL.
 
 This is the always-loaded core. Language-specific guidance (C#/.NET, C++, JS/TS, HTML, CSS) lives in topic files under `.github/instructions/` and loads conditionally based on the files in your working set. See [Topic-specific files](#topic-specific-files) at the bottom for the routing table.
 
@@ -16,42 +16,38 @@ If a baseline default seems sensible, the agent may PROPOSE adding it to this re
 
 ## 0. Git Safety Gates - MANDATORY (even with --allow-all)
 
-These gates are NON-NEGOTIABLE. You MUST use `ask_user` for explicit human confirmation before executing these commands.
+These gates are NON-NEGOTIABLE: use `ask_user` for explicit human confirmation before these commands.
 
 ### §0 vs PR-quality-gate ack - DISTINCT gates, both required
 
 | Gate family | What it checks | Where it lives |
 |---|---|---|
 | **PR-quality-gate ack** (`core_rules_acknowledged`) | per-rule disposition vs staged diff | `panel-policy.md` §Per-rule acknowledgement |
-| **§0 user-approval gates** (this section) | human sign-off on stage / commit / push | THIS file |
+| **§0 user-approval gates** (this section) | staging = user review scope; sign-off on commit / push | THIS file |
 
-Both run on every git operation. Bypass pattern: "tests passed + ack done -> ready to commit" IS the known failure mode (slugs in `panel-misses.csv`). STOP and emit PRE-GIT SENTINEL.
+Both run on every git op. Bypass pattern "tests passed + ack done -> ready to commit" is the known failure mode (`panel-misses.csv`); STOP and emit PRE-GIT SENTINEL.
 
 ### PRE-GIT SENTINEL - phase-transition checkpoint
 
-At the implementation -> git boundary, the FIRST tool call MUST be `ask_user` for diff approval - NOT `git add`. Emit this sentinel BEFORE the first `git add` of any implementation cycle (including `--amend`, `cherry-pick`, `rebase`):
+At the implementation -> git boundary, classify with `git status --porcelain` (the allowed first read), then emit this sentinel BEFORE any agent commit / artifact-staging (including `--amend`, `cherry-pick`, `rebase`):
 
 ```
 PRE-GIT SENTINEL
-phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | diff_shown_to_user_turn=<turn> | user_diff_approval=pending | pre_commit_gate_block_emitted=pending | next_action=ask_user for diff approval
+phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | staged_set_turn=<turn> | user_diff_approval=<staged-set:tN|approved-via-pause:tN|pending> | pre_commit_gate_block_emitted=pending | next_action=classify staged set + commit-approval
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
 - Post-compact resumed sessions: this sentinel MUST fire again (no inherited approval).
 - Panel `READY` does NOT clear this sentinel. Emitting it does NOT satisfy `ask_user`.
 
-### git add
+### git add - the USER stages (review signal)
 
-Before ANY `git add`:
-1. List every file path to be staged.
-2. `ask_user` with file list.
-3. Execute only after user accepts.
-4. Never `git add .` / `-A` / `--all` - always specific paths.
+Prose rule (no pre-add hook): the user stages reviewed files; the agent NEVER auto-stages code (`git add .`/`-A` forbidden), staging ONLY its gate artifacts. Unstaged -> `ask_user`: review-now | stage-for-me | skip-file | abort. Protocol: `pre-commit.md`.
 
 ### git commit
 
 Before ANY `git commit`:
-1. Present the full proposed commit message.
+1. Present the message + the staged file set (flag unexpected paths).
 2. `ask_user` to approve / edit / reject.
 3. Execute only after the user explicitly approves the final message.
 4. If the user edits it, use their version exactly.
@@ -164,7 +160,7 @@ Hard gates:
 - §3.1 comment audit evidence-gate output.
 - Diagnosis-verifying re-run passes.
 - Affected builds + tests pass.
-- **Post-code-change ledger emitted before `git add`.** Without it in current turn, `git add` is forbidden (§2B in `review-workflow-gates-sweeps.md`). Ledger enumerates every gate with status `ran` | `N/A: <reason>` | `user-waived: "<quote>"`.
+- **Post-code-change ledger emitted before commit.** Without it in current turn, the commit is forbidden (§2B in `review-workflow-gates-sweeps.md`). Ledger enumerates every gate with status `ran` | `N/A: <reason>` | `user-waived: "<quote>"`.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`.
 
@@ -172,15 +168,14 @@ Hard gates:
 
 Hard gates:
 
-- **Diff shown + approved.** Applies to ALL commit-producing operations (fresh, `--amend`, fixup, cherry-pick, rebase). No "trivial amend" exemption.
-- **Ledger emitted before `git add`.** Fresh each commit; previous-turn waivers do not carry forward (§2B in `review-workflow-gates-sweeps.md`).
-- **HARD STOP before `git add`.** `ask_user` approval MUST precede `git add`. No batching without prior approval.
-- **Panel READY != diff-approval.** Both independent; both must pass on project repos.
+- **Staged set approved.** User stages = review; commit-approval shows it. ALL commit ops (incl. `--amend`/cherry-pick/rebase); no "trivial amend" exemption.
+- **Ledger emitted before commit.** Fresh each commit; previous-turn waivers do not carry forward (§2B in `review-workflow-gates-sweeps.md`).
+- **Agent never auto-stages code.** Stages only artifacts; code only via `stage-for-me`, else pauses (`pre-commit.md` step 2).
+- **Panel READY != user-review.** Both independent; both must pass on project repos.
 - **Author identity verified per §4.1.** Preserved author also checked on amend/replay.
 - **Commit ownership confirmed** with `the agent`/`you (the user)` labels.
 - **Message approved** via separate `ask_user` before `git commit` runs.
 - Single-line; no Conventional-Commit prefix; no `Co-authored-by`; no body/footer.
-- Stage only specific files (never `git add .`).
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-commit.md`.
 
