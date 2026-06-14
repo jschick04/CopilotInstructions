@@ -1,0 +1,19 @@
+#!/usr/bin/env sh
+# Pre-push hook: run the local-CI mirror (scripts/run-local-ci.ps1) so checks that would
+# fail in CI are caught BEFORE the push round, not after it costs a round-trip.
+# Bypassable via `git push --no-verify`; the GitHub workflows are the authoritative backstop.
+#
+# Wired by core.hooksPath=.githooks (setup.ps1 / setup.sh). See pre-pr-push.md for rationale.
+
+set -e
+
+if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/run-local-ci.ps1; then
+        echo "" >&2
+        echo "ERROR: the local-CI mirror (scripts/run-local-ci.ps1) reported a failing check." >&2
+        echo "       Fix it before pushing, or bypass at your own risk: git push --no-verify (CI still verifies)." >&2
+        exit 1
+    fi
+else
+    echo "WARNING: pwsh not found; skipping the local-CI mirror. CI is the authoritative gate." >&2
+fi

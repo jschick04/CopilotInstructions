@@ -19,6 +19,10 @@ Fires when the user is preparing to push for code review - opening a PR, request
 - **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim - structured chat block enumerating the 11-field state predicate + sandbox-confirmation informational field (12 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
 - No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit plus branch-wide vertical-slice (VSA) audit (each when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
+## Loop-tightener: run the local-CI mirror before pushing
+
+Run `pwsh -File scripts/run-local-ci.ps1` before a review push to execute every `.github/workflows/` check locally, so a CI-only failure (a generated file not regenerated, a markdown size-cap breach, a malformed commit message) is caught now instead of costing a CI round. The `.githooks/pre-push` hook runs it automatically (bypassable via `git push --no-verify`). This is convenience/loop-speed ONLY - CI is the authoritative gate; never treat a self-attested "I ran the mirror" as the gate. The mirror's own completeness is enforced mechanically by the `local-ci-coverage` CI job (`run-local-ci.ps1 -CoverageOnly`): every workflow check must be a mirrored `scripts/` invocation, so a new check cannot silently escape the mirror.
+
 ## Pre-check 0: Verify push credentials (always - runs BEFORE the sandbox pre-check)
 
 `AGENTS.md` §4.2 applies to EVERY agent-run push - including sandbox / backup pushes that would otherwise exit at the next pre-check, AND ref-publishing commands that implicitly push (`gh pr create` against an un-pushed branch, etc.). This step runs FIRST so even sandbox-exit records carry a real `pushCredentialsVerified` value (no `n/a-sandbox-exit` sentinel for this field).

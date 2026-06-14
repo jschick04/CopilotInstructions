@@ -1,3 +1,5 @@
+<!-- GENERATED from pattern-catalog.sources/ - edit the source, then run scripts/generate-pattern-catalog.ps1 -->
+
 # PR Quality Gate — Pattern Catalog
 
 Empirical catalog of patterns the GitHub Copilot PR reviewer flags across consuming projects. Each entry is a single markdown table row + JSON `params` per the schema in `README.md` §"Catalog grammar".
