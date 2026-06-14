@@ -4,7 +4,7 @@ description: >-
   Use when user wants to replicate GitHub issues into Azure DevOps work items using the
   OS process template (Scenario → Deliverable / Bug / Task hierarchy). Reads open issues
   from a GitHub repo, maps them to ADO work item types, applies OS-template field
-  conventions, and creates via REST API — all parented to a user-specified Scenario.
+  conventions, and creates via REST API - all parented to a user-specified Scenario.
   Includes idempotency checks, parent-field inheritance, time estimation, and
   dry-run-first workflow.
 triggers:
@@ -27,13 +27,13 @@ project, parented to a user-specified Scenario. Each GitHub issue becomes a **De
 (enhancement) or **Bug** (defect) with the OS-template field conventions, HTML-formatted
 descriptions, time estimates, and a parent link.
 
-This is a **batch execution playbook** — it reads, transforms, creates, and verifies.
+This is a **batch execution playbook** - it reads, transforms, creates, and verifies.
 For interactive single-item drafting, use `ado-task-planning.md` instead.
 
 ## Hard gates
 
 - Parent Scenario ID provided and validated (exists, correct type, fields readable).
-- Idempotency check before every create — no duplicate ADO items for the same GitHub issue.
+- Idempotency check before every create - no duplicate ADO items for the same GitHub issue.
 - Dry-run presented and approved before any API writes.
 - Every created item has all required fields set (no partial items).
 - Time estimates set on every created item.
@@ -45,17 +45,17 @@ For interactive single-item drafting, use `ado-task-planning.md` instead.
 
 Bundle in one `ask_user` prompt:
 
-1. **GitHub repo** — `owner/repo`.
-2. **Issue filter** — open only (default), or include closed? Label filter?
-3. **Parent Scenario ID** — ADO work item ID to parent all new items under.
-4. **Assignee** — who to assign the new items to (default: inherit from parent Scenario).
-5. **Time estimates** — should the agent propose estimates, or does the user want to set them?
+1. **GitHub repo** - `owner/repo`.
+2. **Issue filter** - open only (default), or include closed? Label filter?
+3. **Parent Scenario ID** - ADO work item ID to parent all new items under.
+4. **Assignee** - who to assign the new items to (default: inherit from parent Scenario).
+5. **Time estimates** - should the agent propose estimates, or does the user want to set them?
 
 ---
 
 ## Procedure
 
-### Step 0 — Authenticate
+### Step 0 - Authenticate
 
 Acquire an ADO bearer token:
 
@@ -65,10 +65,10 @@ $token = az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca697
 
 If `az account get-access-token` fails, run `az login` first (interactive browser flow).
 
-### Step 1 — Fetch and validate parent Scenario
+### Step 1 - Fetch and validate parent Scenario
 
 **Read the parent Scenario and extract inheritable fields.** ADO does NOT auto-inherit
-fields from parent to child — the agent must explicitly read and copy them.
+fields from parent to child - the agent must explicitly read and copy them.
 
 ```
 GET {org}/{project}/_apis/wit/workitems/{parentId}?api-version=7.1
@@ -88,13 +88,13 @@ Extract and store these fields from the parent (the **inheritance table**):
 
 **Abort if** the parent is not of type `Scenario`, or any required field is empty.
 
-### Step 2 — Fetch GitHub issues
+### Step 2 - Fetch GitHub issues
 
 ```powershell
 gh issue list --repo {owner/repo} --state open --json number,title,body,labels --limit 100
 ```
 
-### Step 3 — Map GitHub labels → ADO work item types
+### Step 3 - Map GitHub labels → ADO work item types
 
 | Condition                     | ADO Type     |
 |-------------------------------|-------------|
@@ -105,7 +105,7 @@ gh issue list --repo {owner/repo} --state open --json number,title,body,labels -
 
 Preserve unmapped labels as ADO tags (appended to the parent's tag set).
 
-### Step 4 — Idempotency check
+### Step 4 - Idempotency check
 
 Before creating, search ADO for existing items that match each GitHub issue.
 Use a WIQL query scoped to the parent's area path:
@@ -118,7 +118,7 @@ WHERE [System.AreaPath] UNDER '{areaPath}'
 
 If a match exists, **skip** that issue and report it. Do not create duplicates.
 
-### Step 5 — Dry run (mandatory)
+### Step 5 - Dry run (mandatory)
 
 Present a table to the user showing what will be created:
 
@@ -127,13 +127,13 @@ Present a table to the user showing what will be created:
 |----------|-------------|--------------------------------|------------|---------|
 | #540     | Deliverable | Re-evaluate Blazor Component…  | 3          | CREATE  |
 | #526     | Bug         | Banner: chevron nav not work…  | 1          | CREATE  |
-| #539     | Deliverable | (already exists as ADO #12345) | —          | SKIP    |
+| #539     | Deliverable | (already exists as ADO #12345) | -          | SKIP    |
 ```
 
 Wait for explicit user approval before proceeding. The user may adjust estimates,
 change types, or exclude specific issues.
 
-### Step 6 — Create work items
+### Step 6 - Create work items
 
 Process one issue at a time. Record each created ADO ID. On failure, stop and report
 the created/skipped/failed breakdown.
@@ -164,17 +164,17 @@ field set per work item type.
 
 `System.LinkTypes.Hierarchy-Reverse` means "this item's parent is {parentId}."
 
-### Step 7 — Verify
+### Step 7 - Verify
 
 After all creates, query the parent's children to confirm the count and titles match.
 
-### Step 8 — Report
+### Step 8 - Report
 
 Show a final summary table with ADO IDs, links, and any issues that were skipped or failed.
 
 ---
 
-## Field conventions — OS process template
+## Field conventions - OS process template
 
 ### Common fields (all work item types)
 
@@ -203,13 +203,13 @@ Show a final summary table with ADO IDs, links, and any issues that were skipped
 |--------------------------------|-----------------|----------|
 | Learning deliverable           | 0.5d            | Training, skill adoption, tool setup |
 | SFI / compliance bug           | 0.5d            | Storage, networking, security config |
-| SFI / compliance task          | 1–2d            | CodeQL, SDL assessment, Liquid onboarding |
+| SFI / compliance task          | 1-2d            | CodeQL, SDL assessment, Liquid onboarding |
 | Small code bug fix             | 0.5d            | Single-file logic fix, wiring existing branch |
 | Medium code bug fix            | 1d              | Multi-file fix, two related issues in one component |
 | Evaluation / research          | 2d              | Architecture evaluation, benchmark + decision doc |
 | Prototype + documentation      | 3d              | Research + prototype + pattern documentation |
 
-If no estimate is available, do NOT create the item — ask the user first.
+If no estimate is available, do NOT create the item - ask the user first.
 
 ### Deliverable-specific fields
 
@@ -239,16 +239,16 @@ If no estimate is available, do NOT create the item — ask the user first.
 | `Custom.BulletinClassEvaluation`         | `Evaluation Needed`|
 | Content field                            | `Microsoft.VSTS.TCM.ReproSteps` (HTML) |
 
-**Bugs use `Microsoft.VSTS.TCM.ReproSteps`** — NOT `System.Description`.
+**Bugs use `Microsoft.VSTS.TCM.ReproSteps`** - NOT `System.Description`.
 
 ### Fields NOT set (auto-populated)
 
-- `OSG.Order` — auto-assigned
-- `OSG.Partner.AssignedBack` — auto-populated from AssignedTo
-- `OSG.CreatedOnBehalfOf` — auto-populated
-- `OSG.OriginalID` — auto-populated
-- `WEF_*` Kanban columns — auto-populated from board state
-- `OSG.Justification` — template text auto-populated on bugs
+- `OSG.Order` - auto-assigned
+- `OSG.Partner.AssignedBack` - auto-populated from AssignedTo
+- `OSG.CreatedOnBehalfOf` - auto-populated
+- `OSG.OriginalID` - auto-populated
+- `WEF_*` Kanban columns - auto-populated from board state
+- `OSG.Justification` - template text auto-populated on bugs
 
 ---
 
@@ -343,7 +343,7 @@ The `Microsoft.VSTS.TCM.ReproSteps` field uses HTML with this section structure:
 
 - **Dry run first, always.** Never batch-create without showing the plan and getting approval.
 - **One source of truth per fact.** The parent Scenario is the authority for area, iteration,
-  release, product, and product family. Read and copy — never hardcode these values.
+  release, product, and product family. Read and copy - never hardcode these values.
 - **Estimates are in days, not hours.** The OS process template uses days for
   `OriginalEstimate`, `RemainingDays`, and `RemainingDevDays`. An estimate of `0.5` means
   half a day, not half an hour.

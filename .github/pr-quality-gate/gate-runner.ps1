@@ -233,7 +233,7 @@ foreach ($e in $entries) {
 # ===== Emit QUALITY GATE block =====
 $ts = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 $diffLine = "$BaseSha..$HeadSha ($fileCount files)"
-$gateStatus = if ($findings | Where-Object { ($_.hits -is [int]) -and $_.hits -gt 0 }) { 'BLOCKED — findings present' } else { 'READY' }
+$gateStatus = if ($findings | Where-Object { ($_.hits -is [int]) -and $_.hits -gt 0 }) { 'BLOCKED - findings present' } else { 'READY' }
 
 # ===== Build HIGH-tier required-ack slug list (filtered by Mode) =====
 $tierForMode = switch ($Mode) {

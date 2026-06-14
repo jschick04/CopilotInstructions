@@ -32,7 +32,7 @@ Bundle these in one prompt unless answers cascade:
 3. What's the repo name? (becomes the parent folder name)
 4. Origin URL for the bare clone (only needed for restructure / first setup).
 5. Which branch / ref does the new worktree check out?
-6. **Restructure only:** has the existing checkout been verified clean (no uncommitted changes, no stashes, no local-only branches not pushed, no in-progress rebase/merge/cherry-pick)? If you don't know — STOP and check before proceeding. Custom hooks or non-standard config? Surface those before destroying the old `.git`.
+6. **Restructure only:** has the existing checkout been verified clean (no uncommitted changes, no stashes, no local-only branches not pushed, no in-progress rebase/merge/cherry-pick)? If you don't know - STOP and check before proceeding. Custom hooks or non-standard config? Surface those before destroying the old `.git`.
 
 ## Procedure
 
@@ -40,11 +40,11 @@ Bundle these in one prompt unless answers cascade:
 
 For a repo named `RepoName` under a `<projects-root>`:
 
-- `<projects-root>\RepoName\.git\` — the **bare** repo (despite the `.git` name; `core.bare = true`). Single source of truth for all refs; all worktrees share its object database.
-- `<projects-root>\RepoName\main\` — worktree of the default branch.
-- `<projects-root>\RepoName\<branch-leaf>\` — one folder per additional worktree, named for the **leaf segment** of the branch (the part after the last `/`, e.g. `feature-x` for branch `user/feature-x`).
+- `<projects-root>\RepoName\.git\` - the **bare** repo (despite the `.git` name; `core.bare = true`). Single source of truth for all refs; all worktrees share its object database.
+- `<projects-root>\RepoName\main\` - worktree of the default branch.
+- `<projects-root>\RepoName\<branch-leaf>\` - one folder per additional worktree, named for the **leaf segment** of the branch (the part after the last `/`, e.g. `feature-x` for branch `user/feature-x`).
 
-The `<projects-root>\RepoName\` directory contains exactly: the hidden `.git` bare repo plus one subfolder per worktree — no loose files, no nested checkouts.
+The `<projects-root>\RepoName\` directory contains exactly: the hidden `.git` bare repo plus one subfolder per worktree - no loose files, no nested checkouts.
 
 ### Why hidden `.git` instead of a sibling `RepoName.git\`
 
@@ -64,7 +64,7 @@ git -C <projects-root>\RepoName\<branch-leaf> status
 
 1. Verify the existing checkout is clean (see intake question 6). If unclean, ASK before proceeding.
 2. Check for custom hooks (`.git/hooks/*` that aren't `*.sample`) and non-standard config in `.git/config`. If anything custom is present, surface it to the user and ask whether to migrate it to the new bare repo before destroying the old `.git`.
-3. Clone bare from the **origin URL** (not from the local `.git`) — a fresh clone produces correct refspecs and remote tracking out of the box. Clone to a temporary sibling location first (e.g. `<projects-root>\RepoName.git`); you'll move it into the final `.git` location after the parent folder exists.
+3. Clone bare from the **origin URL** (not from the local `.git`) - a fresh clone produces correct refspecs and remote tracking out of the box. Clone to a temporary sibling location first (e.g. `<projects-root>\RepoName.git`); you'll move it into the final `.git` location after the parent folder exists.
 4. After the bare clone, confirm `remote.origin.fetch` is the standard `+refs/heads/*:refs/remotes/origin/*` (set it explicitly if not), then run `git fetch origin` so `refs/remotes/origin/*` exists for `git worktree add`.
 5. Move the existing checkout aside to a `.old` sibling (do NOT delete it yet), create the new `<projects-root>\RepoName\` parent folder, add the worktrees against the temporary bare repo (`git -C <projects-root>\RepoName.git worktree add <projects-root>\RepoName\<branch-leaf> <branch-or-ref>`), then verify each worktree.
 6. Move the temporary bare repo into its final location: `Move-Item <projects-root>\RepoName.git <projects-root>\RepoName\.git`. The worktrees' `.git` files now contain stale gitdir paths.
@@ -83,7 +83,7 @@ If the existing repo has local-only branches, custom hooks, uncommitted work, in
 
 ## Per-worktree shell sessions
 
-When starting work in a worktree, `cd` into the worktree subfolder before running git commands. The bare repo at `<projects-root>\RepoName\.git` is for `git worktree add`/`remove`/`repair` operations only — daily work happens inside the worktree subfolder. Note that `<projects-root>\RepoName\` itself is **not** a worktree — running `git status` from there will error because the folder's `.git` is a bare repo with no working tree.
+When starting work in a worktree, `cd` into the worktree subfolder before running git commands. The bare repo at `<projects-root>\RepoName\.git` is for `git worktree add`/`remove`/`repair` operations only - daily work happens inside the worktree subfolder. Note that `<projects-root>\RepoName\` itself is **not** a worktree - running `git status` from there will error because the folder's `.git` is a bare repo with no working tree.
 
 ## Stacked worktrees for stacked PRs
 
@@ -91,7 +91,7 @@ When the current branch is review-blocked but follow-up work is ready to start, 
 
 **Rule**: do NOT add new-PR commits to the in-review branch. New work goes on a stacked branch in a stacked worktree.
 
-**Branch name template**: `<owner>/<descriptive-name>` (kebab-case for the descriptive segment). The `<owner>` placeholder is intentionally generic — substitute your username, team handle, or whatever owner convention your repo uses. Examples (illustrative only, NOT a hardcoded prefix):
+**Branch name template**: `<owner>/<descriptive-name>` (kebab-case for the descriptive segment). The `<owner>` placeholder is intentionally generic - substitute your username, team handle, or whatever owner convention your repo uses. Examples (illustrative only, NOT a hardcoded prefix):
 
 - `<owner>/test-hardening`
 - `<owner>/ui-restructure`
@@ -106,6 +106,6 @@ When the current branch is review-blocked but follow-up work is ready to start, 
 
 **Why this matters**: adding new-PR commits to an in-review branch (a) muddies the review (reviewers see both the original change and the follow-up in the same diff), (b) blocks the in-review branch from landing cleanly, and (c) makes amend-safety reasoning harder because the branch now has commits beyond what was reviewed.
 
-## Caveat — tools that auto-detect `.git`
+## Caveat - tools that auto-detect `.git`
 
 Some tooling (file watchers, search indexers, some IDE git integrations) walks up to find `.git` and assumes a non-bare repo. With this layout, `<projects-root>\RepoName` has a `.git` directory but no working tree. If a tool misbehaves when opened against the parent folder (rather than against a specific worktree), open it against the worktree subfolder instead.

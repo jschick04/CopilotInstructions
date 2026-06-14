@@ -74,7 +74,7 @@ CopilotInstructions/
 │           ├── design-change-request.md
 │           └── dev-design-spec.md
 ├── pr-quality-gate/                                    # catalog + ack-gate + drift safeguard (rule enforcement during code review)
-│   ├── pattern-catalog.md                              # canonical rule catalog (122 data rows; 47 HIGH-tier slugs requiring per-commit ack)
+│   ├── pattern-catalog.md                              # canonical rule catalog (132 data rows; 47 HIGH-tier slugs requiring per-commit ack)
 │   ├── HIGH-TIER-SLUGS.md                              # GENERATED - derived from pattern-catalog.md; ack-required slug list
 │   ├── panel-policy.md                                 # convergence model + per-rule ack schema + catalog-edit invariant
 │   ├── gate-runner.ps1 / .sh                           # rg battery runner (cross-platform; pwsh + bash twins, parity-checked)
@@ -140,7 +140,7 @@ Select or switch with the setup script (below): `.\setup.ps1 -Profile lite` (Win
 
 Beyond the playbooks (which are procedural), this repo provides a **rule enforcement gate** that runs during code review. The gate has four layers (defense in depth):
 
-1. **Catalog of rules** - `.github/pr-quality-gate/pattern-catalog.md` lists **122 patterns** (HIGH/MEDIUM/LOW tier; **47 HIGH-tier slugs require per-commit acknowledgement** in the `core_rules_acknowledged` block per `panel-policy.md` §Per-rule acknowledgement; cycles 1-4 raised HIGH slugs 24→47) the multi-model panel checks against every commit's diff. Rules are either **rg-detectable** (deterministic regex) or **review-pass-only** (panel reviewer reads the diff against an audit-method clause).
+1. **Catalog of rules** - `.github/pr-quality-gate/pattern-catalog.md` lists **132 patterns** (HIGH/MEDIUM/LOW tier; **47 HIGH-tier slugs require per-commit acknowledgement** in the `core_rules_acknowledged` block per `panel-policy.md` §Per-rule acknowledgement; cycles 1-4 raised HIGH slugs 24→47) the multi-model panel checks against every commit's diff. Rules are either **rg-detectable** (deterministic regex) or **review-pass-only** (panel reviewer reads the diff against an audit-method clause).
 2. **Per-rule acknowledgement** - for every HIGH-tier `review-pass-only` slug, every commit MUST emit a `core_rules_acknowledged` block enumerating each slug with per-site disposition (`applied` / `not-applicable` + rationale). The generated `HIGH-TIER-SLUGS.md` is the authoritative ack-required list; the panel and pre-commit gate cross-reference it.
 3. **Process-rule gates** - some catalog rules check process artifacts rather than code: e.g., `least-privilege-audit-required-on-visibility-delta` and `intent-driven-testing-required-on-test-or-SUT-delta` verify the POST-CODE-CHANGE LEDGER block has the matching playbook-evidence field. This is how the LPA and ITD playbooks fire automatically (not just on user strong-trigger).
 4. **Drift safeguard** - git pre-commit hook + CI workflow + gate-runner `-Verify` integration prevent `HIGH-TIER-SLUGS.md` from going stale relative to `pattern-catalog.md`. Mechanism uses `git hash-object` (canonical normalized blob SHA-1; cross-platform stable, immune to CRLF/LF drift).

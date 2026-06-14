@@ -1,9 +1,9 @@
 name: smart-punctuation-check
 
 # Enforce the AGENTS.md 3.14 ban on em-dash (U+2014) / en-dash (U+2013) in repo text.
-# A shrinking allowlist (.github/pr-quality-gate/data/smart-punctuation-allowlist.txt) holds the
-# not-yet-purged backlog; a separate PR purges those + de-lists them. No paths filter: a banned
-# character can appear in any tracked text file.
+# An exception allowlist (.github/pr-quality-gate/data/smart-punctuation-allowlist.txt) lists any files
+# permitted to retain a banned char; it is normally empty (the ban is enforced repo-wide). No paths
+# filter: a banned character can appear in any tracked text file.
 
 on:
   push:

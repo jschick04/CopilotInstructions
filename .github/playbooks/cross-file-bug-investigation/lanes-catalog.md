@@ -1,4 +1,4 @@
-# Cross-file bug investigation — Lane catalog
+# Cross-file bug investigation - Lane catalog
 
 Lane definitions for `cross-file-bug-investigation.md`. Each lane defines a specialized review focus that a panel reviewer can be assigned (round-robin lane-to-slot mapping; doubled-up per-slot when `lanes_selected > reviewers`).
 
@@ -22,18 +22,18 @@ Each lane entry follows this exact section structure:
 - **Primary focus**:
   - Argument threading across N call layers (parameter shadowing per §3.6)
   - State predicates spanning multiple types (§3.7)
-  - Sibling-producer parity (§3.10 — multiple producers emit the same record/DTO type)
+  - Sibling-producer parity (§3.10 - multiple producers emit the same record/DTO type)
   - Shared-property defaults (settable property with invalid sentinel default + downstream branch)
   - Cross-orchestrator missing-loop-CT-checks
 - **May overlap with**:
-  - `contracts-and-state` — for state predicate COMPLETENESS checks (defer to contracts)
-  - `recurring-smells-and-hygiene` — for §3.10-catalog smell pattern matching when broader than data flow
+  - `contracts-and-state` - for state predicate COMPLETENESS checks (defer to contracts)
+  - `recurring-smells-and-hygiene` - for §3.10-catalog smell pattern matching when broader than data flow
 - **Triggering symptoms** (auto-select): `behavior-bug`, `crash`, `race-or-deadlock`, `memory-or-leak`, `security-or-trust`, `unclear-behavior`. **Default-on for ALL investigations** (namesake of the playbook).
 - **Reviewer prompt clause**:
 
   > You are hunting cross-file data-flow bugs. Look for: arguments that change meaning across call layers (a parameter named `x` at the top means one thing, the same name at the bottom means another); state predicates that span multiple types where a contributing field is missing; settable properties on shared record/DTO types where one producer stamps the field and another doesn't (invalid sentinel defaults); orchestrator-layer loops that forget to check the loop CT inside the body; data-flow paths where a value is computed correctly but propagated incorrectly (off-by-one in indexing, wrong dictionary key derivation, etc.). For every claim, cite each implicated file independently (e.g., a finding about field-X-missing-in-producer-2 needs citations to producer-1 setting it AND producer-2 not setting it AND the consumer branching on it). Severity blocking when the bug causes wrong output or wrong control flow; major when it can cause wrong output under specific runtime conditions; minor when it's a hygiene problem with no observable runtime impact.
 
-- **Cross-references**: AGENTS §3.6 (Defaults and Consistency — parameter consistency), §3.7 (state predicates), §3.10 (sibling-producer parity, status-enum collapse), `multi-model-review.md` (target-type `bug-investigation`).
+- **Cross-references**: AGENTS §3.6 (Defaults and Consistency - parameter consistency), §3.7 (state predicates), §3.10 (sibling-producer parity, status-enum collapse), `multi-model-review.md` (target-type `bug-investigation`).
 
 ### Concurrency and races
 
@@ -46,8 +46,8 @@ Each lane entry follows this exact section structure:
   - Idempotency guards on shared state (§3.8)
   - Double-dispatch / double-handler issues
 - **May overlap with**:
-  - `lifecycle-and-resources` — for idempotency-first ref handoff during disposal (defer to lifecycle)
-  - `cross-file-data-flow` — for missing-loop-CT-checks at orchestrator layer (defer to cross-file-data-flow for orchestrator; keep for awaiter layer)
+  - `lifecycle-and-resources` - for idempotency-first ref handoff during disposal (defer to lifecycle)
+  - `cross-file-data-flow` - for missing-loop-CT-checks at orchestrator layer (defer to cross-file-data-flow for orchestrator; keep for awaiter layer)
 - **Triggering symptoms** (auto-select): `crash`, `race-or-deadlock`.
 - **Reviewer prompt clause**:
 
@@ -62,10 +62,10 @@ Each lane entry follows this exact section structure:
   - Swallowed exceptions (catch without rethrow / log / surface)
   - Fallback gaps (try-fallback-path with no terminal handler when fallback also fails)
   - Error-state-on-success (success path doesn't clear prior error fields per §3.8)
-  - Log-vs-behavior mismatch (§3.10 — log says "Falling back" but guard suppresses fallback)
-  - Exception-message hygiene (§3.10 — empty message after parameter removal)
+  - Log-vs-behavior mismatch (§3.10 - log says "Falling back" but guard suppresses fallback)
+  - Exception-message hygiene (§3.10 - empty message after parameter removal)
 - **May overlap with**:
-  - `lifecycle-and-resources` — for disposal-in-catch patterns (defer to lifecycle)
+  - `lifecycle-and-resources` - for disposal-in-catch patterns (defer to lifecycle)
 - **Triggering symptoms** (auto-select): `crash`, `behavior-bug`.
 - **Reviewer prompt clause**:
 
@@ -79,12 +79,12 @@ Each lane entry follows this exact section structure:
 - **Primary focus**:
   - Disposal ordering (IDisposable / IAsyncDisposable / using / finally)
   - Registration ordering (interop registration before native call; subscription before publish)
-  - Idempotency-first ref handoff (§3.8 — assign long-lived ref BEFORE early-return guard)
-  - AbortController pairing (JS/TS — every fetch has a controller; controller.abort() on cleanup)
+  - Idempotency-first ref handoff (§3.8 - assign long-lived ref BEFORE early-return guard)
+  - AbortController pairing (JS/TS - every fetch has a controller; controller.abort() on cleanup)
   - DotNetObjectReference disposal (Blazor JS interop)
   - Native handle release (Win32 / P/Invoke / unmanaged resources)
 - **May overlap with**:
-  - `concurrency-and-races` — for idempotency guards on shared state (defer to concurrency)
+  - `concurrency-and-races` - for idempotency guards on shared state (defer to concurrency)
 - **Triggering symptoms** (auto-select): `crash`, `memory-or-leak`.
 - **Reviewer prompt clause**:
 
@@ -97,12 +97,12 @@ Each lane entry follows this exact section structure:
 - **Slug**: `contracts-and-state`
 - **Primary focus**:
   - Interface vs impl disagreement (impl behavior differs from interface contract / xmldoc)
-  - Status-enum collapse (§3.10 — one enum value used for multiple semantic outcomes)
-  - State predicate completeness (§3.7 — every member enumerated in the predicate)
-  - Match-equality uniqueness (§3.7 — could two domain-distinct objects compare equal?)
-  - Parameter consistency across interface chain (§3.6 — same name, same meaning, all layers)
+  - Status-enum collapse (§3.10 - one enum value used for multiple semantic outcomes)
+  - State predicate completeness (§3.7 - every member enumerated in the predicate)
+  - Match-equality uniqueness (§3.7 - could two domain-distinct objects compare equal?)
+  - Parameter consistency across interface chain (§3.6 - same name, same meaning, all layers)
 - **May overlap with**:
-  - `cross-file-data-flow` — for state predicate FIELD-coverage (defer to cross-file-data-flow for which fields; keep for completeness)
+  - `cross-file-data-flow` - for state predicate FIELD-coverage (defer to cross-file-data-flow for which fields; keep for completeness)
 - **Triggering symptoms** (auto-select): `behavior-bug`, `unclear-behavior`.
 - **Reviewer prompt clause**:
 
@@ -117,11 +117,11 @@ Each lane entry follows this exact section structure:
   - Authentication / authorization gaps (token check missing on a path)
   - Input validation (untrusted input flowing to a sensitive sink without check)
   - Native interop return-value validation (P/Invoke / LoadLibrary returning NULL not checked)
-  - LoadLibraryEx DLL planting (csharp — load order / rooted path / search-path manipulation)
+  - LoadLibraryEx DLL planting (csharp - load order / rooted path / search-path manipulation)
   - Unsafe deserialization (BinaryFormatter / typename-driven deserializers)
   - Cross-references LPA for visibility-axis concerns (does NOT duplicate the 6 LPA axes)
 - **May overlap with**:
-  - `least-privilege-audit.md` — full 6-axis visibility/mutability sweep (refer user out)
+  - `least-privilege-audit.md` - full 6-axis visibility/mutability sweep (refer user out)
 - **Triggering symptoms** (auto-select): `security-or-trust`.
 - **Reviewer prompt clause**:
 
@@ -144,13 +144,13 @@ Each lane entry follows this exact section structure:
   - Queue idempotency keys (message replay handling)
   - Schema migration safety on durable artifacts
 - **May overlap with**:
-  - `concurrency-and-races` — for general TOCTOU outside DB (defer to concurrency)
+  - `concurrency-and-races` - for general TOCTOU outside DB (defer to concurrency)
 - **Triggering symptoms** (auto-select): `performance-degradation` (when user insists on bug-hunt vs benchmark route).
 - **Reviewer prompt clause**:
 
   > You are hunting DB and persistence bugs. Look for: SaveChanges/Commit calls that fire before all dependent writes complete; transactions opened but not closed on exception paths; isolation levels that allow phantom reads when the code assumes serializable; EF entities passed across DbContext boundaries (detached-then-modified); loops that issue a query per iteration (N+1); optimistic concurrency stamps (rowversion / Etag) that aren't compared on update; IQueryable escaping repository abstractions; durable file formats without version stamps or migration path; blob writes without etag compare-and-swap; queue handlers without idempotency keys. For every claim, cite ALL participating files (entity definition, repository, consumer, schema/migration). Severity blocking when a real data-loss or wrong-data scenario is possible; major when concurrency anomaly is possible under load; minor when only style.
 
-- **Cross-references**: AGENTS §3.7 (state predicates can apply to entity equality), framework-specific (EF / Dapper / NHibernate / etc. — match the repo).
+- **Cross-references**: AGENTS §3.7 (state predicates can apply to entity equality), framework-specific (EF / Dapper / NHibernate / etc. - match the repo).
 
 ### Build and generated
 
@@ -164,7 +164,7 @@ Each lane entry follows this exact section structure:
   - Generated code consumed by ≥2 callsites where the generator's input changed
 - **May overlap with**:
   - `code-review` (sub-agent) for single-file generated-code review (refer user out)
-- **Triggering symptoms** (auto-select): none — explicit user pick only (no symptom auto-selects this lane).
+- **Triggering symptoms** (auto-select): none - explicit user pick only (no symptom auto-selects this lane).
 - **Reviewer prompt clause**:
 
   > You are hunting build-system and generated-code bugs. Look for: msbuild item-groups that exclude/include the wrong files after a refactor; Conditional-PackageReference / ItemGroup conditions that silently misfire on certain build configurations; GitHub Actions YAML where matrix variables expand differently than the author intended; T4 / Roslyn source generators emitting code that compiles but is semantically wrong; OpenAPI clients whose contract has drifted from the server's actual response shape; gRPC / protobuf generated types with field-number reuse or version mismatch; generated code consumed by multiple call sites where the generator's input has changed without all consumers regenerating. For every claim, cite ALL participating files (generator input, generator output, every consumer, CI config if applicable). Severity blocking when build is wrong or runtime is wrong; major when behavior differs across environments; minor when only style. Defer single-file generated-code review to the `code-review` sub-agent.
@@ -180,12 +180,12 @@ Each lane entry follows this exact section structure:
   - Sibling-constant consistency (group of related constants with one outlier)
   - Test specificity (Arg.Any when the test's purpose is verifying what was passed)
   - Dead branches inside loops with redundant termination conditions
-  - Sibling-producer parity (§3.10 — already in cross-file-data-flow; here for broader smell pattern)
-  - Status-enum collapse (§3.10 — already in contracts-and-state; here for broader smell pattern)
+  - Sibling-producer parity (§3.10 - already in cross-file-data-flow; here for broader smell pattern)
+  - Status-enum collapse (§3.10 - already in contracts-and-state; here for broader smell pattern)
 - **May overlap with**:
-  - `cross-file-data-flow` — for sibling-producer parity (defer to cross-file-data-flow)
-  - `contracts-and-state` — for status-enum collapse (defer to contracts-and-state)
-- **Triggering symptoms** (auto-select): none — explicit user pick only (NOT auto-defaulted at ≥3 files; opt-in only).
+  - `cross-file-data-flow` - for sibling-producer parity (defer to cross-file-data-flow)
+  - `contracts-and-state` - for status-enum collapse (defer to contracts-and-state)
+- **Triggering symptoms** (auto-select): none - explicit user pick only (NOT auto-defaulted at ≥3 files; opt-in only).
 - **Reviewer prompt clause**:
 
   > You are hunting recurring code smells from the §3.10 catalog with cross-file scope. Look for: literal values duplicated across files that should be a named constant (drift risk); groups of related constants where one has different formatting/punctuation/casing/units; tests using Arg.Any / It.IsAny when the test's purpose is verifying what was passed; dead branches inside loops where the loop's own condition already excludes the state; method bodies whose doc-summary terminology hasn't been updated after the helper's scope widened; helper methods that hardcode a parameter the caller threads through (asymmetric semantics). For every claim, cite ALL participating files (e.g., a constant-drift finding needs each duplicate site cited). Severity blocking when a real divergence is observable; major when divergence is latent and one-edit-away; minor when only style. Defer per-finding overlap with cross-file-data-flow (sibling-producer parity) and contracts-and-state (status-enum collapse) to those lanes.
@@ -205,12 +205,12 @@ Each lane entry follows this exact section structure:
 | `unclear-behavior` | `cross-file-data-flow` + `contracts-and-state` |
 | `other` | user-driven; default `cross-file-data-flow` only |
 
-`build-and-generated` and `recurring-smells-and-hygiene` are explicit-user-pick only — no symptom auto-selects these two.
+`build-and-generated` and `recurring-smells-and-hygiene` are explicit-user-pick only - no symptom auto-selects these two.
 
 ## Notes for lane authors (when adding a 10th+ lane in future cycles)
 
 1. Pick a slug that doesn't overlap a sibling lane's slug.
-2. Document `May overlap with` BEFORE writing the prompt clause — if the overlap is large enough to confuse reviewers, consolidate instead of adding a new lane.
+2. Document `May overlap with` BEFORE writing the prompt clause - if the overlap is large enough to confuse reviewers, consolidate instead of adding a new lane.
 3. Keep prompt clause ≤ 200 words. Reviewers receive multiple lane clauses (round-robin doubled-up); long clauses dilute focus.
-4. Auto-selecting from a symptom is a strong commitment — `cross-file-data-flow` is the only default-on lane. Add a new auto-selection only if the lane is essential for the symptom (not just useful).
+4. Auto-selecting from a symptom is a strong commitment - `cross-file-data-flow` is the only default-on lane. Add a new auto-selection only if the lane is essential for the symptom (not just useful).
 5. Cross-reference AGENTS sections + sibling playbooks; do NOT inline content from those sources (cite + defer).

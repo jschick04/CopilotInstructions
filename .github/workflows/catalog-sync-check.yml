@@ -16,7 +16,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Note: NOT pull_request_target — fork-safety. The verify job is
+    # Note: NOT pull_request_target - fork-safety. The verify job is
     # cheap + read-only so running on the untrusted PR head is safe.
     branches: [main]
 

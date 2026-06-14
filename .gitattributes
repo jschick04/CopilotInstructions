@@ -3,6 +3,6 @@
 # scripts/sync-critical-rules.sh both compute git hash-object of pattern-catalog.md
 # and embed it into HIGH-TIER-SLUGS.md. Without consistent normalization, a Windows
 # contributor with autocrlf=false would commit a CRLF blob while CI computes the
-# LF blob hash — the pre-commit hook + CI parity check would block loudly.
+# LF blob hash - the pre-commit hook + CI parity check would block loudly.
 # See panel-policy.md §"Catalog-edit + ack-sync invariant" for the full design.
 * text=auto

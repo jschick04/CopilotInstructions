@@ -75,7 +75,7 @@ foreach ($line in $lines) {
     $scope = $cells[1]
     if ($scope -ne 'review-pass-only') { continue }
     $prompt = $cells[3]
-    # Unescape `\|` placeholder back to literal `|` — matches the bash twin's awk \001 round-trip
+    # Unescape `\|` placeholder back to literal `|` - matches the bash twin's awk \001 round-trip
     # so HIGH-TIER-SLUGS.md is byte-identical regardless of which generator wrote it.
     $prompt = $prompt -replace '\\\|', '|'
     $trigger = ($prompt -split '\. ', 2)[0]
@@ -87,7 +87,7 @@ foreach ($line in $lines) {
     }
 }
 
-# Build output with explicit "`n" literals — LF-only on every platform, byte-identical to bash twin.
+# Build output with explicit "`n" literals - LF-only on every platform, byte-identical to bash twin.
 $sb = New-Object System.Text.StringBuilder
 [void]$sb.Append("# HIGH-TIER catalog slugs`n")
 [void]$sb.Append("`n")

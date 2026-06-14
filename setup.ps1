@@ -8,7 +8,7 @@
     the .github/instructions/*.instructions.md files load automatically.
 
     Idempotent: safe to re-run. Will not auto-delete the existing
-    ~/.copilot/copilot-instructions.md monolith — backs it up only.
+    ~/.copilot/copilot-instructions.md monolith - backs it up only.
 
     Hardened:
       * Inspects Process / User / Machine env-var scopes; warns if a
@@ -16,7 +16,7 @@
       * Normalizes paths (full path + trim trailing separators + case-
         insensitive compare on Windows) so equivalent forms don't duplicate.
       * Records the prior env-var value and prints exact restore commands.
-      * Prompt is bounded — invalid input retries up to 5 times, then aborts.
+      * Prompt is bounded - invalid input retries up to 5 times, then aborts.
 
 .NOTES
     Windows-only helper. macOS/Linux users follow README.md manual instructions.
@@ -47,7 +47,7 @@ function Get-NormalizedPath {
     } catch {
         return $Path.Trim()
     }
-    # Preserve roots like C:\ — TrimEnd would collapse to C:
+    # Preserve roots like C:\ - TrimEnd would collapse to C:
     $root = [System.IO.Path]::GetPathRoot($full)
     if ($full -eq $root) { return $full }
     return $full.TrimEnd('\', '/')
@@ -188,7 +188,7 @@ if (Test-PathInList -Entries $entries -Target $repoRoot) {
             Write-Host "Overwrote. New User-scope value: $repoRoot" -ForegroundColor Green
         }
         'S' {
-            Write-Host "Skipped — env var unchanged." -ForegroundColor Yellow
+            Write-Host "Skipped - env var unchanged." -ForegroundColor Yellow
         }
     }
 }
@@ -219,12 +219,12 @@ if (Test-Path $homeFile) {
     Write-Host "Backed up to:" -ForegroundColor Green
     Write-Host "  $backupPath"
     Write-Host ""
-    Write-Host "IMPORTANT — context-cost caveat during validation:" -ForegroundColor Yellow
+    Write-Host "IMPORTANT - context-cost caveat during validation:" -ForegroundColor Yellow
     Write-Host "  The legacy file is STILL IN PLACE. Until you remove it, the Copilot CLI" -ForegroundColor Yellow
     Write-Host "  will load BOTH the legacy monolith AND the new AGENTS.md + topic files," -ForegroundColor Yellow
     Write-Host "  which means:" -ForegroundColor Yellow
     Write-Host "    * No always-loaded-context reduction yet (that's the whole point of the" -ForegroundColor Yellow
-    Write-Host "      split — it only kicks in once the legacy file is gone)." -ForegroundColor Yellow
+    Write-Host "      split - it only kicks in once the legacy file is gone)." -ForegroundColor Yellow
     Write-Host "    * Possibly conflicting / duplicate rules in the same session (the docs" -ForegroundColor Yellow
     Write-Host "      describe conflict resolution as non-deterministic)." -ForegroundColor Yellow
     Write-Host "    * /instructions can show the new files loading correctly while you're" -ForegroundColor Yellow
@@ -298,11 +298,11 @@ Write-Heading "Configuring git hooks path"
 
 $gitDir = Join-Path $repoRoot '.git'
 if (-not (Test-Path $gitDir)) {
-    Write-Host "WARNING: .git directory not found at '$gitDir'. Skipping hooks config — this script is not running inside a git clone." -ForegroundColor Yellow
+    Write-Host "WARNING: .git directory not found at '$gitDir'. Skipping hooks config - this script is not running inside a git clone." -ForegroundColor Yellow
 } else {
     $hooksDir = Join-Path $repoRoot '.githooks'
     if (-not (Test-Path $hooksDir)) {
-        Write-Host "WARNING: .githooks directory not found at '$hooksDir'. Skipping hooks config — the committed hook directory is missing." -ForegroundColor Yellow
+        Write-Host "WARNING: .githooks directory not found at '$hooksDir'. Skipping hooks config - the committed hook directory is missing." -ForegroundColor Yellow
     } else {
         $currentHooksPath = & git -C $repoRoot config --get core.hooksPath 2>$null
         $hooksPathScope = $null
