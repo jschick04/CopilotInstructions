@@ -15,7 +15,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path,
+    [string] $RepoRoot = '',
     [string] $BaseBranch = 'main',
     [switch] $CoverageOnly
 )
@@ -25,6 +25,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     $ErrorActionPreference = 'Stop'
 }
 
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
 $pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 $baseRef = "origin/$BaseBranch"
 
@@ -41,6 +42,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'markdown size budgets';       Script = 'scripts/check-md-size.ps1';                     LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'smart-punctuation ban';       Script = 'scripts/check-no-smart-punctuation.ps1';        LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'smart-punctuation unit tests'; Script = 'scripts/tests/check-no-smart-punctuation.tests.ps1'; LocalArgs = @();                EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'repo-root unit tests';         Script = 'scripts/tests/repo-root.tests.ps1';                    LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'profile invariants';          Script = 'scripts/check-profile-invariants.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'critical-rules sync verify';  Script = 'scripts/sync-critical-rules.ps1';               LocalArgs = @('-Verify');            EnvSkippable = $false }
     [pscustomobject]@{ Name = 'sync pwsh==bash parity';      Script = 'scripts/check-sync-parity.ps1';                 LocalArgs = @();                     EnvSkippable = $true }
@@ -209,6 +211,13 @@ function Test-MirrorCoverage {
 
 # The file can be dot-sourced (e.g. by tests) to load the functions WITHOUT running either mode.
 if ($MyInvocation.InvocationName -eq '.') { return }
+
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/run-local-ci.ps1', '.github/workflows')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $wfDir = Join-Path $RepoRoot '.github/workflows'
 $workflowFiles = @()

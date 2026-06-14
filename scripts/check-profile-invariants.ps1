@@ -7,10 +7,17 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path
+    [string] $RepoRoot = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('profiles/full/profile.instructions.md')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $failures = New-Object System.Collections.Generic.List[string]
 function Add-Failure { param([string] $Message) $failures.Add($Message) }

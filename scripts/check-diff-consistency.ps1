@@ -7,7 +7,7 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path,
+    [string] $RepoRoot = '',
     [ValidateSet('commit', 'pr-sweep', 'range')] [string] $Mode = 'range',
     [string] $BaseRef,
     [string] $HeadRef,
@@ -17,6 +17,13 @@ param(
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-diff-consistency.ps1') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 function Invoke-Git {
     param([string[]] $GitArgs)

@@ -3,12 +3,19 @@
 param(
     [Parameter(Mandatory)] [string] $BaseRef,
     [string] $HeadRef = 'HEAD',
-    [string] $RepoRoot = (Get-Location).Path,
+    [string] $RepoRoot = '',
     [string] $AuditPath = '.github/pr-quality-gate/audits/last.md'
 )
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-comment-audit.ps1') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 $script:ExitOk = 0
 $script:ExitViolation = 1
@@ -24,11 +31,6 @@ if (-not (Test-Path -LiteralPath $modulePath)) {
 }
 Import-Module $modulePath -Force
 
-$gitDir = Join-Path $RepoRoot '.git'
-if (-not (Test-Path -LiteralPath $gitDir)) {
-    Write-Invocation "$RepoRoot is not a git repository"
-    exit $script:ExitInvocation
-}
 
 function Invoke-Git {
     [CmdletBinding()]

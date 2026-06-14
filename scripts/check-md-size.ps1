@@ -7,10 +7,17 @@
 #>
 [CmdletBinding()]
 param(
-    [string] $RepoRoot = (Get-Location).Path
+    [string] $RepoRoot = ''
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('AGENTS.md')
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
 
 # LF-normalized byte count: matches the size an ubuntu CI runner sees after an LF checkout, regardless of local CRLF.
 function Get-LfByteCount {
@@ -94,6 +101,10 @@ if ($failures.Count -gt 0) {
     Write-Host "check-md-size: $($failures.Count) file(s) over budget:" -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  ::error::$_" }
     exit 1
+}
+if ($checked -eq 0) {
+    Write-Host "::error::INVOCATION_FAILED: scanned 0 markdown files under '$RepoRoot' (wrong root? anti-vacuous floor)"
+    exit 2
 }
 Write-Host "check-md-size: PASS - $checked markdown file(s) within budget." -ForegroundColor Green
 exit 0
