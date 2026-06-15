@@ -34,6 +34,8 @@ $mirror = @(
     [pscustomobject]@{ Name = 'comment-audit ledger';        Script = 'scripts/check-comment-audit-ci.ps1';           LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'playbook path refs';          Script = 'scripts/check-playbook-refs.ps1';               LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'comment-audit unit tests';    Script = 'scripts/tests/check-comment-audit.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'post-code-change ledger';  Script = 'scripts/check-post-code-change-ci.ps1';        LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'panel-ledger unit tests';   Script = 'scripts/tests/check-post-code-change.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency (commits)';  Script = 'scripts/check-diff-consistency-ci.ps1';         LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency unit tests'; Script = 'scripts/tests/check-diff-consistency.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'checker-registry parity';     Script = 'scripts/check-checker-registry.ps1';            LocalArgs = @();                     EnvSkippable = $false }

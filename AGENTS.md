@@ -33,7 +33,7 @@ At the implementation -> git boundary, classify with `git status --porcelain` (t
 
 ```
 PRE-GIT SENTINEL
-phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | staged_set_turn=<turn> | user_diff_approval=<staged-set:tN|approved-via-pause:tN|pending> | pre_commit_gate_block_emitted=pending | next_action=classify staged set + commit-approval
+phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | staged_set_turn=<turn> | user_diff_approval=<staged-set:tN|approved-via-pause:tN|pending> | post_code_change_panel=<ran:unanimous|na:no-code-change|user-waived> | pre_commit_gate_block_emitted=pending | next_action=classify staged set + commit-approval
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
@@ -51,6 +51,7 @@ Before ANY `git commit`:
 2. `ask_user` to approve / edit / reject.
 3. Execute only after the user explicitly approves the final message.
 4. If the user edits it, use their version exactly.
+5. NEVER `--no-verify` (commit also `-n`) on `git commit`/`git push`. A hook bypass is itself a §0 action: `ask_user` the reason, execute only on approval.
 
 ### git push --force / --force-with-lease
 
@@ -93,7 +94,7 @@ Before executing the listed tool call, the matching file(s) MUST have been viewe
 
 ### Read-receipt convention
 
-Gate blocks that depend on an on-demand file MUST include a `reads=<file>@<token>` field, where `<token>` is the value on the `read-receipt-token:` line in that file's header. CI will reject missing or stale tokens. Each on-demand file carries an HTML comment `<!-- read-receipt-token: XXXXXXXX -->` immediately after its H1 title. The token lives ONLY in each file's own header; CI extracts the expected token from the file header at verify time (there is no central token map, because a central map would let a gate cite a token without opening the file). `.github/pr-quality-gate/read-receipts.tsv` is only the registry of which files require a receipt. Content-binding (token = HMAC of file content) and non-fixed token location are deferred hardening; the current path-derived literal token is a placeholder.
+Gate blocks that depend on an on-demand file MUST include a `reads=<file>@<token>` field, where `<token>` is the value on the `read-receipt-token:` line in that file's header. CI rejects missing or stale tokens. Each on-demand file carries an HTML comment `<!-- read-receipt-token: XXXXXXXX -->` immediately after its H1 title. The token lives ONLY in each file's own header; CI extracts it at verify time (no central token map, which would let a gate cite a token without opening the file). `.github/pr-quality-gate/read-receipts.tsv` is only the registry of which files require a receipt.
 
 ### Workflow router - which playbook to view based on the situation
 

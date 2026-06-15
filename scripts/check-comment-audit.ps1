@@ -65,15 +65,6 @@ if ($baseSha -eq $headSha) {
     exit $script:ExitOk
 }
 
-$firstAuditCommitResult = Invoke-Git -Arguments @('log', '--diff-filter=A', '--reverse', '--format=%H', '--', $AuditPath) -AllowFailure
-$firstAuditCommit = (@($firstAuditCommitResult.Stdout) | Where-Object { $_ } | Select-Object -First 1)
-if ($firstAuditCommit) { $firstAuditCommit = $firstAuditCommit.Trim() }
-
-if (-not $firstAuditCommit) {
-    Write-Host "::notice::Audit file $AuditPath has never existed in repo history; this PR is the bootstrap. Skipping per-commit ledger verification."
-    exit $script:ExitOk
-}
-
 $commitsForwardResult = Invoke-Git -Arguments @('log', '--reverse', '--no-merges', '--format=%H', "$baseSha..$HeadRef")
 $commitsForward = @($commitsForwardResult.Stdout) | Where-Object { $_ } | ForEach-Object { $_.Trim() }
 
@@ -85,11 +76,6 @@ if (-not $commitsForward) {
 $violations = @()
 foreach ($commitSha in $commitsForward) {
     $shortSha = $commitSha.Substring(0, 8)
-
-    if ($commitSha -eq $firstAuditCommit) {
-        Write-Host "Commit ${shortSha}: BOOTSTRAP - first-ever add of $AuditPath; skipping ledger verification for this commit only"
-        continue
-    }
 
     $parentResult = Invoke-Git -Arguments @('rev-parse', "${commitSha}^") -AllowFailure
     if ($parentResult.ExitCode -ne 0) {

@@ -267,6 +267,33 @@ $result = [PSCustomObject]@{
 Assert-Equal 0 (Get-CoveredCommentCount -AuditResult $result) 'All-drops audit covers 0 real diff comments (R4-BLOCKING-5)'
 
 Write-Host ""
+Write-Host "=== history-walk integration: first-add commit is validated, not bootstrap-skipped (dual-gate hardening; duck-logic review) ===" -ForegroundColor Cyan
+
+$checkerPath = Join-Path $PSScriptRoot '../check-comment-audit.ps1'
+$tmpCA = Join-Path ([System.IO.Path]::GetTempPath()) ("ca-boot-" + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpCA -Force | Out-Null
+function TGCA { & git -C $tmpCA @args 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { throw "gitCA failed: $($args -join ' ')" } }
+function HeadCA { ((& git -C $tmpCA rev-parse HEAD) | Out-String).Trim() }
+try {
+    TGCA init; TGCA config user.email 't@e.com'; TGCA config user.name 'T'; TGCA config commit.gpgsign false; TGCA config core.autocrlf false
+    New-Item -ItemType Directory -Path (Join-Path $tmpCA '.github/pr-quality-gate/audits') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $tmpCA 'src') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $tmpCA 'scripts') -Force | Out-Null
+    Set-Content (Join-Path $tmpCA 'scripts/check-comment-audit.ps1') '# anchor stub'
+    Set-Content (Join-Path $tmpCA 'README.md') '# r'; TGCA add -A; TGCA commit -m 'init'
+    $caBase = HeadCA
+    Set-Content (Join-Path $tmpCA 'src/code.cs') 'class C{}'
+    Set-Content (Join-Path $tmpCA '.github/pr-quality-gate/audits/last.md') @('parent_sha: badf00d', 'commit_subject: first-add bootstrap', 'Comment audit: zero new comment sites')
+    TGCA add -A; TGCA commit -m 'add gate + code'
+    & pwsh -NoProfile -File $checkerPath -BaseRef $caBase -RepoRoot $tmpCA *> $null
+    Assert-Equal 1 $LASTEXITCODE 'history walk: first-add last.md with a STALE parent_sha is CAUGHT (fail-closed; no bootstrap skip)'
+}
+finally {
+    Set-Location $PSScriptRoot
+    Remove-Item -LiteralPath $tmpCA -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan
 Write-Host "Passes:   $passes" -ForegroundColor Green
 if ($failures -gt 0) {

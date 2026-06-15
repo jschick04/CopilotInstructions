@@ -35,6 +35,26 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-comment-audit.tests.ps1
 
+
+  post-code-change-audit:
+    name: Per-commit post-code-change panel-ledger verification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - shell: pwsh
+        run: ./scripts/check-post-code-change-ci.ps1 -BaseRef "origin/${{ github.base_ref }}" -FetchBranch "${{ github.base_ref }}" -CiMode
+
+  panel-ledger-tests:
+    name: panel-ledger module unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-post-code-change.tests.ps1
+
   diff-consistency:
     name: Deterministic diff-consistency checker (D2, every PR commit)
     runs-on: ubuntu-latest
