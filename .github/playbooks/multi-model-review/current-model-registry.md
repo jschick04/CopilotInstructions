@@ -30,7 +30,7 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 
 | Tier id | Current model | Notes |
 | --- | --- | --- |
-| `heavy-claude-xhigh` | `claude-opus-4.7-xhigh` | - |
+| `heavy-claude-xhigh` | `claude-opus-4.8` | Top-of-line Opus at xhigh/max reasoning effort (supersedes the 4.7-xhigh line). |
 | `heavy-claude-standard` | `claude-opus-4.8` | - |
 | `heavy-claude-cross-version` | `claude-opus-4.7` | Different version line from `heavy-claude-standard`. |
 | `heavy-gpt-premium` | `gpt-5.5` | - |
