@@ -10,6 +10,17 @@
 
 set -e
 
+# === Amend sign-off gate ===========================================================
+# A history rewrite (git commit --amend, signalled by PANEL_GATE_AMEND=1) requires a fresh,
+# tree-bound user sign-off recorded after an explicit ask_user. Identity-gated in the script.
+if [ "${PANEL_GATE_AMEND:-0}" = "1" ] && command -v pwsh >/dev/null 2>&1 && [ -f scripts/check-signoff.ps1 ]; then
+    if ! pwsh -NoProfile -File scripts/check-signoff.ps1 -Mode amend; then
+        echo "ERROR: this amend rewrites history but has no fresh user sign-off marker." >&2
+        echo "       Get explicit sign-off (ask_user) and record amend_approved before amending." >&2
+        exit 1
+    fi
+fi
+
 # === Post-code-change panel LEDGER gate ============================================
 # Adoption-gated on the panel checker script, so enforcement cannot be disabled by
 # deleting the receipt. On a non-adopted repo this no-ops.
@@ -24,16 +35,27 @@ if git cat-file -e HEAD:scripts/check-post-code-change.ps1 2>/dev/null || [ -f s
         exit 1
     fi
     if command -v pwsh >/dev/null 2>&1; then
-        if ! pwsh -NoProfile -File scripts/check-post-code-change.ps1 -StagedMode; then
+        if ! pwsh -NoProfile -File scripts/check-post-code-change.ps1 -StagedMode -WorktreeReceipt; then
             echo "" >&2
-            echo "ERROR: the staged change is panel-required but its post-code-change LEDGER is missing/stale/invalid." >&2
-            echo "       Run the post-code-change reviewer panel, write the LEDGER to" >&2
-            echo "       .github/pr-quality-gate/audits/post-code-change-last.md (fresh parent_sha), then stage it." >&2
+            echo "ERROR: the staged change is panel-required but its post-code-change LEDGER receipt is missing/stale/invalid." >&2
+            echo "       Run the post-code-change reviewer panel, write the LEDGER receipt to" >&2
+            echo "       .github/pr-quality-gate/audits/post-code-change-last.md (gitignored; the post-commit hook records it as a note)." >&2
             exit 1
         fi
     else
         echo "ERROR: pwsh not available; cannot verify the post-code-change panel LEDGER." >&2
         echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        exit 1
+    fi
+fi
+
+# === Structural conformance (Layer-A fast-fail; CI is the authoritative gate) =======
+# Every Added/Copied/Renamed staged path must match the structure manifest, else block -
+# prevents cross-session folder divergence. Local fast-fail; CI runs it base-pinned (non-skippable).
+if command -v pwsh >/dev/null 2>&1 && [ -f scripts/check-structural-conformance.ps1 ]; then
+    if ! pwsh -NoProfile -File scripts/check-structural-conformance.ps1; then
+        echo "ERROR: a staged path does not conform to the structure manifest (see above)." >&2
+        echo "       Place the file to match an existing pattern, or get sign-off to evolve the manifest." >&2
         exit 1
     fi
 fi

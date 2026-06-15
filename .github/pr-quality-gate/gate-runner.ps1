@@ -128,7 +128,7 @@ function Invoke-RgPattern { param([string[]] $Files, [string] $Pattern, [string[
     return $hits
 }
 
-function Acquire-Lock { param([string] $LockPath, [int] $TimeoutSec)
+function Request-Lock { param([string] $LockPath, [int] $TimeoutSec)
     $deadline = (Get-Date).AddSeconds($TimeoutSec)
     $jitter = Get-Random -Minimum 50 -Maximum 250
     while ((Get-Date) -lt $deadline) {
@@ -158,10 +158,10 @@ function Acquire-Lock { param([string] $LockPath, [int] $TimeoutSec)
     return $false
 }
 
-function Append-FindingsRows { param([string] $DataDir, [array] $Rows)
+function Add-FindingsRows { param([string] $DataDir, [array] $Rows)
     $csv = Join-Path $DataDir 'findings.csv'
     $lock = "$csv.lock"
-    if (-not (Acquire-Lock -LockPath $lock -TimeoutSec $LockTimeoutSeconds)) { Exit-Runner 4 "Could not acquire findings.csv lock within ${LockTimeoutSeconds}s" }
+    if (-not (Request-Lock -LockPath $lock -TimeoutSec $LockTimeoutSeconds)) { Exit-Runner 4 "Could not acquire findings.csv lock within ${LockTimeoutSeconds}s" }
     try {
         if (-not (Test-Path -LiteralPath $csv)) { 'timestamp,revision,pattern_slug,classification,finding_brief,slate_mode,finding_type' | Out-File -LiteralPath $csv -Encoding utf8NoBOM -NoNewline; "`n" | Out-File -LiteralPath $csv -Encoding utf8NoBOM -Append -NoNewline }
         foreach ($r in $Rows) {
@@ -192,7 +192,6 @@ if (Test-Path -LiteralPath $syncScript) {
 }
 
 $catalogPath = Join-Path $clone '.github/pr-quality-gate/pattern-catalog.md'
-$prefsPath = Join-Path $clone '.github/pr-quality-gate/coding-preferences.md'
 $catalogRevision = Get-FileRevision -Clone $clone -RelPath '.github/pr-quality-gate/pattern-catalog.md'
 $prefsRevision = Get-FileRevision -Clone $clone -RelPath '.github/pr-quality-gate/coding-preferences.md'
 
@@ -313,6 +312,6 @@ foreach ($f in $findings) {
         $rows += @{ timestamp = $ts; revision = $catalogRevision; pattern_slug = $f.slug; classification = 'pending'; finding_brief = "$($f.slug) hit"; slate_mode = $Mode; finding_type = 'pattern' }
     }
 }
-if ($rows.Count -gt 0) { Append-FindingsRows -DataDir $dataDir -Rows $rows }
+if ($rows.Count -gt 0) { Add-FindingsRows -DataDir $dataDir -Rows $rows }
 
 if ($gateStatus -ne 'READY') { exit 1 } else { exit 0 }

@@ -123,7 +123,7 @@ Assert-True ($resolvedGitless -eq (Resolve-Path -LiteralPath $gitlessRoot).Path.
 
 foreach ($worktreePath in $script:worktrees) {
     if (Test-Path -LiteralPath $worktreePath) {
-        try { git -C $mainRepo worktree remove --force $worktreePath 2>$null | Out-Null } catch { }
+        try { git -C $mainRepo worktree remove --force $worktreePath 2>$null | Out-Null } catch { Write-Verbose "worktree cleanup ignored: $($_.Exception.Message)" }
         Remove-Item -Recurse -Force -LiteralPath $worktreePath -ErrorAction SilentlyContinue
     }
 }

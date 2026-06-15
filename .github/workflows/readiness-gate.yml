@@ -1,0 +1,48 @@
+name: readiness-gate
+
+# Layer-A of the pre-staging readiness gate: the mechanically NON-SKIPPABLE diff-detectors
+# (structural-conformance + duplication) run as required status checks on the PR diff. They
+# need only the public diff, not the local audit note (which stays local / zero-remote).
+#
+# Base-pinned (spec V3d): the structure manifest is read from the PROTECTED BASE (main), so
+# a PR cannot broaden its own gate to admit a divergent path - a new layout pattern must
+# land in a prior reviewed commit on main first. (em-dash + recurring-pattern have their own
+# workflows; this adds the two new detectors.)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  structural-conformance:
+    name: Structural conformance (no divergent layout)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for base-pinning + diff)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - name: Conformance vs the base manifest
+        shell: pwsh
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: ./scripts/check-structural-conformance.ps1 -BaseRef "$env:BASE_REF"
+
+  duplication:
+    name: Duplication (DRY heuristic)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - name: Duplication check
+        shell: pwsh
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: ./scripts/check-duplication.ps1 -BaseRef "$env:BASE_REF"

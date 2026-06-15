@@ -101,8 +101,8 @@ echo ""
 # --- Configure git hooks path (catalog-sync drift safeguard) ---------------
 echo "=== Configuring git hooks path ==="
 
-if [ ! -d "$REPO_ROOT/.git" ]; then
-    echo "WARNING: .git directory not found at $REPO_ROOT/.git. Skipping hooks config - not running inside a git clone."
+if ! git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "WARNING: not inside a git work tree (git rev-parse --git-dir failed). Skipping hooks config - not running inside a git clone."
 elif [ ! -d "$REPO_ROOT/.githooks" ]; then
     echo "WARNING: .githooks/ directory not found. Skipping hooks config - the committed hook directory is missing."
 else
@@ -143,6 +143,32 @@ else
             echo "  Set executable bit on $HOOK_FILE."
         fi
     done
+fi
+
+# --- 8. Configure local git-notes audit refs (zero remote footprint) ----------
+echo ""
+echo "=== Configuring local audit-note refs ==="
+if ! git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+    echo "WARNING: not a git repository. Skipping notes config."
+else
+    # The audit ledgers live in local git notes (never pushed). Two independent refs
+    # (panel + comment) carried across amend/rebase via rewriteMode=overwrite; the note's
+    # audited_tree freshness binding still rejects a stale carry onto a changed commit.
+    for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment; do
+        if ! git -C "$REPO_ROOT" config --local --get-all notes.rewriteRef 2>/dev/null | grep -qx "$REF"; then
+            if ! git -C "$REPO_ROOT" config --local --add notes.rewriteRef "$REF"; then
+                echo "ERROR: failed to add notes.rewriteRef=$REF (check .git/config write permissions)." >&2
+                echo "       The audit-note gate cannot carry notes across amend/rebase until this is set; re-run this installer after fixing." >&2
+                exit 1
+            fi
+        fi
+    done
+    if ! git -C "$REPO_ROOT" config --local notes.rewriteMode overwrite; then
+        echo "ERROR: failed to set notes.rewriteMode=overwrite (check .git/config write permissions)." >&2
+        echo "       Re-run this installer after resolving the git config write failure." >&2
+        exit 1
+    fi
+    echo "Configured notes.rewriteRef (panel + comment) + notes.rewriteMode=overwrite (local only; notes are never pushed)."
 fi
 
 echo ""

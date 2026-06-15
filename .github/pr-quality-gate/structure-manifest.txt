@@ -1,0 +1,52 @@
+# Structure manifest - the explicit source of truth for this repo's allowed layout.
+#
+# Every Added/Copied/Renamed tracked path must match at least one pattern below, or
+# scripts/check-structural-conformance.ps1 HARD-BLOCKS it (locally at pre-commit and in
+# CI). This mechanically prevents cross-session structural divergence: a session cannot
+# silently invent a folder layout that disagrees with the rest of the repo.
+#
+# Rules: '*' matches within a path segment, '**' across segments, '?' one char. Every
+# rule MUST be anchored to a literal first path segment (leading-wildcard rules are
+# rejected). Adding/broadening a pattern is a GOVERNANCE change requiring user sign-off
+# (ask_user) - that is how a deliberately-new convention is introduced.
+
+# --- root config + docs ---
+AGENTS.md
+README.md
+setup.ps1
+setup.sh
+.gitignore
+.gitattributes
+
+# --- scripts (checkers, libraries, tests) ---
+scripts/*.ps1
+scripts/*.sh
+scripts/lib/*.psm1
+scripts/tests/*.ps1
+
+# --- instructions + playbooks ---
+.github/instructions/*.md
+.github/playbooks/*.md
+.github/playbooks/*.yaml
+.github/playbooks/*/*.md
+
+# --- workflows + git hooks ---
+.github/workflows/*.yml
+.githooks/*
+
+# --- pr-quality-gate (catalog, checkers, data, audits) ---
+.github/pr-quality-gate/*.md
+.github/pr-quality-gate/*.ps1
+.github/pr-quality-gate/*.sh
+.github/pr-quality-gate/*.tsv
+.github/pr-quality-gate/*.txt
+.github/pr-quality-gate/audits/.gitkeep
+.github/pr-quality-gate/data/*.csv
+.github/pr-quality-gate/data/*.tsv
+.github/pr-quality-gate/data/*.txt
+.github/pr-quality-gate/data/*.md
+.github/pr-quality-gate/data/.gitignore
+.github/pr-quality-gate/pattern-catalog.sources/*.md
+
+# --- profiles ---
+profiles/*/*.md

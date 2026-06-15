@@ -61,7 +61,7 @@ Assert-False (Get-PanelRequired -ChangedPaths @())                              
 Write-Host ""
 Write-Host "=== Test-PanelLedger ===" -ForegroundColor Cyan
 function New-Ledger {
-    param([string] $ParentSha = 'abc1234', [string] $Subject = 'do a thing',
+    param([string] $ParentSha = '1234567890abcdef1234567890abcdef12345678', [string] $Subject = 'do a thing',
           [string] $Panel = 'ran, unanimous', [string] $Build = 'passed', [string] $Tests = 'passed, 10/10')
     return @(
         "parent_sha: $ParentSha",
@@ -74,83 +74,85 @@ function New-Ledger {
     )
 }
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger) -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'panel-required + ran,unanimous + fresh parent -> valid'
 
 $bomLedger = @(New-Ledger); $bomLedger[0] = [char]0xFEFF + $bomLedger[0]
-$r = Test-PanelLedger -LedgerLines $bomLedger -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines $bomLedger -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'leading UTF-8 BOM on the first ledger line is tolerated (parent_sha still matches)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: docs-only') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: docs-only') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'panel-required + N/A -> INVALID (the non-bypassable rule)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: no code change') -ExpectedParentSha 'abc1234' -PanelRequired $false
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: no code change') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
 Assert-True $r.Valid 'NOT panel-required + N/A -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A') -ExpectedParentSha 'abc1234' -PanelRequired $false
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
 Assert-False $r.Valid 'NOT panel-required + bare N/A (no reason) -> INVALID (requires N/A: <reason>)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'deadbee') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'mismatched parent_sha -> INVALID (stale)'
 
 $fullSha = 'a1b2c3d4e5f60718293041526374859607a8b9c0'
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha) -ExpectedParentSha $fullSha -PanelRequired $true
+Assert-True $r.Valid 'full 40-char parent_sha exactly matching expected -> valid'
 $r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha.Substring(0,7)) -ExpectedParentSha $fullSha -PanelRequired $true
-Assert-True $r.Valid '7-char ledger parent_sha is a prefix of full 40-char expected -> valid (asymmetric-length match)'
+Assert-False $r.Valid '7-char prefix of the full expected parent_sha -> INVALID (exact 40-char binding; no prefix match)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'deadbee') -ExpectedParentSha $fullSha -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha $fullSha -PanelRequired $true
 Assert-False $r.Valid '7-char of a DIFFERENT sha vs full expected -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous' -Build 'failed: CS1002') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous' -Build 'failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'build failed -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'Failed: CS1002') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'Failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'build Failed (capitalized) -> INVALID (case-insensitive failure detection)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous extra') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous extra') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'panel value with trailing text -> INVALID (end-anchored)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'failed: 2/10') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'failed: 2/10') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'tests failed -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'skipped') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'build unknown value (skipped) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'passsed') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'passsed') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'build typo (passsed) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'N/A: no compile step') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'N/A: no compile step') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'build N/A: <reason> -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'skipped') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'tests unknown value (skipped) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'N/A: no test suite') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'N/A: no test suite') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'tests N/A: <reason> -> valid'
 
 Assert-Equal (Get-GitEmptyTreeSha) '4b825dc642cb6eb9a060e54bf8d69288fbee4904' 'Get-GitEmptyTreeSha returns the canonical empty-tree SHA (single source, no script duplicate)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'panel-required + user-waived (quoted) -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "no close') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "no close') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'panel-required + user-waived missing closing quote -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel '<ran, unanimous | N/A>') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel '<ran, unanimous | N/A>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'unsubstituted placeholder panel value -> INVALID'
 
-$missingPanel = @('parent_sha: abc1234','commit_subject: x','  build: passed','  tests: passed, 1/1')
-$r = Test-PanelLedger -LedgerLines $missingPanel -ExpectedParentSha 'abc1234' -PanelRequired $true
+$missingPanel = @('parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','  build: passed','  tests: passed, 1/1')
+$r = Test-PanelLedger -LedgerLines $missingPanel -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'missing post-code-change-panel row -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines @('commit_subject: x','  post-code-change-panel: ran, unanimous','  build: passed','  tests: passed, 1/1') -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines @('commit_subject: x','  post-code-change-panel: ran, unanimous','  build: passed','  tests: passed, 1/1') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'missing parent_sha -> INVALID'
 
 $withExtras = @(
-    'parent_sha: abc1234','commit_subject: x','POST-CODE-CHANGE LEDGER','  gates:',
+    'parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','POST-CODE-CHANGE LEDGER','  gates:',
     '    hygiene-cleanup: ran','    emdash-scan: ran, clean','    some-future-row: whatever',
     '    post-code-change-panel: ran, unanimous','    build: passed','    tests: passed, 9/9'
 )
-$r = Test-PanelLedger -LedgerLines $withExtras -ExpectedParentSha 'abc1234' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines $withExtras -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'unknown/extra §2B rows are ignored (parser is structurally opaque)'
 
 Write-Host ""
@@ -171,7 +173,7 @@ function Write-RepoFile { param([string] $Rel, [string[]] $Lines)
 function Head { ((& git -C $tmp rev-parse HEAD) | Out-String).Trim() }
 function Write-Receipt { param([string] $ParentSha, [string] $Subject = 'change', [string] $Panel = 'ran, unanimous')
     Write-RepoFile -Rel $AUDIT -Lines (New-Ledger -ParentSha $ParentSha -Subject $Subject -Panel $Panel) }
-function Run-Checker { param([string[]] $ScriptArgs)
+function Invoke-Checker { param([string[]] $ScriptArgs)
     & pwsh -NoProfile -File $checkerPath @ScriptArgs *> $null; return $LASTEXITCODE }
 
 try {
@@ -191,25 +193,25 @@ try {
     Write-Receipt -ParentSha $p1 -Subject 'add app'
     TG add -A; TG commit -m 'add app'
 
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
     Assert-Equal 0 $code 'history walk: first-add commit with a fresh valid receipt is VALIDATED (no bootstrap skip) -> OK'
 
     $p2 = Head
     Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int X; }')
     Write-Receipt -ParentSha $p2 -Subject 'edit app'
     TG add -A; TG commit -m 'edit app'
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
     Assert-Equal 0 $code 'history walk: panel-required commit with fresh valid receipt -> OK'
 
     Write-RepoFile -Rel 'README.md' -Lines @('# repo', 'more docs')
     TG add -A; TG commit -m 'docs'
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
     Assert-Equal 0 $code 'history walk: docs-only commit needs no receipt -> OK'
 
     Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int X; int Y; }')
     Write-Receipt -ParentSha $p2 -Subject 'stale'
     TG add -A; TG commit -m 'stale receipt'
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $base, '-RepoRoot', $tmp)
     Assert-Equal 1 $code 'history walk: panel-required commit with STALE receipt -> violation'
 
     TG reset --hard HEAD
@@ -217,25 +219,25 @@ try {
 
     Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int Z; }')
     TG add src/app.cs
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Assert-Equal 1 $code 'staged: code change without fresh receipt -> violation'
 
     Write-Receipt -ParentSha $h -Subject 'staged ok'
     TG add $AUDIT
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Assert-Equal 0 $code 'staged: code change WITH fresh valid receipt -> OK'
 
     TG reset --hard HEAD
     Write-RepoFile -Rel 'README.md' -Lines @('# repo', 'docs only staged')
     TG add README.md
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Assert-Equal 0 $code 'staged: docs-only change needs no receipt -> OK'
 
     TG reset --hard HEAD
     Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int W; }')
     Write-Receipt -ParentSha $h -Subject 'sneaky' -Panel 'N/A: no code change'
     TG add -A
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Assert-Equal 1 $code 'staged: na:CODE on a code change -> violation'
 
     TG reset --hard HEAD
@@ -243,10 +245,10 @@ try {
     Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int Q; }')
     Write-Receipt -ParentSha $hParent -Subject 'amend'
     TG add -A
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Assert-Equal 1 $code 'staged fresh commit: stale HEAD^ receipt rejected (freshness preserved)'
     $env:PANEL_GATE_AMEND = '1'
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp)
     Remove-Item Env:PANEL_GATE_AMEND
     Assert-Equal 0 $code 'staged amend (PANEL_GATE_AMEND=1): HEAD^ accepted'
 
@@ -268,7 +270,7 @@ try {
         TG2 add -A; TG2 commit -m 'add a'
         $pBase = Head2
 
-        $code = Run-Checker -ScriptArgs @('-BaseRef', (Head2), '-RepoRoot', $tmp2)
+        $code = Invoke-Checker -ScriptArgs @('-BaseRef', (Head2), '-RepoRoot', $tmp2)
         Assert-Equal 0 $code 'history walk: empty range (base==head) -> OK'
 
         TG2 checkout -b feature
@@ -278,7 +280,7 @@ try {
         TG2 add -A; TG2 commit -m 'feature'
         TG2 checkout $mainB
         TG2 merge --no-ff -m 'merge feature' feature
-        $code = Run-Checker -ScriptArgs @('-BaseRef', $pBase, '-RepoRoot', $tmp2)
+        $code = Invoke-Checker -ScriptArgs @('-BaseRef', $pBase, '-RepoRoot', $tmp2)
         Assert-Equal 0 $code 'history walk: merge commit skipped (--no-merges), feature commit valid -> OK'
     }
     finally {
@@ -298,7 +300,7 @@ try {
         Set-Content (Join-Path $tmp3 'src/x.cs') 'class X{}'
         Set-Content (Join-Path $tmp3 $AUDIT) (New-Ledger -ParentSha 'EMPTY_TREE' -Subject 'initial')
         TG3 add -A
-        $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp3)
+        $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp3)
         Assert-Equal 0 $code 'staged on a repo with NO HEAD (initial commit): empty-tree path -> OK'
     }
     finally {
@@ -326,10 +328,10 @@ try {
     Set-Content (Join-Path $tmp4 'src/x.cs') 'class X{}'
     TG4 add src/x.cs
     Set-Content (Join-Path $tmp4 $AUDIT) (New-Ledger -ParentSha $h4 -Subject 'worktree-receipt')
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-WorktreeReceipt', '-RepoRoot', $tmp4)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-WorktreeReceipt', '-RepoRoot', $tmp4)
     Assert-Equal 0 $code '-WorktreeReceipt: panel-required staged change + valid receipt on disk (unstaged) -> OK'
     Remove-Item -LiteralPath (Join-Path $tmp4 $AUDIT) -Force
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-WorktreeReceipt', '-RepoRoot', $tmp4)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-WorktreeReceipt', '-RepoRoot', $tmp4)
     Assert-Equal 1 $code '-WorktreeReceipt: panel-required but receipt missing on disk -> VIOLATION (fail-closed local-only path)'
 }
 finally {
@@ -356,7 +358,7 @@ try {
     TG5 mv src/app.cs docs/app.md
     Set-Content (Join-Path $tmp5 $AUDIT) (New-Ledger -ParentSha 'badf00d' -Subject 'rename')
     TG5 add -A
-    $code = Run-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp5)
+    $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp5)
     Assert-Equal 1 $code 'code->docs rename stays panel-required via --no-renames; wrong parent_sha -> VIOLATION (exit 0 would mean the rename bypassed classification)'
 }
 finally {
@@ -379,7 +381,7 @@ try {
     Set-Content (Join-Path $tmp6 'src/code.cs') 'class C{}'
     Set-Content (Join-Path $tmp6 $AUDIT) (New-Ledger -ParentSha 'badf00d' -Subject 'first-add bootstrap')
     TG6 add -A; TG6 commit -m 'add gate + code'
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $e0, '-RepoRoot', $tmp6)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $e0, '-RepoRoot', $tmp6)
     Assert-Equal 1 $code 'history walk: first-add commit with an INVALID receipt is CAUGHT (fail-closed; no bootstrap skip)'
 }
 finally {
@@ -388,7 +390,7 @@ finally {
 }
 
 # Hardened (no bootstrap/never-existed skip): a panel-required commit whose tree carries NO audit
-# file anywhere in history is a VIOLATION, not a silent skip (fail-closed CI - duck-logic panel finding).
+# file anywhere in history is a VIOLATION, not a silent skip (fail-closed CI).
 $tmp7 = Join-Path ([System.IO.Path]::GetTempPath()) ("pcc-t7-" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp7 -Force | Out-Null
 function TG7 { & git -C $tmp7 @args 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { throw "git7 failed: $($args -join ' ')" } }
@@ -402,7 +404,7 @@ try {
     $f0 = Head7
     Set-Content (Join-Path $tmp7 'src/code.cs') 'class C{}'
     TG7 add -A; TG7 commit -m 'panel-required, no receipt ever'
-    $code = Run-Checker -ScriptArgs @('-BaseRef', $f0, '-RepoRoot', $tmp7)
+    $code = Invoke-Checker -ScriptArgs @('-BaseRef', $f0, '-RepoRoot', $tmp7)
     Assert-Equal 1 $code 'history walk: panel-required commit with NO audit file in history -> VIOLATION (fail-closed; no never-existed skip)'
 }
 finally {

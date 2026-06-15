@@ -1,0 +1,10 @@
+#!/usr/bin/env sh
+# Post-commit hook: persist the worktree audit receipts as local git notes on the just-made
+# commit (scripts/flush-audits.ps1). Identity-gated inside the script (no-op on any repo
+# that is not this instruction set's own); the notes are local-only and NEVER pushed.
+#
+# Best-effort: the pre-push gate is the enforcement boundary. A flush failure here cannot
+# un-make the commit, and the receipt is left on disk for a re-flush, so no `|| true` games.
+if command -v pwsh >/dev/null 2>&1; then
+    pwsh -NoProfile -File scripts/flush-audits.ps1 -CommitSha HEAD -Quiet
+fi

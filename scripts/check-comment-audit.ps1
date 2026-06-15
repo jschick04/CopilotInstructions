@@ -115,7 +115,7 @@ foreach ($commitSha in $commitsForward) {
     $coveredCount = Get-CoveredCommentCount -AuditResult $check
 
     if ($newCount -gt $coveredCount) {
-        $violations += "Commit ${shortSha}: $newCount new-or-rewritten comment site(s) in diff but only $coveredCount covered audit entries (approved+exempt only; drops and deleted are audit-trail-only and never satisfy coverage per comment-protocol.md §Persisted audit file)"
+        $violations += "Commit ${shortSha}: $newCount new-or-rewritten comment site(s) in diff but only $coveredCount covered audit entries (approved+exempt only; drops and deleted are audit-trail-only and never satisfy coverage per comment-protocol.md §Persisted audit record)"
         foreach ($site in ($newSites | Select-Object -First 20)) {
             $violations += "  comment at $($site.File):$($site.Line)"
         }

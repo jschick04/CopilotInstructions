@@ -32,13 +32,18 @@ $existingPlaybooks = Get-ChildItem -Path $playbookFolder -Filter '*.md' -Recurse
 $existingSet = @{}
 foreach ($path in $existingPlaybooks) { $existingSet[$path] = $true }
 
-$canonicalAuditPath = '.github/pr-quality-gate/audits/last.md'
-$auditFileFullPath = Join-Path $RepoRoot ($canonicalAuditPath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
 
-$playbookPattern = '\.github/playbooks/[a-zA-Z0-9_.-/]+\.md'
-$auditPathPattern = '\.github/pr-quality-gate/audits/[a-zA-Z0-9_.-/]+\.md'
+$playbookPattern = '\.github/playbooks/[a-zA-Z0-9_./-]+\.md'
 
-$pathRefs = & git -C $RepoRoot grep -nE "$playbookPattern|$auditPathPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' 2>$null
+# Exclude this checker's OWN test file: it embeds fixture citations (including intentionally-broken
+# ones) as test data, which are not real references and must not be scanned as such.
+$pathRefs = & git -C $RepoRoot grep -nE "$playbookPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!scripts/tests/check-playbook-refs.tests.ps1' 2>$null
+# git grep: 0 = matches, 1 = no matches (legitimate), >1 = real error. A real failure must fail
+# closed (do not silently treat an errored grep as "no broken references").
+if ($LASTEXITCODE -gt 1) {
+    Write-Invocation "git grep for playbook citations failed (exit $LASTEXITCODE); cannot validate references. Failing closed."
+    exit $script:ExitInvocation
+}
 
 $violations = @()
 foreach ($line in $pathRefs) {
@@ -48,12 +53,6 @@ foreach ($line in $pathRefs) {
             $violations += "$line  (cited playbook path '$cited' does not resolve)"
         }
     }
-    foreach ($match in [regex]::Matches($line, $auditPathPattern)) {
-        $cited = $match.Value
-        if ($cited -ne $canonicalAuditPath) {
-            $violations += "$line  (audit-file path '$cited' diverges from canonical '$canonicalAuditPath')"
-        }
-    }
 }
 
 if ($violations) {
@@ -61,5 +60,24 @@ if ($violations) {
     exit $script:ExitViolation
 }
 
-Write-Host "All playbook references resolve; audit-file path is canonical. ($($existingPlaybooks.Count) playbooks scanned.)"
+# Reverse-guard: after the local-notes migration the audit receipts
+# (audits/last.md, audits/post-code-change-last.md) are gitignored and flushed to git notes
+# by the hooks - NO playbook may instruct staging them. Catch a regression to the old
+# committed-ledger model (`git add <receipt>`) mechanically, before it ships.
+$stagePattern = 'git add.{0,5}\.github/pr-quality-gate/audits/(last|post-code-change-last)\.md'
+$stageHits = & git -C $RepoRoot grep -nE "$stagePattern" -- .github/playbooks 2>$null
+if ($LASTEXITCODE -gt 1) {
+    Write-Invocation "git grep for the receipt-staging guard failed (exit $LASTEXITCODE); cannot verify no playbook stages a receipt. Failing closed."
+    exit $script:ExitInvocation
+}
+$stageViolations = @()
+foreach ($line in @($stageHits)) {
+    if ($line) { $stageViolations += "$line  (instructs staging a gitignored audit receipt; receipts are flushed to git notes, never staged - see comment-protocol.md §Persisted audit record)" }
+}
+if ($stageViolations) {
+    foreach ($v in ($stageViolations | Sort-Object -Unique)) { Write-Violation $v }
+    exit $script:ExitViolation
+}
+
+Write-Host "All playbook references resolve. ($($existingPlaybooks.Count) playbooks scanned.)"
 exit $script:ExitOk

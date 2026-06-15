@@ -31,10 +31,9 @@ $baseRef = "origin/$BaseBranch"
 
 # --- SINGLE SOURCE OF TRUTH: every scripts/ entrypoint the workflows invoke (excl. this harness itself). -----------
 $mirror = @(
-    [pscustomobject]@{ Name = 'comment-audit ledger';        Script = 'scripts/check-comment-audit-ci.ps1';           LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'playbook path refs';          Script = 'scripts/check-playbook-refs.ps1';               LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'playbook-refs unit tests';    Script = 'scripts/tests/check-playbook-refs.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'comment-audit unit tests';    Script = 'scripts/tests/check-comment-audit.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'post-code-change ledger';  Script = 'scripts/check-post-code-change-ci.ps1';        LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-ledger unit tests';   Script = 'scripts/tests/check-post-code-change.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency (commits)';  Script = 'scripts/check-diff-consistency-ci.ps1';         LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency unit tests'; Script = 'scripts/tests/check-diff-consistency.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
@@ -45,10 +44,22 @@ $mirror = @(
     [pscustomobject]@{ Name = 'smart-punctuation ban';       Script = 'scripts/check-no-smart-punctuation.ps1';        LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'smart-punctuation unit tests'; Script = 'scripts/tests/check-no-smart-punctuation.tests.ps1'; LocalArgs = @();                EnvSkippable = $false }
     [pscustomobject]@{ Name = 'repo-root unit tests';         Script = 'scripts/tests/repo-root.tests.ps1';                    LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'audit-note helpers unit tests'; Script = 'scripts/tests/audit-note-helpers.tests.ps1';           LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'audit-notes prepush unit tests'; Script = 'scripts/tests/check-audit-notes-prepush.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'structural-conformance unit tests'; Script = 'scripts/tests/check-structural-conformance.tests.ps1'; LocalArgs = @();                  EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'signoff unit tests';       Script = 'scripts/tests/check-signoff.tests.ps1';              LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'duplication unit tests';   Script = 'scripts/tests/check-duplication.tests.ps1';          LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'local-CI harness unit tests'; Script = 'scripts/tests/run-local-ci.tests.ps1';            LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'structural conformance';   Script = 'scripts/check-structural-conformance.ps1';           LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'duplication check';        Script = 'scripts/check-duplication.ps1';                      LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'profile invariants';          Script = 'scripts/check-profile-invariants.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'critical-rules sync verify';  Script = 'scripts/sync-critical-rules.ps1';               LocalArgs = @('-Verify');            EnvSkippable = $false }
     [pscustomobject]@{ Name = 'sync pwsh==bash parity';      Script = 'scripts/check-sync-parity.ps1';                 LocalArgs = @();                     EnvSkippable = $true }
     [pscustomobject]@{ Name = 'catalog generator verify';    Script = 'scripts/verify-pattern-catalog.ps1';            LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'lint (PSScriptAnalyzer)';      Script = 'scripts/check-lint.ps1';                        LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'lint unit tests';             Script = 'scripts/tests/check-lint.tests.ps1';            LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'panel-artifact scan';         Script = 'scripts/check-no-panel-artifacts.ps1';          LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'panel-artifact unit tests';   Script = 'scripts/tests/check-no-panel-artifacts.tests.ps1'; LocalArgs = @();                  EnvSkippable = $false }
 )
 # The harness invokes itself in the coverage CI job; it is not a check to mirror.
 $harnessSelf = 'scripts/run-local-ci.ps1'
@@ -175,13 +186,23 @@ function Test-MirrorCoverage {
                         }
                         else { $cmdLines = @($runHead) }
 
-                        if ($cmdLines.Count -ne 1) { $failures.Add("${rel}: a run: step has $($cmdLines.Count) command lines (must be exactly one single-line script invocation)"); continue }
-                        $script = Test-ScriptInvocation $cmdLines[0]
-                        if ($null -eq $script) { $failures.Add("${rel}: run step is not a clean single scripts/ invocation: '$($cmdLines[0])'"); continue }
-                        $counts.script_invocations++
-                        $invokedScripts.Add($script)
-                        if ($script -ne $harnessSelf -and $allowedScripts -notcontains $script) {
-                            $failures.Add("${rel}: invokes '$script' which run-local-ci.ps1 does NOT mirror (add it to `$mirror)")
+                        $stepScripts = New-Object System.Collections.Generic.List[string]
+                        foreach ($cmdLine in $cmdLines) {
+                            $script = Test-ScriptInvocation $cmdLine
+                            if ($null -ne $script) { $stepScripts.Add($script); continue }
+                            # Fail-closed: every executable line in a run step must be a
+                            # clean mirrored scripts/ invocation. An inline shell/pwsh line would not be
+                            # mirrored by run-local-ci, so CI could run logic the local gate never sees.
+                            # Put any base-ref / setup in a step env: (ignored here) or in the script.
+                            $failures.Add("${rel}: run step has a non-script executable line '$cmdLine' (checks must be a clean scripts/ invocation; move setup into the mirrored script or a step env:)")
+                        }
+                        if ($stepScripts.Count -eq 0) { $failures.Add("${rel}: run step has no clean scripts/ invocation"); continue }
+                        foreach ($script in $stepScripts) {
+                            $counts.script_invocations++
+                            $invokedScripts.Add($script)
+                            if ($script -ne $harnessSelf -and $allowedScripts -notcontains $script) {
+                                $failures.Add("${rel}: invokes '$script' which run-local-ci.ps1 does NOT mirror (add it to `$mirror)")
+                            }
                         }
                         continue
                     }
@@ -203,7 +224,7 @@ function Test-MirrorCoverage {
         }
     }
 
-    # Anti-vacuous floors (rd-enforce: prevent green-by-finding-nothing).
+    # Anti-vacuous floors (prevent green-by-finding-nothing).
     if ($counts.workflow_files -lt $MinWorkflows) { $failures.Add("only $($counts.workflow_files) workflow files (expected >= $MinWorkflows) - suspicious, fail-closed") }
     if ($counts.steps -lt $MinSteps) { $failures.Add("only $($counts.steps) steps discovered (expected >= $MinSteps) - suspicious, fail-closed") }
     if ($counts.script_invocations -lt $MinInvocations) { $failures.Add("only $($counts.script_invocations) script invocations (expected >= $MinInvocations) - suspicious, fail-closed") }
