@@ -179,30 +179,25 @@ For comments dropped via step-3 rejection or step-2 rename-first resolution (aud
 
 A bullet missing the `approval_turn:` field, citing an exempt category not in the canonical 6, or citing an unknown `n/a - <reason>` value fails the step-2.6 gate and forbids the commit per `review-workflow-gates-sweeps.md` §2B (`comment-audit-§3.1: failed - <site list>`).
 
-## Persisted audit file - `.github/pr-quality-gate/audits/last.md` (OPT-IN per consuming repo)
+## Persisted audit record - a LOCAL git note (this instructions repo only)
 
-**Adoption gate (READ THIS FIRST).** The persisted audit file is OPT-IN per consuming repository - agents MUST NOT auto-create this file in repos that have not adopted the corresponding CI infrastructure. Before staging any `.github/pr-quality-gate/audits/last.md` content, the agent MUST verify the repo has adopted the audit-file workflow by checking that at least ONE of these holds in the project repo root:
+**Where the record lives (READ THIS FIRST).** In THIS instructions repo the comment audit is persisted as a LOCAL git note on `refs/notes/copilot-audit-comment` - never staged, never committed, never pushed (zero remote footprint). The agent authors the §2.6 block to a GITIGNORED worktree receipt at `.github/pr-quality-gate/audits/last.md`; the `post-commit` hook (`scripts/flush-audits.ps1`) reads that receipt, writes it as the note on the new commit (prepending an `audited_tree:` line that binds the note to the commit's tree), and deletes the receipt. The `pre-push` hook (`scripts/check-audit-notes-prepush.ps1`) validates the note for every pushed commit. All of this is IDENTITY-GATED to this repo (`Test-IsInstructionsRepo`); on any other repo the machinery no-ops.
 
-- A file named `.github/workflows/pr-gate-check.yml` exists (the CI workflow that consumes the audit file), OR
-- A file named `scripts/check-comment-audit.ps1` exists (the local script the workflow invokes), OR
-- A pre-existing `.github/pr-quality-gate/audits/last.md` already exists in the repo's main branch (adoption marker)
+**Do NOT stage or commit the receipt.** `.github/pr-quality-gate/audits/last.md` is gitignored - `git add` will refuse it, and that is correct: the comment audit is recorded as a note by the hook, not as a tracked file. The agent stages NOTHING for the comment audit. `git add .` / `-A` / `--all` remain forbidden per AGENTS.md §0.
 
-If NONE of these are present, the consuming repo has not adopted this infrastructure. In that case:
-- DO NOT create `.github/pr-quality-gate/audits/last.md`. It is an instruction-set artifact that should not pollute the consuming project.
+**On a consuming repo (audit machinery absent / identity gate off):**
+- DO NOT create `.github/pr-quality-gate/audits/last.md`. It is an instruction-set artifact that must not pollute the consuming project.
 - The §3.1 comment-protocol DISCIPLINE still applies - every NEW or substantively rewritten comment in the diff must still pass clarity-check → rename-check → step-3 `ask_user` approval (or fall under one of the canonical 6 exempt categories).
-- Comment-audit tracking happens INLINE via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (see `pre-commit.md` `comment_audit.audit_file_staged: no - repo has not adopted CI workflow`). The block records counts + per-comment dispositions via approval-turn citations from the session's `ask_user` history. No persistent file artifact is created.
-- The `staged_files` list MUST NOT include `.github/pr-quality-gate/audits/last.md` in any commit on this repo.
-
-Repos that HAVE adopted the workflow proceed with the per-commit audit-file requirement below.
+- Comment-audit tracking happens INLINE via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (see `pre-commit.md` `comment_audit.audit_record: inline - consuming repo`). The block records counts + per-comment dispositions via approval-turn citations from the session's `ask_user` history. No file artifact, no note.
 
 ---
 
-Every commit on an ADOPTED repo MUST stage a file at `.github/pr-quality-gate/audits/last.md` (relative to the project repo root) containing the §2.6 comment-audit block verbatim plus a `parent_sha:` header line. The file is overwritten per commit and is the persistent artifact PR-time review (bot or human) reads to verify the comment audit.
+Each commit in THIS repo authors a receipt at `.github/pr-quality-gate/audits/last.md` (relative to the repo root) containing the §2.6 comment-audit block verbatim plus a `parent_sha:` header line. The receipt is overwritten per commit; the `post-commit` hook flushes it into the commit's note and removes it. The note is the persistent record the local `pre-push` gate reads to verify the comment audit.
 
 **Format** (literal text, with no leading prose):
 
 ```
-parent_sha: <git rev-parse HEAD at write time - the SHA the about-to-be-created commit will be a child of. MUST be a ≥7-char hex SHA. For TRUE root commits (no parent), use the literal `EMPTY_TREE`. Template placeholders like `<git rev-parse HEAD>` are REJECTED by the CI script.>
+parent_sha: <git rev-parse HEAD at write time - the SHA the about-to-be-created commit will be a child of. MUST be the full 40-char hex SHA. For TRUE root commits (no parent), use the literal `EMPTY_TREE`. Template placeholders like `<git rev-parse HEAD>` are REJECTED by the CI script.>
 commit_subject: <the proposed commit subject for the about-to-be-created commit; recommended ≤72 chars (not enforced by CI - `Test-AuditFile` checks presence + rejects template placeholders but does not verify length or content match against the actual commit subject)>
 Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment lines in diff, <J> approved, <E> exempt, <DG> degraded-mode-drop, <NR> no-response-drop, <D> deleted.
 - <file:line>: approval_turn: <ask_user turn/message ref> | allowed-case: <case> | justification: <one-line text>
@@ -213,30 +208,30 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 (one bullet per NEW or substantively-rewritten comment line; OR the zero-count justification when scope has no comment changes)
 ```
 
-**`parent_sha:` field is REQUIRED and STRICTLY VALIDATED** - `scripts/check-comment-audit.ps1` matches it against the commit's actual parent (via `git rev-parse <commit>^`) to detect stale audit files. Accepted values:
-- A ≥7-character hex SHA prefix that matches the commit's actual parent (full 40-char SHA recommended; short prefixes are accepted only for cross-fork display)
+**`parent_sha:` field is REQUIRED and STRICTLY VALIDATED** - the local note gate (`Read-CommentNoteValidated`, reusing `Test-AuditFile` from `scripts/check-comment-audit.ps1`) matches it against the commit's actual parent (via `git rev-parse <commit>^`) to detect a stale record. Accepted values:
+- The full 40-character hex SHA that exactly matches the commit's actual parent (the validator requires an exact 40-char match - no prefixes accepted)
 - The literal `EMPTY_TREE` for true root commits (no parent) - the script verifies the commit has no parent before accepting this
 - Template placeholders like `<git rev-parse HEAD>` or `<.+>` are EXPLICITLY REJECTED (forces the agent to actually run the command and substitute the value)
 
-Use `git rev-parse HEAD` AT AUDIT-WRITE TIME (immediately before staging the audit file). The script's verification is post-commit: it compares the audit's `parent_sha:` against the actual commit's `<commit>^`.
+Use `git rev-parse HEAD` AT RECEIPT-WRITE TIME (immediately before the commit). Verification is local + post-commit: the `pre-push` note gate compares the note's `parent_sha:` against the commit's `<commit>^`, and its `audited_tree:` against the commit's tree (a stale carry onto an amended / rebased commit is rejected).
 
-**Always present, even when the commit has no comments:** write the zero-count justification line per §2.6's template. Invariant file presence lets PR-time bots iterate per-commit without worrying about missing files.
+**Always present, even when the commit has no comments:** write the zero-count justification line per §2.6's template, so every commit carries a valid note.
 
-**Meta-changes that don't trigger §2.6** (no source-code edits): still write the file with `Comment audit: scope=<no source files>, 0 new comment lines, zero-count justification: meta-change (no source edits)`.
+**Meta-changes that don't trigger §2.6** (no source-code edits): still author the receipt with `Comment audit: scope=<no source files>, 0 new comment lines, zero-count justification: meta-change (no source edits)`.
 
-**Staging:** `.github/pr-quality-gate/audits/last.md` is a gate ARTIFACT - the agent stages it by explicit path (`git add .github/pr-quality-gate/audits/last.md`) alongside the user's staged source in every commit; this is the one carve-out to the never-auto-stage-code rule (the agent stages its artifacts, the user stages code - `pre-commit.md`). `git add .` / `-A` / `--all` are forbidden per AGENTS.md §0. The file IS the persistent audit record - without it, `pr-gate-check.yml` fails the PR.
+**Not staged - flushed to a note.** `.github/pr-quality-gate/audits/last.md` is a GITIGNORED authoring receipt, not a tracked artifact: the agent NEVER runs `git add` on it (the gitignore refuses it). After the commit, the `post-commit` hook flushes the receipt into the commit's note and deletes it. The note IS the persistent audit record; the local `pre-push` gate (`scripts/check-audit-notes-prepush.ps1`) fails the push if a comment-bearing commit lacks a fresh valid note. The note is local-only (never pushed); there is no CI comment-audit job (CI cannot read a local note - the public-diff Layer-A detectors cover emdash / structural-conformance / duplication).
 
-**Repo-scoped governance record:** the audit file is a gate artifact of the repo whose commits it validates (adoption-gated on the checker's presence). The consumer-adoption installer was removed; the broader instructions-repo-vs-consumer scoping is being reworked in a follow-up.
+**Identity-gated record:** the receipt-to-note flush + the pre-push validation run ONLY in this instructions repo (`Test-IsInstructionsRepo`, by remote identity). On any consuming repo the machinery no-ops and tracking is inline (above) - nothing is written or committed to the consuming project.
 
-**No bootstrap skip (hardened):** every non-merge commit in the range is validated against its parent, INCLUDING the first commit that adds `.github/pr-quality-gate/audits/last.md`. The former first-add and never-existed exemptions were removed from `scripts/check-comment-audit.ps1` so an introducing commit cannot bundle un-audited comment-bearing changes; the commit that introduces the file authors a valid `last.md` like any other. (Merge commits are skipped via `git log --no-merges`, consistent with the sibling gates.)
+**No bootstrap skip (hardened):** every non-merge commit in the push range is validated against its parent, INCLUDING the first commit that introduces a given file. The former first-add and never-existed exemptions were removed from `scripts/check-comment-audit.ps1` so an introducing commit cannot bundle un-audited comment-bearing changes. (Merge commits are walked via first-parent diff, consistent with the sibling gates.)
 
-**Known limitations** (acknowledged v1 ceiling - these are forcing-function speed-bumps backed by human PR review, NOT cryptographic enforcement):
+**Known limitations** (acknowledged v1 ceiling - these are forcing-function speed-bumps backed by the user's local manual review, NOT cryptographic enforcement):
 
-- **Count-based, not site-based.** The CI script (`scripts/check-comment-audit.ps1`) compares the count of `approved + exempt` audit entries against the count of detected new-comment lines in the diff. It does NOT verify that each audit entry's `<file:line>` prefix corresponds to a real comment site in the diff. An agent who emits N shape-valid bullets with arbitrary `<file:line>` values for N real un-approved comments will pass the CI gate. The intended backstop is human PR review reading the audit alongside the diff. Site-level verification is a candidate follow-up enhancement.
+- **Count-based, not site-based.** The §2.6 validator (`Test-AuditFile` in `scripts/check-comment-audit.ps1`, reused by the local note gate) compares the count of `approved + exempt` audit entries against the count of detected new-comment lines in the diff. It does NOT verify that each audit entry's `<file:line>` prefix corresponds to a real comment site in the diff. An agent who emits N shape-valid bullets with arbitrary `<file:line>` values for N real un-approved comments will pass the gate. The intended backstop is the user's local manual review (the note is rendered by `scripts/show-audit.ps1`) reading the audit alongside the diff. Site-level verification is a candidate follow-up enhancement.
 - **String-literal false-positives** include both line-tokens and tight block-tokens. The agent must route through step 3 (the false-positive IS a real new comment-looking line, so propose it as a comment and let the user approve / reject); there is NO canonical exempt category for "regex false-positive" - invoking `n/a - exempt: <category>` requires one of the 6 canonical tokens.
   - **Line-token case:** `var x = "a // b";` matches because of the spaced `//` token inside the string.
   - **Block-token case (introduced by the R5 no-whitespace fix for `code;/*tight*/`):** `var s = "code/*x*/";`, `<div title="x<!--y-->z"></div>`, and `$s = "a<#b#>c";` all flag because the block-token regex uses `\s*` (zero or more whitespace), so it matches inside string-literal content. The false-positive rate is bounded and acceptable.
-- **Tight trailing line comments are NOT detected** (false-NEGATIVE case). `return x; //done` and `SELECT 1 --note` return `false` from `Test-IsNewCommentLine` because line-token inline detection requires `\S+\s+($pattern)(\s|$)` (whitespace BOTH before AND after token, OR token at end-of-line preceded by `\s+`). The leading `\s+` is intentional (avoids `://` URL false-positives); the trailing `(\s|$)` excludes tight forms. Per the v1 ceiling philosophy, this gap is accepted as a forcing-function speed-bump backed by human PR review.
+- **Tight trailing line comments are NOT detected** (false-NEGATIVE case). `return x; //done` and `SELECT 1 --note` return `false` from `Test-IsNewCommentLine` because line-token inline detection requires `\S+\s+($pattern)(\s|$)` (whitespace BOTH before AND after token, OR token at end-of-line preceded by `\s+`). The leading `\s+` is intentional (avoids `://` URL false-positives); the trailing `(\s|$)` excludes tight forms. Per the v1 ceiling philosophy, this gap is accepted as a forcing-function speed-bump backed by the user's local manual review.
 - **Multi-line docstrings counted at delimiter lines, NOT body lines.** Per-language detail:
   - **Python** `"""..."""` blocks: both the opening `"""` and closing `"""` register as comment sites (because `"""` is in the `py` token list and matches at either end). A 5-line docstring registers 2 audit-required sites, not 1 or 5.
   - **Elixir** `@moduledoc`/`@doc`/`@typedoc` blocks: only the `@`-prefixed opener line registers (the closing `"""` is NOT in the `ex`/`exs` token list). A 5-line `@moduledoc """..."""` block registers 1 site.

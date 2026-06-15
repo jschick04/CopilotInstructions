@@ -8,17 +8,6 @@ permissions:
   contents: read
 
 jobs:
-  comment-audit:
-    name: Per-commit comment-audit ledger verification
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-      - shell: pwsh
-        run: ./scripts/check-comment-audit-ci.ps1 -BaseRef "origin/${{ github.base_ref }}" -FetchBranch "${{ github.base_ref }}" -CiMode
-
   playbook-ref-check:
     name: Verify playbook path references resolve
     runs-on: ubuntu-latest
@@ -27,6 +16,14 @@ jobs:
       - shell: pwsh
         run: ./scripts/check-playbook-refs.ps1
 
+  playbook-ref-tests:
+    name: playbook-refs checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-playbook-refs.tests.ps1
+
   script-tests:
     name: comment-audit module unit tests
     runs-on: ubuntu-latest
@@ -34,18 +31,6 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - shell: pwsh
         run: ./scripts/tests/check-comment-audit.tests.ps1
-
-
-  post-code-change-audit:
-    name: Per-commit post-code-change panel-ledger verification
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
-      - shell: pwsh
-        run: ./scripts/check-post-code-change-ci.ps1 -BaseRef "origin/${{ github.base_ref }}" -FetchBranch "${{ github.base_ref }}" -CiMode
 
   panel-ledger-tests:
     name: panel-ledger module unit tests
@@ -101,7 +86,6 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-commit-message.tests.ps1
 
-
   repo-root-tests:
     name: repo-root resolver unit tests
     runs-on: ubuntu-latest
@@ -110,6 +94,46 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/repo-root.tests.ps1
 
+  audit-note-helpers-tests:
+    name: audit-note helpers unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/audit-note-helpers.tests.ps1
+
+  audit-notes-prepush-tests:
+    name: audit-notes prepush checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-audit-notes-prepush.tests.ps1
+
+  structural-conformance-tests:
+    name: structural-conformance checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-structural-conformance.tests.ps1
+
+  signoff-tests:
+    name: signoff checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-signoff.tests.ps1
+
+  duplication-tests:
+    name: duplication checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-duplication.tests.ps1
+
   local-ci-coverage:
     name: Local-CI mirror coverage (every workflow check is a mirrored script)
     runs-on: ubuntu-latest
@@ -117,3 +141,43 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
       - shell: pwsh
         run: ./scripts/run-local-ci.ps1 -CoverageOnly
+
+  local-ci-harness-tests:
+    name: Local-CI harness unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/run-local-ci.tests.ps1
+
+  lint:
+    name: PowerShell lint (PSScriptAnalyzer, repo-wide)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/check-lint.ps1
+
+  lint-tests:
+    name: lint checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-lint.tests.ps1
+
+  panel-artifact-scan:
+    name: No review-process artifacts in code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/check-no-panel-artifacts.ps1
+
+  panel-artifact-tests:
+    name: panel-artifact checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-no-panel-artifacts.tests.ps1

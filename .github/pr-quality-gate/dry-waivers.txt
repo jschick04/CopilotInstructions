@@ -1,0 +1,45 @@
+# Justified duplications (dry-audit dispositions) for scripts/check-duplication.ps1.
+# Format: <16-hex sig hash>  <reason>
+# Each hash is sha256[0:16] of an EXACT normalized duplicated block, taken from the
+# detector's [sig:...] output. A waiver SELF-EXPIRES when the code changes (the hash
+# changes), forcing re-justification instead of rotting open. These are idiomatic
+# boilerplate that cannot be meaningfully DRY-ed: per-script settings that must live in
+# each script's own scope, required CI steps, and per-function param blocks.
+
+# Required GitHub Actions checkout boilerplate (actions/checkout + runs-on). Cannot be
+# DRY-ed into a composite action without the coverage gate having to special-case it.
+1c344bf48d54a3ed  workflow checkout boilerplate (readiness-gate.yml vs catalog-sync-check.yml)
+
+# Standard checker bootstrap: Set-StrictMode + $ErrorActionPreference + Import-Module
+# repo-root/audit-note-helpers + Resolve-RepoRoot. Set-StrictMode and $ErrorActionPreference
+# must be set in each script's OWN scope (a shared function cannot set the caller's strict
+# mode), so the bootstrap is intentionally self-contained per checker script.
+139c2ed69fa3ac9f  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+e439bc1c376f5d04  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+9a110f8ffa80d5f7  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+13cfd6f468330eae  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+675e15163318ced7  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+67edbacb095259e9  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+bb2038a1bccf8cc2  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+52a6dcce9917f91d  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+2b0e08ec095ecd59  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+76c64dc0e6ede321  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+76f9089c1e223033  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+311d2194d0584220  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+81dafde48bda0fda  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
+
+# Per-function boilerplate in audit-note-helpers.psm1: CmdletBinding + the shared
+# (RepoRoot, CommitSha) param block + the Invoke-AuditGit rev-parse pattern, repeated
+# across the small git-accessor functions. Param blocks are per-function, not extractable.
+1d8d3e053855a8cf  audit-note-helpers per-function param-block / git-runner boilerplate
+
+# Per-checker test scaffolding shared by the two near-twin scan-checker self-tests
+# (check-no-panel-artifacts.tests.ps1 vs check-playbook-refs.tests.ps1): the file-scope
+# setup header ($repoRoot/$checker/$script:Pass/$script:Fail), the per-file fixture writer
+# (New-Item + Set-Content, with divergent commit behavior), and the checker invoker
+# (& pwsh -File $checker -RepoRoot $Dir; capture ExitCode + Output). Each references its
+# OWN file-scope $checker and fixture dirs, so the helpers are intentionally self-contained
+# per test file - the same disposition as the per-script checker-bootstrap waivers above.
+9fae694941a8a6b7  per-checker test scaffolding (npa vs playbook-refs self-test)
+39c2cc2ace307f0e  per-checker test scaffolding (npa vs playbook-refs self-test)
+2ce6ef6e7609a9f7  per-checker test scaffolding (npa vs playbook-refs self-test)

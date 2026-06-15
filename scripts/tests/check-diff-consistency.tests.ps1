@@ -54,7 +54,7 @@ function Invoke-Checker {
     $out = & $pwshExe @argList 2>&1 | Out-String
     return [pscustomobject]@{ Output = $out; ExitCode = $LASTEXITCODE }
 }
-function Count-Slug { param([string] $Output, [string] $Slug) ([regex]::Matches($Output, [regex]::Escape($Slug))).Count }
+function Measure-Slug { param([string] $Output, [string] $Slug) ([regex]::Matches($Output, [regex]::Escape($Slug))).Count }
 
 Write-Host ""
 Write-Host "=== line-local deterministic rules (fire + FP-suppression + regressions) ===" -ForegroundColor Cyan
@@ -64,16 +64,16 @@ $repo = New-FixtureRepo @{
     'README.md'   = "# Docs`nExample ledger line: ``files-touched: 1`` (this is prose, must NOT hard-fail)`n"
 }
 $r = Invoke-Checker -Repo $repo
-Assert-Equal 2 (Count-Slug $r.Output 'shell-sed-exit-zero-fallback-unreachable') 'sed||default + sed||echo"...fail..." both fire; sed||{...exit} excluded (forcing#5 regression)'
-Assert-True  ((Count-Slug $r.Output 'ci-shell-or-true-swallows-real-failures') -ge 1) '|| true fires'
-Assert-True  ((Count-Slug $r.Output 'ci-jq-arg-literal-backslash-n') -ge 1) 'jq --arg literal \n fires'
-Assert-Equal 0 (Count-Slug $r.Output 'receipt-numeric-claim-drift') 'README prose "files-touched: 1" does NOT fire (forcing#4 regression; rule scoped to receipt artifact)'
+Assert-Equal 2 (Measure-Slug $r.Output 'shell-sed-exit-zero-fallback-unreachable') 'sed||default + sed||echo"...fail..." both fire; sed||{...exit} excluded (regression)'
+Assert-True  ((Measure-Slug $r.Output 'ci-shell-or-true-swallows-real-failures') -ge 1) '|| true fires'
+Assert-True  ((Measure-Slug $r.Output 'ci-jq-arg-literal-backslash-n') -ge 1) 'jq --arg literal \n fires'
+Assert-Equal 0 (Measure-Slug $r.Output 'receipt-numeric-claim-drift') 'README prose "files-touched: 1" does NOT fire (regression; rule scoped to receipt artifact)'
 Assert-Equal 0 $r.ExitCode 'all-advisory findings => exit 0 (non-gating)'
 Remove-Item -Recurse -Force $repo
 
 $plus = New-FixtureRepo @{ 'plus.sh' = "#!/bin/sh`n++state || true`n" }
 $rp = Invoke-Checker -Repo $plus
-Assert-True ((Count-Slug $rp.Output 'ci-shell-or-true-swallows-real-failures') -ge 1) 'rule fires on a line whose content starts with ++ (diff line +++...); not dropped (forcing re-review #1)'
+Assert-True ((Measure-Slug $rp.Output 'ci-shell-or-true-swallows-real-failures') -ge 1) 'rule fires on a line whose content starts with ++ (diff line +++...); not dropped'
 Remove-Item -Recurse -Force $plus
 
 Write-Host ""
@@ -83,7 +83,7 @@ $match = New-FixtureRepo @{
     '.github/pr-quality-gate/audits/post-code-change-last.md' = "POST-CODE-CHANGE LEDGER`n  files-touched: 2`n"
 }
 $rm = Invoke-Checker -Repo $match -Base '' -Extra @('-Mode', 'commit')
-Assert-Equal 0 (Count-Slug $rm.Output 'receipt-numeric-claim-drift') 'files-touched:2 == 2 non-audit files => no drift'
+Assert-Equal 0 (Measure-Slug $rm.Output 'receipt-numeric-claim-drift') 'files-touched:2 == 2 non-audit files => no drift'
 Assert-Equal 0 $rm.ExitCode 'matching receipt => exit 0'
 Remove-Item -Recurse -Force $match
 
@@ -92,22 +92,22 @@ $drift = New-FixtureRepo @{
     '.github/pr-quality-gate/audits/post-code-change-last.md' = "POST-CODE-CHANGE LEDGER`n  files-touched: 9`n"
 }
 $rd = Invoke-Checker -Repo $drift -Base '' -Extra @('-Mode', 'commit')
-Assert-True ((Count-Slug $rd.Output 'receipt-numeric-claim-drift') -ge 1) 'files-touched:9 != 2 non-audit files => drift fires'
+Assert-True ((Measure-Slug $rd.Output 'receipt-numeric-claim-drift') -ge 1) 'files-touched:9 != 2 non-audit files => drift fires'
 Assert-Equal 1 $rd.ExitCode 'drift is a HARD finding => exit 1'
 Remove-Item -Recurse -Force $drift
 
 $rangeReceipt = New-FixtureRepo @{ 'x.cs' = "class X {}`n"; '.github/pr-quality-gate/audits/post-code-change-last.md' = "LEDGER`n  files-touched: 99`n" }
 $rr = Invoke-Checker -Repo $rangeReceipt
-Assert-Equal 0 (Count-Slug $rr.Output 'receipt-numeric-claim-drift') 'receipt rule does NOT fire in range mode (commit-scoped; avoids multi-commit FP, forcing re-review #2)'
+Assert-Equal 0 (Measure-Slug $rr.Output 'receipt-numeric-claim-drift') 'receipt rule does NOT fire in range mode (commit-scoped; avoids multi-commit FP)'
 Remove-Item -Recurse -Force $rangeReceipt
 
 Write-Host ""
 Write-Host "=== -Mode ref contract + -Json output ===" -ForegroundColor Cyan
 $mode = New-FixtureRepo @{ 'b.sh' = "#!/bin/sh`nsed -n '1p' f || cp default f`n" }
 $rc = Invoke-Checker -Repo $mode -Base '' -Extra @('-Mode', 'commit')
-Assert-True ((Count-Slug $rc.Output 'shell-sed-exit-zero-fallback-unreachable') -ge 1) '-Mode commit (parent..tip) finds the sed finding without explicit -BaseRef'
+Assert-True ((Measure-Slug $rc.Output 'shell-sed-exit-zero-fallback-unreachable') -ge 1) '-Mode commit (parent..tip) finds the sed finding without explicit -BaseRef'
 $rs = Invoke-Checker -Repo $mode -Base '' -Extra @('-Mode', 'pr-sweep')
-Assert-True ((Count-Slug $rs.Output 'shell-sed-exit-zero-fallback-unreachable') -ge 1) '-Mode pr-sweep (merge-base..head) finds the sed finding'
+Assert-True ((Measure-Slug $rs.Output 'shell-sed-exit-zero-fallback-unreachable') -ge 1) '-Mode pr-sweep (merge-base..head) finds the sed finding'
 $rj = Invoke-Checker -Repo $mode -Extra @('-Json')
 $json = $rj.Output | ConvertFrom-Json
 Assert-Equal 'pass' $json.status '-Json status=pass when no hard finding'
@@ -154,7 +154,7 @@ git mv old.cs new.cs
 git add -A | Out-Null; git commit -qm rename | Out-Null
 Pop-Location
 $rrn = Invoke-Checker -Repo $ren -Base '' -Head 'HEAD' -Extra @('-Mode', 'commit')
-Assert-Equal 0 (Count-Slug $rrn.Output 'receipt-numeric-claim-drift') 'rename (old+new = 2 paths blind) vs files-touched:2 => no drift (rename-blind, matches panel-ledger; -M would wrongly count 1)'
+Assert-Equal 0 (Measure-Slug $rrn.Output 'receipt-numeric-claim-drift') 'rename (old+new = 2 paths blind) vs files-touched:2 => no drift (rename-blind, matches panel-ledger; -M would wrongly count 1)'
 Assert-Equal 0 $rrn.ExitCode 'rename receipt matches rename-blind count => exit 0'
 Remove-Item -Recurse -Force $ren
 

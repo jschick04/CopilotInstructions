@@ -97,7 +97,7 @@ jobs:
           git diff --exit-code
 '@
 $r = Invoke-Coverage -Files @{ 'a.yml' = $multi } -Mirror @('scripts/foo.ps1')
-Assert-True (($r.Failures -join '|') -match 'command lines') "inline multi-command run: block fails"
+Assert-True (($r.Failures -join '|') -match 'non-script executable line') "inline multi-command run: block fails"
 
 $thirdparty = @'
 name: f
@@ -149,7 +149,7 @@ jobs:
         run: exit 0
 '@
 $r = Invoke-Coverage -Files @{ 'a.yml' = $envmask } -Mirror @('scripts/foo.ps1')
-Assert-True (($r.Failures -join '|') -match 'not a clean single scripts/ invocation') "scripts/ in env: does not mask a non-script run: (structure-aware)"
+Assert-True (($r.Failures -join '|') -match 'non-script executable line') "scripts/ in env: does not mask a non-script run: (structure-aware)"
 
 $r = Invoke-Coverage -Files @{} -Mirror @()
 Assert-True (($r.Failures -join '|') -match 'glob matched nothing|no workflow files') "zero workflow files fails closed"
@@ -168,7 +168,7 @@ runs:
         git diff --exit-code
 '@
 $r = Invoke-Coverage -Files @{ 'a.yml' = $goodWf } -Composite @{ '.github/actions/x/action.yml' = $badComposite } -Mirror @('scripts/foo.ps1')
-Assert-True (($r.Failures -join '|') -match 'command lines|not a clean') "composite action with inline check logic is scanned + rejected"
+Assert-True (($r.Failures -join '|') -match 'non-script executable line') "composite action with inline check logic is scanned + rejected"
 
 Write-Host ""
 $summaryColor = if ($script:failures -eq 0) { 'Green' } else { 'Red' }

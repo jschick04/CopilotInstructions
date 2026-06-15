@@ -252,12 +252,12 @@ function Test-AuditFile {
         $result.Errors += "audit file has unsubstituted template placeholder for parent_sha (line: $parentShaLine)"
         return $result
     }
-    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{7,40})\s*$') {
+    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40})\s*$') {
         $result.ParentSha = $matches[1]
         if ($ExpectedParentSha -eq $script:GitEmptyTreeSha) {
             $result.Errors += "audit declares hex parent_sha '$($result.ParentSha)' but expected root-commit empty-tree sentinel"
             $result.Valid = $false
-        } elseif ($ExpectedParentSha -notlike "$($result.ParentSha)*" -and $result.ParentSha -notlike "$ExpectedParentSha*") {
+        } elseif (-not $ExpectedParentSha.Equals($result.ParentSha, [System.StringComparison]::OrdinalIgnoreCase)) {
             $result.Valid = $false
             $result.Errors += "audit parent_sha '$($result.ParentSha)' does not match expected '$ExpectedParentSha' (stale audit file)"
         }
@@ -270,7 +270,7 @@ function Test-AuditFile {
         }
     } else {
         $result.Valid = $false
-        $result.Errors += "audit parent_sha value is invalid (must be ≥7-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
+        $result.Errors += "audit parent_sha value is invalid (must be a full 40-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
         return $result
     }
     foreach ($line in $AuditLines) {

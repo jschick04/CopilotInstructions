@@ -1,6 +1,7 @@
 Placeholder so the audits/ folder exists in the repo even before the
-first comment-audit file is committed.
+first comment-audit receipt is authored.
 
-Per `.github/playbooks/comment-protocol.md` §Persisted audit file:
-every commit stages `last.md` here (this file is overwritten per
-commit and reviewed at PR time by `.github/workflows/pr-gate-check.yml`).
+Per `.github/playbooks/comment-protocol.md` §Persisted audit record:
+in this instructions repo each commit authors `last.md` here (gitignored,
+overwritten per commit); the post-commit hook flushes it into a LOCAL git
+note and deletes it. Nothing in audits/ except this placeholder is tracked.

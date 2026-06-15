@@ -95,7 +95,7 @@ This is the failure mode that landed on this branch: `PANEL CONVERGED` was emitt
 
 ### Rule
 
-Before ANY `git commit` (incl. `--amend`, or a `git stash pop` / cherry-pick / rebase resolving into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, the commit is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary. The user stages code; the agent stages only gate artifacts.
+Before ANY `git commit` (incl. `--amend`, or a `git stash pop` / cherry-pick / rebase resolving into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, the commit is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary. The user stages code; the agent stages only its regenerated gate artifacts, not the gitignored audit receipts.
 
 ### Ledger format
 
@@ -219,7 +219,7 @@ gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<
 3. Every `gates|` key MUST appear with status+metric (`=none` for empty triggers, never blank).
 4. Catalog sub-blocks (`pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, `playbook-invocations`) stay in EXISTING STRUCTURED form below KV (dot-path parsers depend on structure).
 5. APPENDIX (only when count>0): emit the canonical structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
-6. Adopted: full schema to audit file, appendix optional in chat. Non-adopted: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
+6. This instructions repo: full schema to the receipt (flushed to a note), appendix optional in chat. Consuming repos: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
 7. §0 SENTINEL, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, and `PRE-PR REVIEW COVERAGE` emit the caveman chat-emission form defined in each block's home section, NOT verbose YAML.
 
 ### Waiver semantics
@@ -264,7 +264,7 @@ A gate row may be `N/A: <reason>` when:
 - **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
 - **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A: pure re-commit of already-reviewed content, 0 behavioral delta`.
-- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which forbids the commit per `comment-protocol.md` §Recording. On **adopted repos** (per `comment-protocol.md` §Persisted audit file, adoption gate), missing `.github/pr-quality-gate/audits/last.md` ALSO produces `failed`. On **non-adopted repos**, the audit file is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block, missing-file is NOT a failure in that mode.
+- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which forbids the commit per `comment-protocol.md` §Recording. In **this instructions repo** (per `comment-protocol.md` §Persisted audit record), a missing/stale git note ALSO produces `failed` at the `pre-push` note gate. On **consuming repos**, the receipt is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block; missing-receipt is NOT a failure in that mode.
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root

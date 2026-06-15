@@ -296,9 +296,11 @@ Write-Host "  To revert to full-default behavior, delete it: Remove-Item '$activ
 
 Write-Heading "Configuring git hooks path"
 
-$gitDir = Join-Path $repoRoot '.git'
-if (-not (Test-Path $gitDir)) {
-    Write-Host "WARNING: .git directory not found at '$gitDir'. Skipping hooks config - this script is not running inside a git clone." -ForegroundColor Yellow
+# Detect a git work tree via `git rev-parse --git-dir` (robust for linked worktrees, where
+# `.git` is a FILE not a directory, and for submodules) rather than testing for a `.git` dir.
+& git -C $repoRoot rev-parse --git-dir 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: not inside a git work tree (git rev-parse --git-dir failed). Skipping hooks config - this script is not running inside a git clone." -ForegroundColor Yellow
 } else {
     $hooksDir = Join-Path $repoRoot '.githooks'
     if (-not (Test-Path $hooksDir)) {
@@ -343,6 +345,39 @@ if (-not (Test-Path $gitDir)) {
                 Write-Host "ERROR: git config failed. Run manually: git -C `"$repoRoot`" config --local core.hooksPath .githooks" -ForegroundColor Red
             }
         }
+    }
+}
+
+# --- 8. Configure local git-notes audit refs (zero remote footprint) ----------
+
+Write-Heading "Configuring local audit-note refs"
+
+& git -C $repoRoot rev-parse --git-dir 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "WARNING: not inside a git work tree. Skipping notes config." -ForegroundColor Yellow
+} else {
+    # The audit ledgers live in local git notes (never pushed). Two independent refs
+    # (panel + comment) carried across amend/rebase via rewriteMode=overwrite; the note's
+    # audited_tree freshness binding still rejects a stale carry onto a changed commit.
+    $noteRefs = @('refs/notes/copilot-audit-panel', 'refs/notes/copilot-audit-comment')
+    $existingRefs = @(& git -C $repoRoot config --local --get-all notes.rewriteRef 2>$null) | ForEach-Object { ([string]$_).Trim() }
+    $noteConfigFailures = @()
+    foreach ($ref in $noteRefs) {
+        if ($existingRefs -notcontains $ref) {
+            & git -C $repoRoot config --local --add notes.rewriteRef $ref 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { $noteConfigFailures += "notes.rewriteRef=$ref" }
+        }
+    }
+    & git -C $repoRoot config --local notes.rewriteMode overwrite 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) { $noteConfigFailures += 'notes.rewriteMode=overwrite' }
+    if ($noteConfigFailures.Count -eq 0) {
+        Write-Host "Configured notes.rewriteRef (panel + comment) + notes.rewriteMode=overwrite (local only; notes are never pushed)." -ForegroundColor Green
+    } else {
+        Write-Host "ERROR: could not write local notes config: $($noteConfigFailures -join '; '). The audit-note gate cannot carry notes across amend/rebase until this is set. Check .git/config write permissions and re-run, or set manually:" -ForegroundColor Red
+        Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-panel" -ForegroundColor Red
+        Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-comment" -ForegroundColor Red
+        Write-Host "       git -C `"$repoRoot`" config --local notes.rewriteMode overwrite" -ForegroundColor Red
+        exit 1
     }
 }
 

@@ -1,13 +1,66 @@
 #!/usr/bin/env sh
-# Pre-push hook: run the local-CI mirror (scripts/run-local-ci.ps1) so checks that would
-# fail in CI are caught BEFORE the push round, not after it costs a round-trip.
-# Bypassable via `git push --no-verify`; the GitHub workflows are the authoritative backstop.
+# Pre-push hook:
+#   1. Local audit-note gate (every pushed commit must carry a fresh valid note).
+#   2. Force-push sign-off: any non-fast-forward update requires a fresh tree-bound sign-off.
+#   3. Local-CI mirror (scripts/run-local-ci.ps1).
+# Reads the pre-push ref-update list from stdin. Bypassable via `git push --no-verify`;
+# branch protection + CI are the backstops (zero-remote-footprint design - honestly local).
 #
 # Wired by core.hooksPath=.githooks (setup.ps1 / setup.sh). See pre-pr-push.md for rationale.
 
 set -e
 
+# Git passes the destination remote name as $1 (and its URL as $2); forward the name so the
+# note gate computes the correct new-branch range (rev-list --not --remotes=<remote>).
+REMOTE_NAME="${1:-origin}"
+
+# stdin (the ref-update lines) can be consumed only once; capture to a temp file so both the
+# note gate and the force-push loop can read it (a piped `while` runs in a subshell where its
+# `exit` would not fail the hook - the file redirect keeps the loop in the current shell).
+# Use mktemp (unique, race-safe) rather than a predictable $$ path in a shared tmp dir.
+if ! TMPREF="$(mktemp "${TMPDIR:-/tmp}/copilot-prepush.XXXXXX")"; then
+    echo "ERROR: could not create the temporary pre-push ref-update file (mktemp failed)." >&2
+    exit 1
+fi
+trap 'rm -f "$TMPREF"' EXIT
+if ! cat > "$TMPREF"; then
+    echo "ERROR: could not capture the pre-push ref-update list from stdin." >&2
+    exit 1
+fi
+
 if command -v pwsh >/dev/null 2>&1; then
+    # 1. local audit-note gate
+    if [ -f scripts/check-audit-notes-prepush.ps1 ]; then
+        if ! pwsh -NoProfile -File scripts/check-audit-notes-prepush.ps1 -RemoteName "$REMOTE_NAME" < "$TMPREF"; then
+            echo "" >&2
+            echo "ERROR: the local audit-note gate rejected this push (missing/stale/invalid note)." >&2
+            echo "       Re-author the receipt(s) + run scripts/flush-audits.ps1, then push." >&2
+            exit 1
+        fi
+    fi
+
+    # 2. force-push sign-off (non-fast-forward updates only)
+    if [ -f scripts/check-signoff.ps1 ]; then
+        while read -r localref localsha remoteref remotesha; do
+            [ -z "$localsha" ] && continue
+            case "$localsha" in *[!0]*) : ;; *) continue ;; esac   # all-zero local = delete; skip
+            case "$remotesha" in *[!0]*) : ;; *) continue ;; esac  # all-zero remote = new branch; not a force
+            if ! git merge-base --is-ancestor "$remotesha" "$localsha" 2>/dev/null; then
+                if ! tree=$(git rev-parse "${localsha}^{tree}" 2>/dev/null) || [ -z "$tree" ]; then
+                    echo "ERROR: cannot resolve the tree of '$localsha' to authorize the force-push to '$remoteref'." >&2
+                    echo "       (local object missing/unreadable) Failing closed rather than passing an empty tree to the sign-off gate." >&2
+                    exit 1
+                fi
+                if ! pwsh -NoProfile -File scripts/check-signoff.ps1 -Mode force-push -Tree "$tree"; then
+                    echo "ERROR: force-push to '$remoteref' requires a FRESH user sign-off marker." >&2
+                    echo "       Get explicit sign-off (ask_user) and record force_push_approved before forcing." >&2
+                    exit 1
+                fi
+            fi
+        done < "$TMPREF"
+    fi
+
+    # 3. local-CI mirror
     if ! pwsh -NoProfile -File scripts/run-local-ci.ps1; then
         echo "" >&2
         echo "ERROR: the local-CI mirror (scripts/run-local-ci.ps1) reported a failing check." >&2
@@ -15,5 +68,5 @@ if command -v pwsh >/dev/null 2>&1; then
         exit 1
     fi
 else
-    echo "WARNING: pwsh not found; skipping the local-CI mirror. CI is the authoritative gate." >&2
+    echo "WARNING: pwsh not found; skipping local pre-push gates. CI is the authoritative gate." >&2
 fi

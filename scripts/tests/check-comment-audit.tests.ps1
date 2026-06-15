@@ -47,11 +47,11 @@ Assert-True (Test-IsNewCommentLine -Content '// foo' -FilePath 'src/Foo.cs') 'C#
 Assert-True (Test-IsNewCommentLine -Content '    // indented' -FilePath 'src/Foo.cs') 'C# indented //'
 Assert-True (Test-IsNewCommentLine -Content '/// <summary>' -FilePath 'src/Foo.cs') 'C# XML doc ///'
 Assert-True (Test-IsNewCommentLine -Content '    var x = 0; // running total' -FilePath 'src/Foo.cs') 'C# inline trailing //'
-Assert-True (Test-IsNewCommentLine -Content '    var x = 0; /* trailing block */' -FilePath 'src/Foo.cs') 'C# inline trailing /* (R4-MAJOR-3 fix)'
-Assert-True (Test-IsNewCommentLine -Content '<div></div> <!-- trailing html -->' -FilePath 'app.html') 'HTML inline trailing <!-- (R4-MAJOR-3 fix)'
-Assert-True (Test-IsNewCommentLine -Content 'var x=0;/*tight comment*/' -FilePath 'src/Foo.cs') 'C# inline tight /* (no whitespace) - R5-BLOCKING-1 fix'
-Assert-True (Test-IsNewCommentLine -Content '<div></div><!--tight-->' -FilePath 'app.html') 'HTML inline tight <!-- (no whitespace) - R5-BLOCKING-1 fix'
-Assert-True (Test-IsNewCommentLine -Content '$x=1;<#tight#>' -FilePath 'script.ps1') 'PS1 inline tight <# (no whitespace) - R5-BLOCKING-1 fix'
+Assert-True (Test-IsNewCommentLine -Content '    var x = 0; /* trailing block */' -FilePath 'src/Foo.cs') 'C# inline trailing /*'
+Assert-True (Test-IsNewCommentLine -Content '<div></div> <!-- trailing html -->' -FilePath 'app.html') 'HTML inline trailing <!--'
+Assert-True (Test-IsNewCommentLine -Content 'var x=0;/*tight comment*/' -FilePath 'src/Foo.cs') 'C# inline tight /* (no whitespace)'
+Assert-True (Test-IsNewCommentLine -Content '<div></div><!--tight-->' -FilePath 'app.html') 'HTML inline tight <!-- (no whitespace)'
+Assert-True (Test-IsNewCommentLine -Content '$x=1;<#tight#>' -FilePath 'script.ps1') 'PS1 inline tight <# (no whitespace)'
 Assert-False (Test-IsNewCommentLine -Content '#region foo' -FilePath 'src/Foo.cs') 'C# #region excluded'
 Assert-False (Test-IsNewCommentLine -Content '#pragma warning disable' -FilePath 'src/Foo.cs') 'C# #pragma excluded'
 Assert-False (Test-IsNewCommentLine -Content 'var url = "http://example.com";' -FilePath 'src/Foo.cs') 'C# URL inside string is NOT comment'
@@ -68,15 +68,15 @@ Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 s
 
 Assert-True (Test-IsNewCommentLine -Content '# python comment' -FilePath 'app.py') 'Python #'
 Assert-True (Test-IsNewCommentLine -Content '    # indented' -FilePath 'app.py') 'Python indented #'
-Assert-False (Test-IsNewCommentLine -Content '#!/usr/bin/env python' -FilePath 'app.py') 'Python shebang excluded (R4-BLOCKING-6)'
-Assert-False (Test-IsNewCommentLine -Content '#!/bin/bash' -FilePath 'script.sh') 'Bash shebang excluded (R4-BLOCKING-6)'
-Assert-True (Test-IsNewCommentLine -Content '#! real comment text without slash' -FilePath 'app.py') 'Python "#! " without slash IS still a comment (R5 tightening - only #!/ excluded)'
+Assert-False (Test-IsNewCommentLine -Content '#!/usr/bin/env python' -FilePath 'app.py') 'Python shebang excluded'
+Assert-False (Test-IsNewCommentLine -Content '#!/bin/bash' -FilePath 'script.sh') 'Bash shebang excluded'
+Assert-True (Test-IsNewCommentLine -Content '#! real comment text without slash' -FilePath 'app.py') 'Python "#! " without slash IS still a comment (only #!/ excluded)'
 
 Assert-False (Test-IsNewCommentLine -Content '#region foo' -FilePath 'script.ps1') 'PS1 #region excluded'
 Assert-False (Test-IsNewCommentLine -Content '#endregion' -FilePath 'script.ps1') 'PS1 #endregion excluded'
-Assert-False (Test-IsNewCommentLine -Content '#Requires -Version 5.1' -FilePath 'script.ps1') 'PS1 #Requires -Version excluded (R4-BLOCKING-6)'
-Assert-False (Test-IsNewCommentLine -Content '#Requires -Module Pester' -FilePath 'script.psm1') 'PSM1 #Requires -Module excluded (R4-BLOCKING-6)'
-Assert-True (Test-IsNewCommentLine -Content '#Requires more thought' -FilePath 'script.ps1') 'PS1 "#Requires" without -param IS still a comment (R5 tightening - only #Requires - excluded)'
+Assert-False (Test-IsNewCommentLine -Content '#Requires -Version 5.1' -FilePath 'script.ps1') 'PS1 #Requires -Version excluded'
+Assert-False (Test-IsNewCommentLine -Content '#Requires -Module Pester' -FilePath 'script.psm1') 'PSM1 #Requires -Module excluded'
+Assert-True (Test-IsNewCommentLine -Content '#Requires more thought' -FilePath 'script.ps1') 'PS1 "#Requires" without -param IS still a comment (only #Requires - excluded)'
 Assert-True (Test-IsNewCommentLine -Content '# comment' -FilePath 'script.ps1') 'PS1 regular #'
 
 Assert-False (Test-IsNewCommentLine -Content '--primary: #fff;' -FilePath 'style.css') 'CSS custom property is NOT comment'
@@ -87,9 +87,9 @@ Assert-True (Test-IsNewCommentLine -Content '# ruby comment' -FilePath 'app.rb')
 Assert-True (Test-IsNewCommentLine -Content '# dockerfile' -FilePath 'path/to/Dockerfile') 'Dockerfile (extensionless) #'
 Assert-True (Test-IsNewCommentLine -Content '# makefile' -FilePath 'Makefile') 'Makefile (extensionless) #'
 
-Assert-True (Test-IsNewCommentLine -Content '@moduledoc "module description"' -FilePath 'lib/app.ex') 'Elixir @moduledoc (R4-MAJOR-2)'
-Assert-True (Test-IsNewCommentLine -Content '@doc "function description"' -FilePath 'lib/app.ex') 'Elixir @doc (R4-MAJOR-2)'
-Assert-True (Test-IsNewCommentLine -Content '@typedoc "type description"' -FilePath 'lib/app.ex') 'Elixir @typedoc (R4-MAJOR-2)'
+Assert-True (Test-IsNewCommentLine -Content '@moduledoc "module description"' -FilePath 'lib/app.ex') 'Elixir @moduledoc'
+Assert-True (Test-IsNewCommentLine -Content '@doc "function description"' -FilePath 'lib/app.ex') 'Elixir @doc'
+Assert-True (Test-IsNewCommentLine -Content '@typedoc "type description"' -FilePath 'lib/app.ex') 'Elixir @typedoc'
 
 Assert-False (Test-IsNewCommentLine -Content 'anything' -FilePath 'unknown.xyz') 'Unknown extension'
 
@@ -140,7 +140,7 @@ Assert-Equal 'approved' $shape.Form 'Approved with allowed-case AND justificatio
 Assert-True $shape.Valid 'Approved bullet valid=true'
 
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17 | allowed-case: trade-off |'
-Assert-False $shape.Valid 'Approved WITHOUT justification is invalid (R4-MAJOR-1)'
+Assert-False $shape.Valid 'Approved WITHOUT justification is invalid'
 
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17'
 Assert-False $shape.Valid 'Approved without allowed-case is invalid'
@@ -176,7 +176,7 @@ $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: bogu
 Assert-False $shape.Valid 'Bare bogus approval_turn is invalid'
 
 Write-Host ""
-Write-Host "=== Test-AuditFile (array vs string parameter - regression for R3-BLOCKING-1) ===" -ForegroundColor Cyan
+Write-Host "=== Test-AuditFile (array vs string parameter - regression) ===" -ForegroundColor Cyan
 
 $auditLines = @(
     'parent_sha: a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74',
@@ -187,10 +187,10 @@ $auditLines = @(
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
 Assert-True $result.Valid 'Audit with 2 valid approved bullets is valid'
-Assert-Equal 2 $result.ApprovedCount 'ApprovedCount correctly counts to 2 (regression for R3-BLOCKING-1 array coercion)'
+Assert-Equal 2 $result.ApprovedCount 'ApprovedCount correctly counts to 2 (regression for array coercion)'
 
 $auditLines = @(
-    'parent_sha: abc1234567890',
+    'parent_sha: abc1234567890def0987654321abcdef12345678',
     'commit_subject: Add bar',
     'Comment audit: ...',
     '- src/Foo.cs:42: approval_turn: bogus',
@@ -205,7 +205,7 @@ $auditLines = @(
     'Comment audit: ...'
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'abc1234567890'
-Assert-False $result.Valid 'Audit with unsubstituted template placeholder is invalid (R3-BLOCKING-5)'
+Assert-False $result.Valid 'Audit with unsubstituted template placeholder is invalid'
 
 $auditLines = @(
     'parent_sha: NONE',
@@ -232,42 +232,46 @@ Assert-False $result.Valid 'Mismatched parent_sha is invalid (stale audit)'
 
 $auditLines = @('parent_sha: abc1', 'Comment audit: ...')
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'abc1234567890def0987654321abcdef12345678'
-Assert-False $result.Valid 'parent_sha < 7 chars is invalid'
+Assert-False $result.Valid 'parent_sha that is not a full 40-char SHA is invalid'
 
 $auditLines = @(
-    'parent_sha: a5da51f4',
+    'parent_sha: a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74',
     'Comment audit: ...'
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
-Assert-False $result.Valid 'Audit missing required commit_subject: header is invalid (R6 Slot D fix)'
+Assert-False $result.Valid 'Audit missing required commit_subject: header is invalid'
 
 $auditLines = @(
-    'parent_sha: a5da51f4',
+    'parent_sha: a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74',
     'commit_subject: <proposed commit subject>',
     'Comment audit: ...'
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
-Assert-False $result.Valid 'Audit with unsubstituted commit_subject placeholder is invalid (R6 Slot D fix)'
+Assert-False $result.Valid 'Audit with unsubstituted commit_subject placeholder is invalid'
+
+$auditLines = @('parent_sha: a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74', 'commit_subject: Add foo', 'Comment audit: zero count')
+$result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
+Assert-True $result.Valid 'full 40-char parent_sha exactly matching expected -> valid'
 
 $auditLines = @('parent_sha: a5da51f4', 'commit_subject: Add foo', 'Comment audit: zero count')
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
-Assert-True $result.Valid '7-char hex prefix valid'
+Assert-False $result.Valid '7-char hex prefix of expected -> INVALID (exact 40-char binding; no prefix match)'
 
 Write-Host ""
-Write-Host "=== Get-CoveredCommentCount (R4-BLOCKING-5 regression) ===" -ForegroundColor Cyan
+Write-Host "=== Get-CoveredCommentCount (regression) ===" -ForegroundColor Cyan
 
 $result = [PSCustomObject]@{
     ApprovedCount = 3; ExemptCount = 2; DegradedCount = 1; NoResponseCount = 1; DeletedCount = 5
 }
-Assert-Equal 5 (Get-CoveredCommentCount -AuditResult $result) 'Covered count = approved + exempt ONLY (drops + deleted excluded - R4-BLOCKING-5 regression)'
+Assert-Equal 5 (Get-CoveredCommentCount -AuditResult $result) 'Covered count = approved + exempt ONLY (drops + deleted excluded - regression)'
 
 $result = [PSCustomObject]@{
     ApprovedCount = 0; ExemptCount = 0; DegradedCount = 10; NoResponseCount = 10; DeletedCount = 10
 }
-Assert-Equal 0 (Get-CoveredCommentCount -AuditResult $result) 'All-drops audit covers 0 real diff comments (R4-BLOCKING-5)'
+Assert-Equal 0 (Get-CoveredCommentCount -AuditResult $result) 'All-drops audit covers 0 real diff comments'
 
 Write-Host ""
-Write-Host "=== history-walk integration: first-add commit is validated, not bootstrap-skipped (dual-gate hardening; duck-logic review) ===" -ForegroundColor Cyan
+Write-Host "=== history-walk integration: first-add commit is validated, not bootstrap-skipped (dual-gate hardening) ===" -ForegroundColor Cyan
 
 $checkerPath = Join-Path $PSScriptRoot '../check-comment-audit.ps1'
 $tmpCA = Join-Path ([System.IO.Path]::GetTempPath()) ("ca-boot-" + [Guid]::NewGuid().ToString('N'))
