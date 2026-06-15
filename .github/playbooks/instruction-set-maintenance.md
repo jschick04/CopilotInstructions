@@ -67,7 +67,7 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 - **Read-receipt tokens**: preserve the `read-receipt-token` HTML-comment marker near the top of files that carry one.
 - **Comments**: structural section banners only; no narrative code comments without the §3.1 gate.
 - **Commit**: author per `AGENTS.md` §4 (human identity, not an automation identity); single-line imperative subject; no body/footer; no `Co-authored-by` trailer; no Conventional-Commit prefix.
-- **Active profile**: edit the git-tracked `profiles/<full|lite>/profile.instructions.md` templates, NEVER the gitignored generated `.github/instructions/active-profile.instructions.md` (the harness loads it; `invoke-panel.ps1` reads it as the floor). Re-run setup to regenerate.
+- **Active profile**: edit the git-tracked `profiles/<full|lite>/profile.template.md` templates, NEVER the gitignored generated `.github/instructions/active-profile.instructions.md` (the harness loads it; `invoke-panel.ps1` reads it as the floor). Re-run setup to regenerate.
 
 ## Updating after reviewing PR comments on GitHub
 

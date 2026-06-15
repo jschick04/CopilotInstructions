@@ -268,7 +268,7 @@ Write-Host @"
 
 Write-Heading "Configuring active profile: $Profile"
 
-$profileTemplate  = Join-Path $repoRoot "profiles\$Profile\profile.instructions.md"
+$profileTemplate  = Join-Path $repoRoot "profiles\$Profile\profile.template.md"
 $activeProfileFile = Join-Path $repoRoot '.github\instructions\active-profile.instructions.md'
 
 if (-not (Test-Path $profileTemplate)) {

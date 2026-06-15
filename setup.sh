@@ -77,7 +77,7 @@ echo ""
 # --- Configure active profile (full | lite) --------------------------------
 echo "=== Configuring active profile: $PROFILE ==="
 
-PROFILE_TEMPLATE="$REPO_ROOT/profiles/$PROFILE/profile.instructions.md"
+PROFILE_TEMPLATE="$REPO_ROOT/profiles/$PROFILE/profile.template.md"
 ACTIVE_PROFILE_FILE="$REPO_ROOT/.github/instructions/active-profile.instructions.md"
 
 if [ ! -f "$PROFILE_TEMPLATE" ]; then

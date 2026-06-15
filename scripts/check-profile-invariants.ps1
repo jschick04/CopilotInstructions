@@ -13,7 +13,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
 try {
-    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('profiles/full/profile.instructions.md')
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('profiles/full/profile.template.md')
 } catch {
     Write-Host "::error::$($_.Exception.Message)"
     exit 2
@@ -33,10 +33,17 @@ $profilesDir = Join-Path $RepoRoot 'profiles'
 if (Test-Path -LiteralPath $profilesDir) {
     $stray = Get-ChildItem -Recurse -LiteralPath $profilesDir -Filter 'AGENTS.md' -File -ErrorAction SilentlyContinue
     if ($stray) { Add-Failure "AGENTS.md found under profiles/ (the repo must have exactly one always-loaded core AGENTS.md, at the root)." }
+
+    $legacyTemplateName = 'profile' + '.instructions.md'
+    $legacyTemplates = Get-ChildItem -Recurse -LiteralPath $profilesDir -Filter $legacyTemplateName -File -ErrorAction SilentlyContinue
+    if ($legacyTemplates) {
+        $legacyRelative = @($legacyTemplates | ForEach-Object { ($_.FullName -replace [regex]::Escape($RepoRoot), '').TrimStart('\', '/') -replace '\\', '/' })
+        Add-Failure "legacy profile instruction-template file(s) found under profiles/: $($legacyRelative -join ', '). Profile templates must be named profile.template.md so the CLI instructions scan cannot load them."
+    }
 }
 
 foreach ($profile in @('full', 'lite')) {
-    $rel = "profiles/$profile/profile.instructions.md"
+    $rel = "profiles/$profile/profile.template.md"
     $full = Join-Path $RepoRoot $rel
     if (-not (Test-Path -LiteralPath $full)) { Add-Failure "missing profile template $rel"; continue }
     $content = Get-Content -LiteralPath $full -Raw

@@ -10,6 +10,35 @@
 
 set -e
 
+# === Post-code-change panel LEDGER gate ============================================
+# Adoption-gated on the panel checker script, so enforcement cannot be disabled by
+# deleting the receipt. On a non-adopted repo this no-ops.
+# Placed BEFORE the catalog early-exit so it runs on every commit, not just catalog edits.
+# Bypassable via `git commit --no-verify` (which AGENTS.md §0 itself gates); CI pr-gate-check
+# is the PR backstop. The panel ledger is required only for commits whose staged diff touches
+# code/governance paths (the checker re-derives that; pure-docs commits no-op).
+if git cat-file -e HEAD:scripts/check-post-code-change.ps1 2>/dev/null || [ -f scripts/check-post-code-change.ps1 ]; then
+    if [ ! -f scripts/check-post-code-change.ps1 ]; then
+        echo "ERROR: scripts/check-post-code-change.ps1 is committed (panel gate adopted) but absent from the working tree." >&2
+        echo "       Refusing to commit removal/disable of the enforcement without verification (fail-closed)." >&2
+        exit 1
+    fi
+    if command -v pwsh >/dev/null 2>&1; then
+        if ! pwsh -NoProfile -File scripts/check-post-code-change.ps1 -StagedMode; then
+            echo "" >&2
+            echo "ERROR: the staged change is panel-required but its post-code-change LEDGER is missing/stale/invalid." >&2
+            echo "       Run the post-code-change reviewer panel, write the LEDGER to" >&2
+            echo "       .github/pr-quality-gate/audits/post-code-change-last.md (fresh parent_sha), then stage it." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: pwsh not available; cannot verify the post-code-change panel LEDGER." >&2
+        echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        exit 1
+    fi
+fi
+
+
 if ! git diff --cached --name-only | grep -qE '\.github/pr-quality-gate/(pattern-catalog|HIGH-TIER-SLUGS)\.md$'; then
     exit 0
 fi
