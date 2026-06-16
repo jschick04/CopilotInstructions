@@ -34,6 +34,7 @@ function New-PanelBody {
         "parent_sha: $Parent"
         'commit_subject: Test panel commit'
         'POST-CODE-CHANGE LEDGER'
+    ) + (Get-ValidPreRows) + @(
         '  post-code-change-panel: ran, unanimous'
     ) + (Get-ValidPanelTranscript) + @(
         '  build: N/A: docs-only'
@@ -67,17 +68,17 @@ try {
     Assert-True $fresh.Fresh 'freshness holds on the authored commit'
 
     Write-Host "`n=== Read-PanelNoteValidated ==="
-    $v = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c0 -PanelRequired $true
+    $v = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c0 -GovernanceTier 1
     Assert-True $v.Valid 'valid panel note on panel-required commit -> Valid'
     $c1 = New-TestCommit -Directory $r -File 'b.txt' -Content 'two' -Message 'c1'
-    $vNo = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -PanelRequired $true
+    $vNo = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -GovernanceTier 1
     Assert-True (-not $vNo.Valid) 'commit with NO note -> invalid'
     Assert-True ([bool]($vNo.Errors -match 'no panel-ledger note')) 'no-note error message'
 
     # wrong parent_sha in the body -> Test-PanelLedger stale
     $badParentBody = New-PanelBody 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
     Write-AuditNote -RepoRoot $r -NoteRef (Get-PanelNoteRef) -CommitSha $c1 -BodyLines $badParentBody
-    $vBad = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -PanelRequired $true
+    $vBad = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -GovernanceTier 1
     Assert-True (-not $vBad.Valid) 'note with wrong parent_sha -> invalid (stale)'
 
     Write-Host "`n=== freshness: stale tree (direct + real rewriteRef amend-carry) ==="
@@ -110,7 +111,7 @@ try {
     Assert-True ($null -ne $carried) 'notes.rewriteRef carried the note onto the amended commit'
     $freshA1 = Test-AuditNoteFreshness -NoteLines $carried -RepoRoot $ra -CommitSha $a1
     Assert-True (-not $freshA1.Fresh) 'carried note onto amended (changed tree) commit -> STALE (stale-carry hole closed)'
-    $vA1 = Read-PanelNoteValidated -RepoRoot $ra -CommitSha $a1 -PanelRequired $true
+    $vA1 = Read-PanelNoteValidated -RepoRoot $ra -CommitSha $a1 -GovernanceTier 1
     Assert-True (-not $vA1.Valid) 'validated read rejects the stale carried note'
 
     Write-Host "`n=== two-ref independence (a single-ref re-flush never destroys the other) ==="
@@ -168,7 +169,7 @@ try {
     Assert-True ($null -ne (Read-RawAuditNote -RepoRoot $fr -NoteRef (Get-CommentNoteRef) -CommitSha $fc)) 'flush wrote the comment note'
     Assert-True (-not (Test-Path (Join-Path $fr '.github/pr-quality-gate/audits/post-code-change-last.md'))) 'flush cleared the panel receipt'
     Assert-True (-not (Test-Path (Join-Path $fr '.github/pr-quality-gate/audits/last.md'))) 'flush cleared the comment receipt'
-    Assert-True (Read-PanelNoteValidated -RepoRoot $fr -CommitSha $fc -PanelRequired $true).Valid 'flushed panel note validates'
+    Assert-True (Read-PanelNoteValidated -RepoRoot $fr -CommitSha $fc -GovernanceTier 1).Valid 'flushed panel note validates'
 
     $nr = New-TempRepo   # no identity
     $nc = New-TestCommit -Directory $nr -File 'src.txt' -Content 'code' -Message 'feat'

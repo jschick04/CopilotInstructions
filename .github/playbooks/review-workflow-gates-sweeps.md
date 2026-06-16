@@ -118,7 +118,18 @@ POST-CODE-CHANGE LEDGER
     dry-audit: <ran, N duplications, K refactored, J waived | N/A: reason>
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
+    pre-code-change-panel: <ran, unanimous | user-waived: "panel-waive-acknowledged" ref:<call-ref> | N/A: reason>
+      # tier>=1: ran|user-waived (N/A rejected). tier 2 (safety-critical path): ran ONLY. N/A only when not panel-required. `<...>` fails closed.
+    pre-panel-transcript:
+      # like panel-transcript but verdict READY_TO_IMPLEMENT; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel.
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+    diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>
+      # author-asserted repro REFERENCE; shape-checked only (not a verified lock). Required when tier>=1.
+    approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
+    safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
+      # disclosure, not truth: only the path-detectable subset is forced (tier 2). Required when tier>=1.
     post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
+      # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
       # REQUIRED iff `ran, unanimous`; validated by Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed.
       - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
@@ -157,22 +168,7 @@ POST-CODE-CHANGE LEDGER
       system-framing: <yes | no>
       project-vocabulary: <yes | no>
     pre-impl-playbook-decisions:
-      # Cycle-3 (`pre-implementation.md` G6). Mirrors G6 chat-visible `playbook-decision-<playbook>:`
-      # lines into the LEDGER. Enforced by catalog rules 2, 3, 4, 6, 7, 8, 10, 11, 12, 13.
-      #
-      # **Allowed decision values per playbook class:**
-      # - REQUIRED-decision-recorded class (implementation-planning, library-restructure):
-      #   VALID = {invoked | required-but-skipped: "<safety-critical re-confirmation per User-skip policy>" | not-required-trigger-not-detected}
-      #   INVALID = {offered-and-declined, not-applicable}: these silently bypass the required gate
-      #   The `not-required-trigger-not-detected` sentinel is the canonical value when G6 emitted
-      #   `trigger-detected: no` (preserves fixed cardinality without omission contradiction).
-      # - OFFERED class (design-exploration, performance-comparison, scope-planning, system-framing, project-vocabulary):
-      #   VALID when trigger-detected: yes = {invoked | offered-and-declined: "<quote>" | required-but-skipped: "<reason>"}
-      #   VALID when trigger-detected: no = {not-applicable}
-      #   INVALID when trigger-detected: yes = {not-applicable} (silent-downgrade bypass)
-      #
-      # User-quoted values use double-quoted YAML strings (RFC YAML) to handle `: ` and special chars
-      # in user quotes. Example: `offered-and-declined: "user said 'this is a simple bump'"`
+      # Cycle-3 G6 (`pre-implementation.md`). Mechanically enforced by Test-LedgerG6 (+ catalog rules 2-13 for semantic truth). REQUIRED class (implementation-planning, library-restructure): invoked | required-but-skipped:"..." | not-required-trigger-not-detected (offered-and-declined / not-applicable INVALID). OFFERED class: trigger=yes -> invoked | offered-and-declined:"..." | required-but-skipped:"..."; trigger=no -> not-applicable.
       implementation-planning: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>    # REQUIRED class
       library-restructure: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>        # REQUIRED class
       design-exploration: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
@@ -181,13 +177,7 @@ POST-CODE-CHANGE LEDGER
       system-framing: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
       project-vocabulary: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
     playbook-invocations:
-      # Cycle-3. Evidence each playbook actually ran during implementation. Scope: ONLY the 4
-      # playbooks that have a corresponding `pre-impl-playbook-decisions` entry AND produce
-      # implementation-phase artifacts. intent-driven-testing-prospective is enforced separately
-      # by cycle-2 rule `intent-driven-testing-required-on-test-or-SUT-delta` and is NOT in
-      # cycle-3 scope. The 3 decision-only playbooks (scope-planning, system-framing,
-      # project-vocabulary) have NO implementation evidence: their decision-line IS the evidence
-      # (rules 8/10/11 check the decision sub-block directly).
+      # Cycle-3: evidence the 4 artifact-producing playbooks ran (validated ran|N/A by Test-LedgerG6). The 3 decision-only playbooks (scope-planning/system-framing/project-vocabulary) have no invocation - their decision line IS the evidence.
       implementation-planning: <ran (artifact-path:line) | N/A: <reason>>
       library-restructure: <ran (artifact-path:line) | N/A: <reason>>
       design-exploration: <ran (prototypes/<name>/ citation) | N/A: <reason>>
@@ -208,7 +198,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
-gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 
 **Rules:**

@@ -29,11 +29,11 @@ Both run on every git op. Bypass pattern "tests passed + ack done -> ready to co
 
 ### PRE-GIT SENTINEL - phase-transition checkpoint
 
-At the implementation -> git boundary, classify with `git status --porcelain` (the allowed first read), then emit this sentinel BEFORE any agent commit / artifact-staging (including `--amend`, `cherry-pick`, `rebase`):
+At the implementation -> git boundary, classify with `git status --porcelain` (first read), then emit this sentinel BEFORE any agent commit / artifact-staging (including `--amend`, `cherry-pick`, `rebase`):
 
 ```
 PRE-GIT SENTINEL
-phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | staged_set_turn=<turn> | user_diff_approval=<staged-set:tN|approved-via-pause:tN|pending> | post_code_change_panel=<ran:unanimous|na:no-code-change|user-waived> | pre_commit_gate_block_emitted=pending | next_action=classify staged set + commit-approval
+phase_transition_intent=implementation->git | tests_status=<project>:<count> passing | staged_set_turn=<turn> | user_diff_approval=<staged-set:tN|approved-via-pause:tN|pending> | pre_code_change_panel=<ran:unanimous|na|user-waived> | post_code_change_panel=<ran:unanimous|na|user-waived> | pre_commit_gate_block_emitted=pending | next_action=classify+commit-approval
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.

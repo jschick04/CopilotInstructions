@@ -6,10 +6,10 @@ Multi-reviewer panel governance for the `full` and `triage` modes. Read by the o
 
 There are TWO panel invocation points per task, both required for non-trivial work:
 
-1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while course-correction is still cheap.
+1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous READY_TO_IMPLEMENT` (or matched waive per Convergence-model below) before code is written. Catches design flaws while course-correction is still cheap.
 2. **Pre-PR-creation panel** - AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. This is the panel slot enforced by `gate-runner.ps1` / `gate-runner.sh` (G6 forbidden-tool gate). Reviewers see the actual diff + the QUALITY GATE block. Required verdict: `unanimous READY`.
 
-"Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything the user describes with words like "feature", "refactor", "add", "implement". A small isolated single-file bugfix (e.g., a 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
+"Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything called a feature/refactor/add/implement. A small isolated single-file bugfix (e.g., a 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
 
 Skipping pre-implementation panel for non-trivial work is a process violation. The agent MUST surface the skip via `ask_user` so the user can authorize before code is written.
 
@@ -42,7 +42,7 @@ Floor is verifiable from the slate enumeration. Substitutions are allowed mid-la
 - light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per `multi-model-review/current-model-registry.md`); heavy-tier NOT required
 - `convergence_model: unanimous` (lite cuts reviewer COUNT + tier, NOT the convergence bar); slate recorded in the `PANEL CONVERGED` `slate` + `profile` fields
 
-**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips a panel. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not the agent `-Profile` hint; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above the floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. For the post-code-change LEDGER panel enforced mechanically: `Test-PanelLedger` validates a `panel-transcript:` receipt against `$script:PanelSlateFloor` (always full here; `user-waived` needs `"panel-waive-acknowledged" ref:<call-ref>`) - `review-workflow-gates-sweeps.md` §2B.
+**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips a panel. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not the agent `-Profile` hint; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above the floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. `Test-PanelLedger` mechanically validates BOTH panels against `$script:PanelSlateFloor` (always full here): post via `panel-transcript:` (`READY`), pre via `pre-panel-transcript:` (`READY_TO_IMPLEMENT`); `user-waived` needs `"panel-waive-acknowledged" ref:<call-ref>`; tier 2 (safety-critical) = both ran-only. See `review-workflow-gates-sweeps.md` §2B.
 
 ## Convergence model
 
@@ -113,7 +113,7 @@ The agent MAY:
 
 ## User commit-approval after panel READY - MANDATORY
 
-The pre-PR-creation panel (and any pre-implementation panel run on uncommitted working-tree changes) certifies the code from a multi-model technical-review perspective. **On project (non-instruction) repositories**, this does NOT substitute for the user's commit-approval gate in `pre-commit.md`.
+The pre-PR-creation panel certifies the code from a multi-model technical-review perspective. **On project (non-instruction) repositories**, this does NOT substitute for the user's commit-approval gate in `pre-commit.md`.
 
 When a panel returns `unanimous READY` on uncommitted project-repo work, the agent MUST NOT:
 

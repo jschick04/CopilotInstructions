@@ -54,6 +54,49 @@ function Get-ValidPanelTranscript {
     )
 }
 
+function Get-ValidPreTranscript {
+    return @(
+        '    pre-panel-transcript:',
+        '      - slot:pduck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
+        '      - slot:penforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
+        '      - slot:pinteg model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
+        '      - slot:pscripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
+        '      - slot:parch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2'
+    )
+}
+
+function Get-ValidPreRows {
+    param([string] $PrePanel = 'ran, unanimous', [string] $G5 = 'not-applicable')
+    $rows = @("    pre-code-change-panel: $PrePanel")
+    if ($PrePanel -cmatch '^ran,\s*unanimous\s*$') { $rows += (Get-ValidPreTranscript) }
+    return $rows + @(
+        '    diagnosis-repro-ref: reproduction-locked: tests/Repro.cs',
+        '    approach-selection-G3: fix-cause',
+        "    safety-critical-eval-G5: $G5",
+        '    pre-impl-trigger-detections:',
+        '      implementation-planning: no',
+        '      library-restructure: no',
+        '      design-exploration: no',
+        '      performance-comparison: no',
+        '      scope-planning: no',
+        '      system-framing: no',
+        '      project-vocabulary: no',
+        '    pre-impl-playbook-decisions:',
+        '      implementation-planning: not-required-trigger-not-detected',
+        '      library-restructure: not-required-trigger-not-detected',
+        '      design-exploration: not-applicable',
+        '      performance-comparison: not-applicable',
+        '      scope-planning: not-applicable',
+        '      system-framing: not-applicable',
+        '      project-vocabulary: not-applicable',
+        '    playbook-invocations:',
+        '      implementation-planning: N/A: trigger not detected',
+        '      library-restructure: N/A: trigger not detected',
+        '      design-exploration: N/A: trigger not detected',
+        '      performance-comparison: N/A: trigger not detected'
+    )
+}
+
 function Remove-TestTempDirectories {
     foreach ($directory in $script:Temps) {
         if (Test-Path $directory) {

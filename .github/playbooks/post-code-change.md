@@ -157,7 +157,14 @@ POST-CODE-CHANGE LEDGER
   self_similarity_sweep: clean | <list of sibling sites + dispositions>
   tests_run: <result summary or n/a>
   # ... plus every gate row from review-workflow-gates-sweeps.md §2B, including:
-  post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>
+  pre-code-change-panel: ran, unanimous          # OR user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>. tier>=1: N/A rejected; tier 2 (safety-critical path): ran ONLY.
+  # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict READY_TO_IMPLEMENT. Header bare; <...> fail closed.
+  pre-panel-transcript:
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+  diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>   # author-asserted; shape-checked only
+  approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
+  safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
+  post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>; tier 2 (safety-critical): ran ONLY
   # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare.
   panel-transcript:
     - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
@@ -177,7 +184,7 @@ POST-CODE-CHANGE LEDGER
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|commit="Guard against null tag list in filter dropdown"|files=2(+31/-6)
-gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
 appendix=none
 ```
 

@@ -31,8 +31,9 @@ function New-IdRepo {
 function Write-PanelNote {
     param([string] $Dir, [string] $Sha)
     $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
-    $body = @("parent_sha: $parent", 'commit_subject: panel commit', 'POST-CODE-CHANGE LEDGER',
-        '  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed') + (Get-ValidPanelTranscript)
+    $body = @("parent_sha: $parent", 'commit_subject: panel commit', 'POST-CODE-CHANGE LEDGER') +
+        (Get-ValidPreRows -G5 'panel-ran') +
+        @('  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed') + (Get-ValidPanelTranscript)
     Write-AuditNote -RepoRoot $Dir -NoteRef (Get-PanelNoteRef) -CommitSha $Sha -BodyLines $body
 }
 function Write-CommentNote {
