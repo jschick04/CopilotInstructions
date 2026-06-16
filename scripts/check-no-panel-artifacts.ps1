@@ -35,12 +35,8 @@ if ($RepoRoot) {
 
 $ExitOk = 0; $ExitViolation = 1; $ExitInvocation = 2
 
-# Two token sets (PCRE -P, case-insensitive). Word boundaries (\b) on the word-like tokens so common
-# words are NOT false-matched ("workaround 10", "background 2", "timeslot A", "ducked"). The generic
-# domain words that ARE legitimate here (panel / review / finding / regression) are excluded. The
-# finding tokens are also the ones still banned inside invoke-panel.ps1. Keep in sync with the test.
 $modelTokens   = '\bgpt|\bgemini|\bclaude|\bcodex|\bduck\b|re-panel|rd-enforce'
-$findingTokens = 'gap ?#|forcing ?#|forcing re-review|R[0-9]+-[A-Z]+|PR #[0-9]+ review|bot-flagged|bot caught|\bSlot [A-Z0-9]|\bRound [0-9]+'
+$findingTokens = 'gap ?#|forcing ?#|forcing re-review|R[0-9]+-[A-Z]+|PR #[0-9]+ review|bot-flagged|bot caught|\b(?-i:Slot) [A-Z0-9]|\b(?-i:Round) [0-9]+'
 $pattern = "($modelTokens|$findingTokens)"
 
 # git grep over code sources, excluding the checker + its own test (they embed tokens by necessity).
@@ -52,11 +48,9 @@ if ($grepExit -gt 1) {
     exit $ExitInvocation
 }
 
-# invoke-panel.ps1 (the orchestrator) may NAME models but must not carry finding/iteration labels:
-# keep an invoke-panel hit ONLY when it also matches a finding token (a bare model name is allowed).
-$invokePanelLine = '\.github/pr-quality-gate/invoke-panel\.ps1:'
+$modelNamingAllowed = '(\.github/pr-quality-gate/invoke-panel\.ps1|scripts/lib/panel-ledger-helpers\.psm1|scripts/tests/test-common\.ps1|scripts/tests/check-post-code-change\.tests\.ps1):'
 $hitList = @($hits | Where-Object { $_ } | Where-Object {
-    if ($_ -match $invokePanelLine) { $_ -match "($findingTokens)" } else { $true }
+    if ($_ -match $modelNamingAllowed) { $_ -match "($findingTokens)" } else { $true }
 })
 if ($grepExit -eq 0 -and $hitList.Count -gt 0) {
     Write-Host "check-no-panel-artifacts: $($hitList.Count) line(s) embed a review-process artifact (AGENTS.md 3.1 - keep the rationale, remove the model/round/slot/finding label):" -ForegroundColor Red

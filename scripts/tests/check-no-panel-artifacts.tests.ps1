@@ -59,10 +59,26 @@ try {
     Write-Host "`n=== invoke-panel.ps1 may name models but NOT carry finding labels ==="
     $ipOk = New-CodeRepo
     Add-Script $ipOk '.github/pr-quality-gate/invoke-panel.ps1' @('# slate: claude_family gpt_family gemini_family rubber_duck; fix-then-re-panel', '$p = 1')
-    Assert-True ((Run $ipOk).ExitCode -eq 0) 'invoke-panel naming models -> exit 0 (allowed)'
+    Assert-True ((Run $ipOk).ExitCode -eq 0) 'invoke-panel naming models + its own re-panel procedure word -> exit 0 (allowed)'
     $ipBad = New-CodeRepo
     Add-Script $ipBad '.github/pr-quality-gate/invoke-panel.ps1' @('# claude_family slate (R4-MAJOR-2 fix)', '$p = 1')
     Assert-True ((Run $ipBad).ExitCode -eq 1) 'invoke-panel carrying a finding label (R4-MAJOR-2) -> exit 1 (still flagged)'
+
+    Write-Host "`n=== Slot/Round labels are case-sensitive (lowercase panel-transcript field names NOT flagged) ==="
+    $cs = New-CodeRepo
+    Add-Script $cs 'scripts/cs.ps1' @('# the slot is the unique id; rounds per reviewer; distinct-by-slot rule', '$c = 1')
+    Assert-True ((Run $cs).ExitCode -eq 0) 'lowercase slot/rounds field names -> exit 0 (Slot/Round matched case-sensitively)'
+    $csBad = New-CodeRepo
+    Add-Script $csBad 'scripts/csbad.ps1' @('# Slot D verdict; Round 5 hardening', '$c = 1')
+    Assert-True ((Run $csBad).ExitCode -eq 1) 'capitalized Slot D / Round 5 panel labels -> exit 1 (still caught)'
+
+    Write-Host "`n=== panel-transcript schema files may name model families but NOT carry finding labels ==="
+    $schemaOk = New-CodeRepo
+    Add-Script $schemaOk 'scripts/lib/panel-ledger-helpers.psm1' @('# grammar family:(claude|gpt|gemini); count claude/gpt/gemini distinct slots', '$s = 1')
+    Assert-True ((Run $schemaOk).ExitCode -eq 0) 'panel-ledger-helpers naming model families -> exit 0 (allowed)'
+    $schemaBad = New-CodeRepo
+    Add-Script $schemaBad 'scripts/lib/panel-ledger-helpers.psm1' @('# claude family (R4-MAJOR-1 fix)', '$s = 1')
+    Assert-True ((Run $schemaBad).ExitCode -eq 1) 'panel-ledger-helpers carrying a finding label -> exit 1 (still flagged)'
 }
 finally { Remove-TestTempDirectories }
 

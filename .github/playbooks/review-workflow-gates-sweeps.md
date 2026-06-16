@@ -118,24 +118,22 @@ POST-CODE-CHANGE LEDGER
     dry-audit: <ran, N duplications, K refactored, J waived | N/A: reason>
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
-    post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "<quote>">
+    post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
+    panel-transcript:
+      # REQUIRED iff `ran, unanimous`; validated by Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed.
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
     intent-driven-testing-audit: <ran: prospective | ran: retrospective | N/A: <reason>>
       # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
-      # Fires when diff contains EITHER (a) NEW or modified test files OR (b) ANY production-source
-      # modification that changes the SUT surface: new exported member, signature change, NEW
-      # conditional branch (if/switch/?:/when), new state-mutating statement, new method declaration
-      # (public OR private), new error-handling branch (try/catch/throw), or new state-transition.
-      # `N/A` reason MUST cite a specific carve-out from `intent-driven-testing.md`: rename-only
-      # delta (test body byte-equivalent before/after), mechanical-port commit per §3.4, auto-generated
-      # test files, pure whitespace/comment/formatting change, pure deletion. Bare `N/A` or
-      # `N/A: private-only SUT delta` is NOT a valid carve-out (private branches still need test
-      # coverage per §3.4 Direction B).
+      # Fires when diff has (a) NEW/modified test files OR (b) any production change to the SUT surface
+      # (new exported member, signature change, new branch if/switch/?:/when, new state mutation, new
+      # method decl public OR private, new try/catch/throw, new state-transition). `N/A` MUST cite a
+      # carve-out from `intent-driven-testing.md` (rename-only, mechanical-port per §3.4, auto-generated
+      # tests, pure whitespace/comment, pure deletion). Bare `N/A` / `N/A: private-only SUT delta` is
+      # NOT valid (private branches still need coverage per §3.4 Direction B).
     delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A: reason>
-      # Format and semantics defined in `multi-model-review/pr-creation-mirror-prompt.md` Delta K
-      # (status enum, evidence/rationale rules, branch_new_files_verified format, falsifiability).
-      # Unlike other §2B rows (single-line sub-bullets), `delta-g-sweeps:` uses a richer nested
-      # sub-block per pattern. Future grammar-tightening passes must preserve this nesting;
-      # falsifiability depends on it.
+      # Format/semantics in `multi-model-review/pr-creation-mirror-prompt.md` Delta K (status enum,
+      # evidence/rationale, branch_new_files_verified, falsifiability). Unlike other §2B rows, this
+      # uses a richer nested sub-block per pattern; grammar-tightening passes must preserve the nesting.
       - pattern: <slug; lowercase-hyphenated; e.g. "js-import-jsexception-wrap">
         discovery_query: <exact command the agent ran; reviewer can re-run and diff>
         sites:

@@ -35,6 +35,7 @@ function New-PanelBody {
         'commit_subject: Test panel commit'
         'POST-CODE-CHANGE LEDGER'
         '  post-code-change-panel: ran, unanimous'
+    ) + (Get-ValidPanelTranscript) + @(
         '  build: N/A: docs-only'
         '  tests: passed, all green'
     )

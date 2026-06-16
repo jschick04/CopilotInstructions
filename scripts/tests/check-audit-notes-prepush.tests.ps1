@@ -32,7 +32,7 @@ function Write-PanelNote {
     param([string] $Dir, [string] $Sha)
     $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
     $body = @("parent_sha: $parent", 'commit_subject: panel commit', 'POST-CODE-CHANGE LEDGER',
-        '  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed')
+        '  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed') + (Get-ValidPanelTranscript)
     Write-AuditNote -RepoRoot $Dir -NoteRef (Get-PanelNoteRef) -CommitSha $Sha -BodyLines $body
 }
 function Write-CommentNote {
@@ -68,6 +68,15 @@ try {
     $r2 = Invoke-Validator -Dir $d2 -RefLines @(RefLine $e1 $e0)
     Assert-True ($r2.ExitCode -eq 1) 'panel-required commit with NO note -> exit 1'
     Assert-True ($r2.Output -match 'no panel-ledger note') 'reports missing panel note'
+
+    $dN = New-IdRepo
+    $n0 = New-TestCommit -Directory $dN -File 'a.txt' -Content 'base' -Message 'n0'
+    $n1 = New-TestCommit -Directory $dN -File 'notes.txt' -Content 'docs only' -Message 'n1 (NOT panel-required)'
+    $np = Get-CommitParentSha -RepoRoot $dN -CommitSha $n1
+    $badPanel = @("parent_sha: $np", 'commit_subject: n1', 'POST-CODE-CHANGE LEDGER', '  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed')
+    Write-AuditNote -RepoRoot $dN -NoteRef (Get-PanelNoteRef) -CommitSha $n1 -BodyLines $badPanel
+    $rN = Invoke-Validator -Dir $dN -RefLines @(RefLine $n1 $n0)
+    Assert-True ($rN.ExitCode -eq 1) 'non-panel-required commit + present-but-invalid panel note -> exit 1 (present-note OR-branch)'
 
     # stale: write the note, then amend the commit's tree without re-flushing
     $d3 = New-IdRepo

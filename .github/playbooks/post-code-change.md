@@ -19,7 +19,7 @@ After implementation, run the import/using hygiene pass, the touched-file recurr
 
 Bundle these in one prompt:
 
-1. Should I run the **active profile's default panel** (full = 6 reviewers; lite = 3 cross-family light-tier; per the loaded `active-profile.instructions.md`, none loaded -> full), or add reviewers? (Default panel below. Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.)
+1. Should I run the **active profile's default panel** (full = 6 reviewers; lite = 3 cross-family light-tier; per the loaded `active-profile.instructions.md`, none loaded -> full), or add reviewers? (Default panel below. Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.) **Carve-out (this instructions repo):** the post-code-change LEDGER panel here is ALWAYS the full slate regardless of the active profile - its `panel-transcript` is gate-validated against the full floor (>= 4 reviewers, >= 1 heavy), because panel-required changes here are governance/instruction artifacts (`panel-policy.md` §45). The `lite = 3 light-tier` default applies only to consuming / non-gated contexts.
 2. Any specific blind spots you want the reviewers to focus on? (e.g. concurrency safety, allocation hot paths, naming consistency across an interface chain)
 3. **Perf work only:** confirm the benchmark from the pre-implementation phase is still the one I should re-run.
 
@@ -156,7 +156,12 @@ POST-CODE-CHANGE LEDGER
   shown_diff_matches_intent: yes | no
   self_similarity_sweep: clean | <list of sibling sites + dispositions>
   tests_run: <result summary or n/a>
-  # ... plus every gate row from review-workflow-gates-sweeps.md §2B
+  # ... plus every gate row from review-workflow-gates-sweeps.md §2B, including:
+  post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>
+  # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare.
+  panel-transcript:
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
+    # one line per reviewer; full-slate floor (always, in this instructions repo): >= 4 distinct slots, >= 1 claude, >= 2 gpt, >= 1 gemini, >= 1 rubber-duck, >= 2 code-review, >= 1 heavy; every verdict READY; rounds >= 1. See review-workflow-gates-sweeps.md §2B.
   core_rules_acknowledged:
     - slug: <string>
       status: <applied | not-applicable>
@@ -205,7 +210,7 @@ Run the panel via `multi-model-review.md` with these invocation parameters:
 - **convergence-model**: `unanimous` (default for post-code-change; do not relax without explicit user direction).
 - **max-loop**: 5.
 - **prior-round-findings sharing**: enabled.
-- **reviewer count + model selection**: default per the active profile (full = 6-reviewer slate; lite = 3 cross-family light-tier) from `multi-model-review/intake.md` (tier -> model via `current-model-registry.md`):
+- **reviewer count + model selection**: default per the active profile (full = 6-reviewer slate; lite = 3 cross-family light-tier) from `multi-model-review/intake.md` (tier -> model via `current-model-registry.md`). **In this instructions repo the LEDGER panel is ALWAYS full** (the gate validates the `panel-transcript` against the full floor regardless of profile - see Intake Q1 carve-out + `review-workflow-gates-sweeps.md` §2B):
   - `heavy-claude-xhigh` (Claude, extra-high reasoning) - `code-review`.
   - `heavy-gpt-premium` (GPT, premium reasoning) - `code-review`.
   - `heavy-gpt-codex` (GPT, codex-tuned) - `code-review`.
