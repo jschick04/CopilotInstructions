@@ -176,11 +176,11 @@ function Read-PanelNoteValidated {
     param(
         [Parameter(Mandatory)] [string] $RepoRoot,
         [Parameter(Mandatory)] [string] $CommitSha,
-        [Parameter(Mandatory)] [bool] $PanelRequired
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
     )
     $n = Read-FreshAuditNote -RepoRoot $RepoRoot -NoteRef $script:PanelNoteRef -CommitSha $CommitSha -Kind 'panel-ledger'
     if (-not $n.Ok) { return [PSCustomObject]@{ Valid = $false; Errors = $n.Errors } }
-    $r = Test-PanelLedger -LedgerLines $n.NoteLines -ExpectedParentSha $n.Parent -PanelRequired $PanelRequired
+    $r = Test-PanelLedger -LedgerLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier
     return [PSCustomObject]@{ Valid = $r.Valid; Errors = @($r.Errors) }
 }
 
@@ -281,5 +281,5 @@ Export-ModuleMember -Function `
     Read-RawAuditNote, Write-AuditNote, Remove-AuditNote, `
     Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Test-PanelNoteExists, `
     Get-NormalizedRemoteIdentity, Test-IsInstructionsRepo, Assert-AuditSetup, `
-    Get-PanelRequired, Test-PathPanelRequired, Get-NewCommentCount, Get-CoveredCommentCount `
+    Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-CoveredCommentCount `
     -Variable PanelNoteRef, CommentNoteRef, GitEmptyTreeSha

@@ -96,10 +96,16 @@ foreach ($sha in $commitSet.Keys) {
         exit $ExitViolation
     }
     $changedPaths = @($dp.Stdout) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }
+    $ns = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('--no-pager', 'diff', '--name-status', '-M', $parent, $sha)
+    if ($ns.ExitCode -ne 0) {
+        Write-Host "ERROR: 'git diff --name-status' for commit ${short} (parent ${parent}) failed (exit $($ns.ExitCode)); cannot determine the governance tier. Failing closed rather than skipping validation."
+        exit $ExitViolation
+    }
+    $nameStatusLines = @($ns.Stdout) | ForEach-Object { [string]$_ } | Where-Object { $_ }
 
-    $panelReq = Get-PanelRequired -ChangedPaths $changedPaths
-    if ($panelReq -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
-        $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -PanelRequired $panelReq
+    $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
+    if ($governanceTier -ge 1 -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
+        $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier
         if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
     }
 

@@ -71,8 +71,10 @@ if ($StagedMode) {
         exit $script:ExitOk
     }
 
-    $panelRequired = Get-PanelRequired -ChangedPaths $changedPaths
-    if (-not $panelRequired) {
+    $nameStatusResult = Invoke-Git -Arguments @('diff', '--cached', '--name-status', '-M', '--diff-filter=ACMRTD')
+    $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
+    $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
+    if ($governanceTier -lt 1) {
         Write-Host "OK: staged diff touches no code/governance paths; panel ledger not required."
         exit $script:ExitOk
     }
@@ -117,7 +119,7 @@ if ($StagedMode) {
 
     $check = $null
     foreach ($candidateParent in $acceptableParents) {
-        $candidate = Test-PanelLedger -LedgerLines $ledgerLines -ExpectedParentSha $candidateParent -PanelRequired $true
+        $candidate = Test-PanelLedger -LedgerLines $ledgerLines -ExpectedParentSha $candidateParent -GovernanceTier $governanceTier
         if ($candidate.Valid) { $check = $candidate; break }
         if (-not $check) { $check = $candidate }
     }
@@ -171,8 +173,14 @@ foreach ($commitSha in $commitsForward) {
     }
     $changedPaths = Get-ChangedPaths -GitResult $diffResult
 
-    $panelRequired = Get-PanelRequired -ChangedPaths $changedPaths
-    if (-not $panelRequired) {
+    $nameStatusResult = if ($parentResult.ExitCode -ne 0) {
+        Invoke-Git -Arguments @('--no-pager', 'diff', '--name-status', '-M', $gitEmptyTreeSha, $commitSha)
+    } else {
+        Invoke-Git -Arguments @('--no-pager', 'diff', '--name-status', '-M', "${expectedParentSha}..${commitSha}")
+    }
+    $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
+    $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
+    if ($governanceTier -lt 1) {
         Write-Host "Commit ${shortSha}: no code/governance paths touched - panel ledger not required - OK"
         continue
     }
@@ -184,7 +192,7 @@ foreach ($commitSha in $commitsForward) {
     }
     $ledgerLines = @($receiptResult.Stdout) | ForEach-Object { $_ }
 
-    $check = Test-PanelLedger -LedgerLines $ledgerLines -ExpectedParentSha $expectedParentSha -PanelRequired $true
+    $check = Test-PanelLedger -LedgerLines $ledgerLines -ExpectedParentSha $expectedParentSha -GovernanceTier $governanceTier
     if (-not $check.Valid) {
         foreach ($err in $check.Errors) { $violations += "Commit ${shortSha}: $err" }
         continue

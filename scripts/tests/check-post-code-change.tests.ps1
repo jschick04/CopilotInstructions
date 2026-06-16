@@ -63,12 +63,14 @@ Write-Host ""
 Write-Host "=== Test-PanelLedger ===" -ForegroundColor Cyan
 function New-Ledger {
     param([string] $ParentSha = '1234567890abcdef1234567890abcdef12345678', [string] $Subject = 'do a thing',
-          [string] $Panel = 'ran, unanimous', [string] $Build = 'passed', [string] $Tests = 'passed, 10/10')
+          [string] $Panel = 'ran, unanimous', [string] $Build = 'passed', [string] $Tests = 'passed, 10/10',
+          [string] $PrePanel = 'ran, unanimous', [string] $G5 = 'not-applicable')
     return @(
         "parent_sha: $ParentSha",
         "commit_subject: $Subject",
         'POST-CODE-CHANGE LEDGER',
-        '  gates:',
+        '  gates:'
+    ) + (Get-ValidPreRows -PrePanel $PrePanel -G5 $G5) + @(
         "    post-code-change-panel: $Panel"
     ) + (Get-ValidPanelTranscript) + @(
         "    build: $Build",
@@ -76,100 +78,101 @@ function New-Ledger {
     )
 }
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'panel-required + ran,unanimous + fresh parent -> valid'
 
 $bomLedger = @(New-Ledger); $bomLedger[0] = [char]0xFEFF + $bomLedger[0]
-$r = Test-PanelLedger -LedgerLines $bomLedger -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines $bomLedger -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'leading UTF-8 BOM on the first ledger line is tolerated (parent_sha still matches)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: docs-only') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: docs-only') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + N/A -> INVALID (the non-bypassable rule)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: no code change') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: no code change') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 0
 Assert-True $r.Valid 'NOT panel-required + N/A -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 0
 Assert-False $r.Valid 'NOT panel-required + bare N/A (no reason) -> INVALID (requires N/A: <reason>)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'mismatched parent_sha -> INVALID (stale)'
 
 $fullSha = 'a1b2c3d4e5f60718293041526374859607a8b9c0'
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha) -ExpectedParentSha $fullSha -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha) -ExpectedParentSha $fullSha -GovernanceTier 1
 Assert-True $r.Valid 'full 40-char parent_sha exactly matching expected -> valid'
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha.Substring(0,7)) -ExpectedParentSha $fullSha -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha $fullSha.Substring(0,7)) -ExpectedParentSha $fullSha -GovernanceTier 1
 Assert-False $r.Valid '7-char prefix of the full expected parent_sha -> INVALID (exact 40-char binding; no prefix match)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha $fullSha -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -ParentSha 'fedcba0987654321fedcba0987654321fedcba09') -ExpectedParentSha $fullSha -GovernanceTier 1
 Assert-False $r.Valid '7-char of a DIFFERENT sha vs full expected -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous' -Build 'failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous' -Build 'failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'build failed -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'Failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'Failed: CS1002') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'build Failed (capitalized) -> INVALID (case-insensitive failure detection)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous extra') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'ran, unanimous extra') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel value with trailing text -> INVALID (end-anchored)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'failed: 2/10') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'failed: 2/10') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'tests failed -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'build unknown value (skipped) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'passsed') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'passsed') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'build typo (passsed) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'N/A: no compile step') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Build 'N/A: no compile step') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'build N/A: <reason> -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'skipped') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'tests unknown value (skipped) -> INVALID (fail-closed allowlist)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'N/A: no test suite') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'N/A: no test suite') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'tests N/A: <reason> -> valid'
 
 Assert-Equal (Get-GitEmptyTreeSha) '4b825dc642cb6eb9a060e54bf8d69288fbee4904' 'Get-GitEmptyTreeSha returns the canonical empty-tree SHA (single source, no script duplicate)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + OLD free-text user-waived -> INVALID (tightened: needs panel-waive-acknowledged token + ref)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'panel-required + tightened user-waived (panel-waive-acknowledged token + ref) -> valid'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "no close') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "no close') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + user-waived missing closing quote -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel '<ran, unanimous | N/A>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel '<ran, unanimous | N/A>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'unsubstituted placeholder panel value -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + user-waived with UNSUBSTITUTED ref:<call-ref> placeholder -> INVALID (fail-closed)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + user-waived with the post-code-change.md template ref:<ask_user-call-ref> placeholder -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: <reason>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: <reason>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 0
 Assert-False $r.Valid 'non-panel-required + N/A with UNSUBSTITUTED <reason> placeholder -> INVALID (embedded-placeholder fail-closed)'
 
-$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'panel-required + user-waived with a real substituted ref (no angle brackets) -> still valid (no false-reject)'
 
 $missingPanel = @('parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','  build: passed','  tests: passed, 1/1')
-$r = Test-PanelLedger -LedgerLines $missingPanel -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines $missingPanel -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'missing post-code-change-panel row -> INVALID'
 
-$r = Test-PanelLedger -LedgerLines @('commit_subject: x','  post-code-change-panel: ran, unanimous','  build: passed','  tests: passed, 1/1') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines @('commit_subject: x','  post-code-change-panel: ran, unanimous','  build: passed','  tests: passed, 1/1') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'missing parent_sha -> INVALID'
 
 $withExtras = @(
     'parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','POST-CODE-CHANGE LEDGER','  gates:',
-    '    hygiene-cleanup: ran','    emdash-scan: ran, clean','    some-future-row: whatever',
+    '    hygiene-cleanup: ran','    emdash-scan: ran, clean','    some-future-row: whatever'
+) + (Get-ValidPreRows) + @(
     '    post-code-change-panel: ran, unanimous'
 ) + (Get-ValidPanelTranscript) + @('    build: passed','    tests: passed, 9/9')
-$r = Test-PanelLedger -LedgerLines $withExtras -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+$r = Test-PanelLedger -LedgerLines $withExtras -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'unknown/extra §2B rows are ignored (parser is structurally opaque)'
 
 Write-Host ""
@@ -177,12 +180,12 @@ Write-Host "=== panel-transcript floor (full-slate enforcement) ===" -Foreground
 $tParent = '1234567890abcdef1234567890abcdef12345678'
 function New-LedgerWithTranscript {
     param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Transcript)
-    return @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:',
+    return @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:') + (Get-ValidPreRows) + @(
         '    post-code-change-panel: ran, unanimous') + $Transcript + @('    build: passed', '    tests: passed, 1/1')
 }
 function Test-TranscriptValid {
     param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Transcript)
-    return (Test-PanelLedger -LedgerLines (New-LedgerWithTranscript $Transcript) -ExpectedParentSha $tParent -PanelRequired $true).Valid
+    return (Test-PanelLedger -LedgerLines (New-LedgerWithTranscript $Transcript) -ExpectedParentSha $tParent -GovernanceTier 1).Valid
 }
 $HDR = '    panel-transcript:'
 $duckC = '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY rounds:2'
@@ -212,7 +215,7 @@ Assert-False (Test-TranscriptValid $malformed) 'a malformed reviewer line (missi
 $outOfBlock = @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:',
     '    post-code-change-panel: ran, unanimous', '    panel-transcript:', '    build: passed', '    tests: passed, 1/1',
     '  appendix:', $duckC, $crC, $crG1, $crG2, $crGem)
-Assert-False (Test-PanelLedger -LedgerLines $outOfBlock -ExpectedParentSha $tParent -PanelRequired $true).Valid 'slot lines OUTSIDE the panel-transcript block do not satisfy the floor -> INVALID'
+Assert-False (Test-PanelLedger -LedgerLines $outOfBlock -ExpectedParentSha $tParent -GovernanceTier 1).Valid 'slot lines OUTSIDE the panel-transcript block do not satisfy the floor -> INVALID'
 
 $playbook = Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md'
 if (Test-Path $playbook) {
@@ -232,6 +235,103 @@ Assert-True ($pp -match "$($floor.MinGemini)\s+Gemini\s+family")          "floor
 Assert-True ($pp -match "$($floor.MinRubberDuck)\s+\x60?rubber-duck")     "floor MinRubberDuck=$($floor.MinRubberDuck) matches panel-policy.md"
 Assert-True ($pp -match "$($floor.MinCodeReview)\s+\x60?code-review")     "floor MinCodeReview=$($floor.MinCodeReview) matches panel-policy.md"
 Assert-True ($pp -match "$($floor.MinHeavy)\s+heavy-tier")                "floor MinHeavy=$($floor.MinHeavy) matches panel-policy.md"
+
+Write-Host ""
+Write-Host "=== KV v1 keyset includes the pre fields (2B grammar + worked example sync) ===" -ForegroundColor Cyan
+$sweepsRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
+$pccRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md') -Raw
+foreach ($k in @('prepanel=', 'diag=', 'g3=', 'g5=', 'g6=')) {
+    Assert-True ($sweepsRaw -match [regex]::Escape($k)) "2B KV grammar contains '$k'"
+    Assert-True ($pccRaw -match [regex]::Escape($k)) "post-code-change.md worked KV example contains '$k' (no drift)"
+}
+
+Write-Host ""
+Write-Host "=== Governance tier classifier (T2 equivalence + tier-2 self-protection) ===" -ForegroundColor Cyan
+foreach ($p in @('AGENTS.md','setup.ps1','setup.sh','.gitattributes','.gitignore','.github/copilot-instructions.md','.github/instructions/x.md','.github/playbooks/post-code-change.md','.github/workflows/ci.yml','.github/pr-quality-gate/panel-policy.md','.githooks/pre-commit','profiles/full/x.md','scripts/foo.ps1','src/Foo.cs','app.ts','x.csproj')) {
+    Assert-True ((Get-PathGovernanceTier -Path $p) -ge 1) "T2: $p -> tier>=1 (== old panel-required)"
+}
+foreach ($p in @('scripts/lib/panel-ledger-helpers.psm1','scripts/lib/audit-note-helpers.psm1','scripts/check-post-code-change.ps1','scripts/check-audit-notes-prepush.ps1','scripts/check-no-panel-artifacts.ps1','.githooks/pre-commit','.githooks/pre-push','.github/pr-quality-gate/panel-policy.md','AGENTS.md','.github/workflows/ci.yml')) {
+    Assert-True ((Get-PathGovernanceTier -Path $p) -eq 2) "tier-2 self-protection: $p"
+}
+foreach ($p in @('.github/playbooks/post-code-change.md','scripts/foo.ps1','src/Foo.cs','app.ts')) { Assert-True ((Get-PathGovernanceTier -Path $p) -eq 1) "tier-1 (panel-required, not safety): $p" }
+foreach ($p in @('README.md','docs/g.md','notes.txt','.github/pr-quality-gate/audits/post-code-change-last.md','security-notes.md','mysecurityfile.md')) { Assert-True ((Get-PathGovernanceTier -Path $p) -eq 0) "tier-0/carve-out/false-match: $p" }
+Assert-True  (Test-PathPanelRequired -Path 'src/Foo.cs') 'Test-PathPanelRequired derives true from tier'
+Assert-False (Test-PathPanelRequired -Path 'README.md') 'Test-PathPanelRequired derives false from tier'
+Assert-True ((Get-ChangedGovernanceTier -ChangedPaths @('README.md','src/Foo.cs') -NameStatusLines @()) -eq 1) 'changed tier=1 (mixed docs+code)'
+Assert-True ((Get-ChangedGovernanceTier -ChangedPaths @('README.md','scripts/lib/panel-ledger-helpers.psm1') -NameStatusLines @()) -eq 2) 'changed tier=2 (engine touched)'
+Assert-True ((Get-ChangedGovernanceTier -ChangedPaths @() -NameStatusLines @()) -eq 0) 'changed tier=0 (empty -> StrictMode-safe)'
+Assert-True ((Get-ChangedGovernanceTier -ChangedPaths @('README.md','docs/x.md') -NameStatusLines @()) -eq 0) 'changed tier=0 (docs only)'
+Assert-True ((Get-ChangedGovernanceTier -ChangedPaths @('a.txt') -NameStatusLines @("R100`ttests/Old.cs`tnewd/New.cs")) -eq 2) 'rename test-surface migration -> tier 2'
+
+Write-Host ""
+Write-Host "=== T1 monotonicity: pre-code-change-panel x governance tier ===" -ForegroundColor Cyan
+function PreV { param([string] $PrePanel, [int] $Tier) $g5 = if ($Tier -ge 2) { 'panel-ran' } else { 'not-applicable' }; (Test-PanelLedger -LedgerLines (New-Ledger -PrePanel $PrePanel -G5 $g5) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier $Tier).Valid }
+$WV = 'user-waived: "panel-waive-acknowledged" ref:turn-9'
+Assert-True  (PreV 'ran, unanimous' 0) 'tier0: pre ran -> ok'
+Assert-True  (PreV $WV 0)              'tier0: pre waive -> ok'
+Assert-True  (PreV 'N/A: docs' 0)      'tier0: pre N/A -> ok'
+Assert-True  (PreV 'ran, unanimous' 1) 'tier1: pre ran -> ok'
+Assert-True  (PreV $WV 1)              'tier1: pre waive -> ok'
+Assert-False (PreV 'N/A: docs' 1)      'tier1: pre N/A -> INVALID'
+Assert-True  (PreV 'ran, unanimous' 2) 'tier2: pre ran -> ok'
+Assert-False (PreV $WV 2)              'tier2: pre waive -> INVALID (safety-critical)'
+Assert-False (PreV 'N/A: docs' 2)      'tier2: pre N/A -> INVALID (safety-critical)'
+Assert-False (Test-PanelLedger -LedgerLines (New-Ledger -G5 'not-applicable') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 2).Valid 'tier2 + safety-critical-eval-G5: not-applicable -> INVALID (gate already knows it IS safety-critical)'
+Assert-True  (Test-PanelLedger -LedgerLines (New-Ledger -G5 'panel-ran') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 2).Valid 'tier2 + safety-critical-eval-G5: panel-ran -> ok'
+Assert-True  (Test-PanelLedger -LedgerLines (New-Ledger -G5 'not-applicable') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'tier1 + safety-critical-eval-G5: not-applicable -> ok (not path-safety-critical)'
+Assert-True ((Get-PathGovernanceTier -Path 'src/Payments/Charge.cs') -eq 2) 'payments path -> tier 2 (the path-reducible G5 category from pre-implementation.md L84)'
+$P = '1234567890abcdef1234567890abcdef12345678'
+$WVp = 'user-waived: "panel-waive-acknowledged" ref:turn-9'
+Assert-False (Test-PanelLedger -LedgerLines (New-Ledger -G5 'panel-ran' -Panel $WVp) -ExpectedParentSha $P -GovernanceTier 2).Valid 'tier2: POST panel waive -> INVALID (force-both safety-critical)'
+Assert-False (Test-PanelLedger -LedgerLines (New-Ledger -G5 'panel-ran' -Panel 'N/A: docs') -ExpectedParentSha $P -GovernanceTier 2).Valid 'tier2: POST panel N/A -> INVALID (force-both safety-critical)'
+Assert-True  (Test-PanelLedger -LedgerLines (New-Ledger -G5 'panel-ran') -ExpectedParentSha $P -GovernanceTier 2).Valid 'tier2: POST panel ran -> ok'
+Assert-True  (Test-PanelLedger -LedgerLines (New-Ledger -Panel $WVp) -ExpectedParentSha $P -GovernanceTier 1).Valid 'tier1: POST panel waive -> still ok (post not forced below tier 2)'
+Assert-False (Test-PanelLedger -LedgerLines (@(New-Ledger) | ForEach-Object { $_ -replace 'approach-selection-G3: fix-cause', 'approach-selection-G3: document-symptom: "no close' }) -ExpectedParentSha $P -GovernanceTier 1).Valid 'G3 document-symptom missing closing quote -> INVALID (end-anchored)'
+$g6noClose = @(New-Ledger) | ForEach-Object { $_ -replace 'implementation-planning: no$', 'implementation-planning: yes' -replace 'implementation-planning: not-required-trigger-not-detected', 'implementation-planning: required-but-skipped: "no close' }
+Assert-False (Test-PanelLedger -LedgerLines $g6noClose -ExpectedParentSha $P -GovernanceTier 1).Valid 'G6 required-but-skipped missing closing quote -> INVALID (end-anchored)'
+Assert-False (Test-PanelLedger -LedgerLines (@(New-Ledger) | ForEach-Object { $_ -replace 'approach-selection-G3: fix-cause', 'approach-selection-G3: document-symptom: ""' }) -ExpectedParentSha $P -GovernanceTier 1).Valid 'G3 document-symptom EMPTY quotes -> INVALID (non-empty rationale required)'
+$g6empty = @(New-Ledger) | ForEach-Object { $_ -replace 'implementation-planning: no$', 'implementation-planning: yes' -replace 'implementation-planning: not-required-trigger-not-detected', 'implementation-planning: required-but-skipped: ""' }
+Assert-False (Test-PanelLedger -LedgerLines $g6empty -ExpectedParentSha $P -GovernanceTier 1).Valid 'G6 required-but-skipped EMPTY quotes -> INVALID (non-empty rationale required)'
+
+Write-Host ""
+Write-Host "=== Pre rows: Guard1 placeholder + anchored enum + required-when-tier>=1 ===" -ForegroundColor Cyan
+function Mut { param([string] $Find, [string] $Repl, [int] $Tier) (Test-PanelLedger -LedgerLines (@(New-Ledger) | ForEach-Object { $_ -replace [regex]::Escape($Find), $Repl }) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier $Tier).Valid }
+function Drop { param([string] $Key, [int] $Tier) (Test-PanelLedger -LedgerLines (@(New-Ledger) | Where-Object { $_ -notmatch ('^\s*' + [regex]::Escape($Key) + ':') }) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier $Tier).Valid }
+Assert-False (Mut 'diagnosis-repro-ref: reproduction-locked: tests/Repro.cs' 'diagnosis-repro-ref: <path>' 1) 'diagnosis-repro-ref: <path> placeholder -> INVALID (round-3 guard on new row)'
+Assert-True  (Mut 'diagnosis-repro-ref: reproduction-locked: tests/Repro.cs' 'diagnosis-repro-ref: benchmark: 1.2s to 0.4s' 1) 'diagnosis-repro-ref benchmark -> ok'
+Assert-True  (Mut 'diagnosis-repro-ref: reproduction-locked: tests/Repro.cs' 'diagnosis-repro-ref: N/A: pure refactor' 1) 'diagnosis-repro-ref N/A -> ok'
+Assert-False (Mut 'approach-selection-G3: fix-cause' 'approach-selection-G3: maybe-later' 1) 'approach-selection-G3 unknown enum -> INVALID'
+Assert-True  (Mut 'approach-selection-G3: fix-cause' 'approach-selection-G3: document-symptom: "out of scope"' 1) 'G3 document-symptom (quoted) -> ok'
+Assert-False (Mut 'safety-critical-eval-G5: not-applicable' 'safety-critical-eval-G5: safety-critical-confirmed-skip: ref:<x>' 1) 'G5 placeholder ref -> INVALID'
+Assert-True  (Mut 'safety-critical-eval-G5: not-applicable' 'safety-critical-eval-G5: safety-critical-confirmed-skip: ref:turn-3' 1) 'G5 real skip ref -> ok'
+Assert-False (Drop 'diagnosis-repro-ref' 1) 'diagnosis-repro-ref missing @ tier1 -> INVALID'
+Assert-False (Drop 'approach-selection-G3' 1) 'approach-selection-G3 missing @ tier1 -> INVALID'
+Assert-False (Drop 'pre-code-change-panel' 1) 'pre-code-change-panel missing @ tier1 -> INVALID'
+Assert-True  (Drop 'diagnosis-repro-ref' 0) 'diagnosis-repro-ref missing @ tier0 -> ok (not required)'
+Assert-False (Test-PanelLedger -LedgerLines (@(New-Ledger -PrePanel $WV) | Where-Object { $_ -notmatch '^\s*safety-critical-eval-G5:' }) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'G5 required even when pre-panel is waived -> INVALID'
+$preWrongVerdict = @(New-Ledger) | ForEach-Object { $_ -replace 'READY_TO_IMPLEMENT', 'READY' }
+Assert-False (Test-PanelLedger -LedgerLines $preWrongVerdict -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'pre-transcript with READY (not READY_TO_IMPLEMENT) -> INVALID'
+
+Write-Host ""
+Write-Host "=== G6 sub-line validation (MF7: both trigger directions) ===" -ForegroundColor Cyan
+function G6V { param([string[]] $Lines, [int] $Tier = 1) (Test-PanelLedger -LedgerLines $Lines -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier $Tier).Valid }
+function G6Sub { param([string] $Find, [string] $Repl) @(New-Ledger) | ForEach-Object { $_ -replace [regex]::Escape($Find), $Repl } }
+Assert-True  (G6V (@(New-Ledger)) 1) 'baseline G6 (all triggers no) -> valid @ tier1'
+Assert-False (G6V (G6Sub '      design-exploration: not-applicable' '      design-exploration: invoked')) 'OFFERED trigger=no but decision=invoked -> INVALID (must be not-applicable)'
+$g6yesNoDec = @(New-Ledger) | ForEach-Object { $_ -replace 'design-exploration: no$', 'design-exploration: yes' }
+Assert-False (G6V $g6yesNoDec) 'OFFERED trigger=yes but decision still not-applicable -> INVALID (silent-downgrade)'
+$g6yesInv = @(New-Ledger) | ForEach-Object { $_ -replace 'design-exploration: no$', 'design-exploration: yes' -replace 'design-exploration: not-applicable$', 'design-exploration: invoked' }
+Assert-True  (G6V $g6yesInv) 'OFFERED trigger=yes + decision=invoked -> ok'
+Assert-False (G6V (G6Sub '      implementation-planning: not-required-trigger-not-detected' '      implementation-planning: offered-and-declined: "x"')) 'REQUIRED class with offered-and-declined -> INVALID'
+Assert-False (G6V (G6Sub '      implementation-planning: not-required-trigger-not-detected' '      implementation-planning: not-applicable')) 'REQUIRED class with not-applicable -> INVALID (silent-bypass)'
+Assert-False (G6V (G6Sub '      project-vocabulary: no' '      project-vocabulary: maybe')) 'trigger value not yes|no -> INVALID'
+Assert-False (G6V (G6Sub '      design-exploration: not-applicable' '      design-exploration: <decision>')) 'G6 decision placeholder -> INVALID'
+Assert-False (G6V (G6Sub '      performance-comparison: N/A: trigger not detected' '      performance-comparison: bogus')) 'playbook-invocations bad value -> INVALID'
+$g6reqYes = @(New-Ledger) | ForEach-Object { $_ -replace 'implementation-planning: no$', 'implementation-planning: yes' }
+Assert-False (G6V $g6reqYes) 'REQUIRED trigger=yes + decision=not-required-trigger-not-detected -> INVALID (trigger-coupling)'
+$g6reqYesOk = @(New-Ledger) | ForEach-Object { $_ -replace 'implementation-planning: no$', 'implementation-planning: yes' -replace 'implementation-planning: not-required-trigger-not-detected', 'implementation-planning: invoked' }
+Assert-True  (G6V $g6reqYesOk) 'REQUIRED trigger=yes + decision=invoked -> ok'
+Assert-True  (G6V (@(New-Ledger) | Where-Object { $_ -notmatch '^\s*pre-impl-trigger-detections:' -and $_ -notmatch '^\s*project-vocabulary:' }) 0) 'G6 not required @ tier0'
 
 Write-Host ""
 Write-Host "=== End-to-end checker (temp git repo) ===" -ForegroundColor Cyan
@@ -376,7 +476,7 @@ try {
         New-Item -ItemType Directory -Path (Join-Path $tmp3 'scripts') -Force | Out-Null
         Set-Content (Join-Path $tmp3 'scripts/check-post-code-change.ps1') '# anchor stub'
         Set-Content (Join-Path $tmp3 'src/x.cs') 'class X{}'
-        Set-Content (Join-Path $tmp3 $AUDIT) (New-Ledger -ParentSha 'EMPTY_TREE' -Subject 'initial')
+        Set-Content (Join-Path $tmp3 $AUDIT) (New-Ledger -ParentSha 'EMPTY_TREE' -Subject 'initial' -G5 'panel-ran')
         TG3 add -A
         $code = Invoke-Checker -ScriptArgs @('-StagedMode', '-RepoRoot', $tmp3)
         Assert-Equal 0 $code 'staged on a repo with NO HEAD (initial commit): empty-tree path -> OK'
