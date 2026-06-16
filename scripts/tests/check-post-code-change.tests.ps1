@@ -6,6 +6,7 @@ Set-StrictMode -Version Latest
 
 $modulePath = Join-Path $PSScriptRoot '../lib/panel-ledger-helpers.psm1'
 Import-Module $modulePath -Force
+. (Join-Path $PSScriptRoot 'test-common.ps1')
 $checkerPath = Join-Path $PSScriptRoot '../check-post-code-change.ps1'
 
 $script:failures = 0
@@ -68,7 +69,8 @@ function New-Ledger {
         "commit_subject: $Subject",
         'POST-CODE-CHANGE LEDGER',
         '  gates:',
-        "    post-code-change-panel: $Panel",
+        "    post-code-change-panel: $Panel"
+    ) + (Get-ValidPanelTranscript) + @(
         "    build: $Build",
         "    tests: $Tests"
     )
@@ -132,13 +134,28 @@ Assert-True $r.Valid 'tests N/A: <reason> -> valid'
 Assert-Equal (Get-GitEmptyTreeSha) '4b825dc642cb6eb9a060e54bf8d69288fbee4904' 'Get-GitEmptyTreeSha returns the canonical empty-tree SHA (single source, no script duplicate)'
 
 $r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
-Assert-True $r.Valid 'panel-required + user-waived (quoted) -> valid'
+Assert-False $r.Valid 'panel-required + OLD free-text user-waived -> INVALID (tightened: needs panel-waive-acknowledged token + ref)'
+
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+Assert-True $r.Valid 'panel-required + tightened user-waived (panel-waive-acknowledged token + ref) -> valid'
 
 $r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "no close') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'panel-required + user-waived missing closing quote -> INVALID'
 
 $r = Test-PanelLedger -LedgerLines (New-Ledger -Panel '<ran, unanimous | N/A>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-False $r.Valid 'unsubstituted placeholder panel value -> INVALID'
+
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+Assert-False $r.Valid 'panel-required + user-waived with UNSUBSTITUTED ref:<call-ref> placeholder -> INVALID (fail-closed)'
+
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+Assert-False $r.Valid 'panel-required + user-waived with the post-code-change.md template ref:<ask_user-call-ref> placeholder -> INVALID'
+
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'N/A: <reason>') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $false
+Assert-False $r.Valid 'non-panel-required + N/A with UNSUBSTITUTED <reason> placeholder -> INVALID (embedded-placeholder fail-closed)'
+
+$r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "panel-waive-acknowledged" ref:turn-42') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
+Assert-True $r.Valid 'panel-required + user-waived with a real substituted ref (no angle brackets) -> still valid (no false-reject)'
 
 $missingPanel = @('parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','  build: passed','  tests: passed, 1/1')
 $r = Test-PanelLedger -LedgerLines $missingPanel -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
@@ -150,10 +167,71 @@ Assert-False $r.Valid 'missing parent_sha -> INVALID'
 $withExtras = @(
     'parent_sha: 1234567890abcdef1234567890abcdef12345678','commit_subject: x','POST-CODE-CHANGE LEDGER','  gates:',
     '    hygiene-cleanup: ran','    emdash-scan: ran, clean','    some-future-row: whatever',
-    '    post-code-change-panel: ran, unanimous','    build: passed','    tests: passed, 9/9'
-)
+    '    post-code-change-panel: ran, unanimous'
+) + (Get-ValidPanelTranscript) + @('    build: passed','    tests: passed, 9/9')
 $r = Test-PanelLedger -LedgerLines $withExtras -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -PanelRequired $true
 Assert-True $r.Valid 'unknown/extra §2B rows are ignored (parser is structurally opaque)'
+
+Write-Host ""
+Write-Host "=== panel-transcript floor (full-slate enforcement) ===" -ForegroundColor Cyan
+$tParent = '1234567890abcdef1234567890abcdef12345678'
+function New-LedgerWithTranscript {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Transcript)
+    return @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:',
+        '    post-code-change-panel: ran, unanimous') + $Transcript + @('    build: passed', '    tests: passed, 1/1')
+}
+function Test-TranscriptValid {
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Transcript)
+    return (Test-PanelLedger -LedgerLines (New-LedgerWithTranscript $Transcript) -ExpectedParentSha $tParent -PanelRequired $true).Valid
+}
+$HDR = '    panel-transcript:'
+$duckC = '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY rounds:2'
+$crC   = '      - slot:crc model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY rounds:2'
+$crG1  = '      - slot:crg1 model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY rounds:2'
+$crG2  = '      - slot:crg2 model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY rounds:2'
+$crGem = '      - slot:crgem model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY rounds:2'
+
+Assert-True  (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem)) 'valid full slate (2 DISTINCT GPT models) -> valid (distinct-by-slot does not false-reject the happy path)'
+Assert-False (Test-TranscriptValid @()) 'ran, unanimous with NO panel-transcript block -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR)) 'panel-transcript header but no reviewer lines -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2)) 'transcript missing the Gemini family -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crGem)) 'transcript with only 1 GPT reviewer -> INVALID (full floor needs >= 2 GPT)'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crG1, $crGem)) 'transcript with only 1 code-review (and 3 reviewers) -> INVALID'
+$dup = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, ($crG2 -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
+Assert-False (Test-TranscriptValid $dup) 'duplicate reviewer slot (a dup carrying NEEDS_REWORK cannot be masked) -> INVALID'
+$rework = @($HDR, $duckC, $crC, $crG1, $crG2, ($crGem -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
+Assert-False (Test-TranscriptValid $rework) 'a NEEDS_REWORK verdict (floor path, not grammar) -> INVALID (panel not converged)'
+$rounds0 = @($HDR, ($duckC -replace 'rounds:2', 'rounds:0'), $crC, $crG1, $crG2, $crGem)
+Assert-False (Test-TranscriptValid $rounds0) 'rounds:0 -> INVALID (>= 1 required, distinct from malformed)'
+$bigRounds = @($HDR, ($duckC -replace 'rounds:2', 'rounds:1000'), $crC, $crG1, $crG2, $crGem)
+Assert-False (Test-TranscriptValid $bigRounds) 'rounds:1000 (4 digits) -> INVALID (malformed; bounded so no [int] overflow)'
+$allLight = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem) -replace 'tier:heavy', 'tier:light'
+Assert-False (Test-TranscriptValid $allLight) 'all light-tier slate -> INVALID (full floor needs >= 1 heavy)'
+$malformed = @($HDR, $duckC, $crC, $crG1, $crG2, '      - slot:x family:gpt role:code-review verdict:READY')
+Assert-False (Test-TranscriptValid $malformed) 'a malformed reviewer line (missing fields) -> INVALID'
+$outOfBlock = @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:',
+    '    post-code-change-panel: ran, unanimous', '    panel-transcript:', '    build: passed', '    tests: passed, 1/1',
+    '  appendix:', $duckC, $crC, $crG1, $crG2, $crGem)
+Assert-False (Test-PanelLedger -LedgerLines $outOfBlock -ExpectedParentSha $tParent -PanelRequired $true).Valid 'slot lines OUTSIDE the panel-transcript block do not satisfy the floor -> INVALID'
+
+$playbook = Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md'
+if (Test-Path $playbook) {
+    $pbLines = @(Get-Content -LiteralPath $playbook)
+    Assert-True ([bool]((@($pbLines | Where-Object { $_ -cmatch '^\s*panel-transcript:\s*$' })).Count -ge 1)) 'post-code-change.md ships a BARE panel-transcript: header (verbatim copy is detected)'
+    $tmplSlot = @($pbLines | Where-Object { $_ -cmatch '^\s*-\s*slot:' })
+    $tmplBlock = @('    panel-transcript:') + $tmplSlot
+    Assert-False (Test-TranscriptValid $tmplBlock) 'the shipped post-code-change.md transcript template (placeholders) -> INVALID (stale-template fail-closed)'
+}
+
+$floor = Get-PanelSlateFloor
+$pp = Get-Content (Join-Path $PSScriptRoot '../../.github/pr-quality-gate/panel-policy.md') -Raw
+Assert-True ($pp -match "$($floor.MinReviewers)\s+reviewers")            "floor MinReviewers=$($floor.MinReviewers) matches panel-policy.md S27-32"
+Assert-True ($pp -match "$($floor.MinClaude)\s+Claude\s+family")          "floor MinClaude=$($floor.MinClaude) matches panel-policy.md"
+Assert-True ($pp -match "$($floor.MinGpt)\s+GPT\s+family")                "floor MinGpt=$($floor.MinGpt) matches panel-policy.md"
+Assert-True ($pp -match "$($floor.MinGemini)\s+Gemini\s+family")          "floor MinGemini=$($floor.MinGemini) matches panel-policy.md"
+Assert-True ($pp -match "$($floor.MinRubberDuck)\s+\x60?rubber-duck")     "floor MinRubberDuck=$($floor.MinRubberDuck) matches panel-policy.md"
+Assert-True ($pp -match "$($floor.MinCodeReview)\s+\x60?code-review")     "floor MinCodeReview=$($floor.MinCodeReview) matches panel-policy.md"
+Assert-True ($pp -match "$($floor.MinHeavy)\s+heavy-tier")                "floor MinHeavy=$($floor.MinHeavy) matches panel-policy.md"
 
 Write-Host ""
 Write-Host "=== End-to-end checker (temp git repo) ===" -ForegroundColor Cyan

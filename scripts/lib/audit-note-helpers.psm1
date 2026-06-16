@@ -184,6 +184,15 @@ function Read-PanelNoteValidated {
     return [PSCustomObject]@{ Valid = $r.Valid; Errors = @($r.Errors) }
 }
 
+function Test-PanelNoteExists {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $RepoRoot,
+        [Parameter(Mandatory)] [string] $CommitSha
+    )
+    return ($null -ne (Read-RawAuditNote -RepoRoot $RepoRoot -NoteRef $script:PanelNoteRef -CommitSha $CommitSha))
+}
+
 function Read-CommentNoteValidated {
     # Coverage (covered >= new-comment count) stays with the caller, which derives the commit's
     # new-comment count from its diff; this returns the AuditFile result for that comparison.
@@ -270,7 +279,7 @@ Export-ModuleMember -Function `
     Get-PanelNoteRef, Get-CommentNoteRef, Invoke-AuditGit, `
     Get-CommitTreeSha, Get-CommitParentSha, `
     Read-RawAuditNote, Write-AuditNote, Remove-AuditNote, `
-    Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, `
+    Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Test-PanelNoteExists, `
     Get-NormalizedRemoteIdentity, Test-IsInstructionsRepo, Assert-AuditSetup, `
     Get-PanelRequired, Test-PathPanelRequired, Get-NewCommentCount, Get-CoveredCommentCount `
     -Variable PanelNoteRef, CommentNoteRef, GitEmptyTreeSha

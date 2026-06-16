@@ -97,8 +97,9 @@ foreach ($sha in $commitSet.Keys) {
     }
     $changedPaths = @($dp.Stdout) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }
 
-    if (Get-PanelRequired -ChangedPaths $changedPaths) {
-        $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -PanelRequired $true
+    $panelReq = Get-PanelRequired -ChangedPaths $changedPaths
+    if ($panelReq -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
+        $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -PanelRequired $panelReq
         if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
     }
 

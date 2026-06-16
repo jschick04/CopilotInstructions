@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 
-if ($null -eq $script:Temps) {
+if (-not (Get-Variable -Name Temps -Scope Script -ErrorAction SilentlyContinue)) {
     $script:Temps = New-Object System.Collections.ArrayList
 }
 
@@ -41,6 +41,17 @@ function New-TestCommit {
     git -C $Directory add -A 2>$null
     git -C $Directory commit -q -m $Message
     return (git -C $Directory rev-parse HEAD).Trim()
+}
+
+function Get-ValidPanelTranscript {
+    return @(
+        '    panel-transcript:',
+        '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY rounds:2',
+        '      - slot:enforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY rounds:2',
+        '      - slot:integ model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY rounds:2',
+        '      - slot:scripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY rounds:2',
+        '      - slot:arch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY rounds:2'
+    )
 }
 
 function Remove-TestTempDirectories {
