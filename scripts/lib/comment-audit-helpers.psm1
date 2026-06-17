@@ -282,17 +282,29 @@ function Test-AuditBulletShape {
     if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+exempt:\s*($exemptCatPattern)\s*$") {
         return [PSCustomObject]@{ Form = 'exempt'; Valid = $true; File = $file; Line = $line; Category = $matches[1] }
     }
-    if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+exempt:\s*(\S+)") {
-        return [PSCustomObject]@{ Form = 'exempt'; Valid = $false; File = $file; Line = $line; Reason = "non-canonical exempt category: $($matches[1])" }
-    }
     if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+degraded-mode-drop\s*$") {
         return [PSCustomObject]@{ Form = 'degraded-mode-drop'; Valid = $true; File = $file; Line = $line }
     }
     if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+no-response-drop\s*$") {
         return [PSCustomObject]@{ Form = 'no-response-drop'; Valid = $true; File = $file; Line = $line }
     }
-    if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+(\S+)") {
-        return [PSCustomObject]@{ Form = 'na-other'; Valid = $false; File = $file; Line = $line; Reason = "unknown n/a disposition: $($matches[1])" }
+    if ($rest -cmatch "^approval_turn:\s*n/a\s+[-\u2014]\s+(?<prefix>exempt:\s*)?(?<token>\S+)(?<trail>.*)$") {
+        $token = $matches['token']
+        $trail = $matches['trail'].Trim()
+        if ($matches['prefix']) {
+            if ($token -cin $script:CanonicalExemptCategories) {
+                $reason = "canonical exempt category has unexpected trailing content: $trail"
+            } else {
+                $reason = "non-canonical exempt category: $token"
+            }
+        } else {
+            if ($token -cin @('degraded-mode-drop', 'no-response-drop')) {
+                $reason = "canonical n/a disposition has unexpected trailing content: $trail"
+            } else {
+                $reason = "unknown n/a disposition: $token"
+            }
+        }
+        return [PSCustomObject]@{ Form = 'na-other'; Valid = $false; File = $file; Line = $line; Reason = $reason }
     }
     if ($rest -cmatch "^approval_turn:\s*\S.*\|\s*allowed-case:\s*($allowedCasePattern)\s*\|\s*justification:\s*\S") {
         $allowedCase = $matches[1]
