@@ -9,7 +9,7 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 ---
 ## Comments - XML doc additions (extends [Core / Comments](../../AGENTS.md#31-comments))
 
-The universal comment rules in `AGENTS.md` (three-step comment protocol - clarity check → rename check → step-3 `ask_user` comment-approval gate; canonical exempt categories; no comments that restate code; no narration; no future-tense speculation; no TODO/FIXME/HACK; hard ≤ 12-word inline cap; mandatory self-review pass with `approval_turn:` citation) all apply here unchanged. The bullets below are the C#-specific additions for XML doc comments.
+The universal comment rules in `AGENTS.md` (three-step comment protocol - clarity check → rename check → step-3 `ask_user` comment-approval gate; canonical exempt categories; no comments that restate code; no narration; no future-tense speculation; no TODO/FIXME/HACK; mandatory self-review pass with `approval_turn:` citation) all apply here unchanged. The bullets below are the C#-specific additions for XML doc comments.
 
 - **No XML doc comments (`/// <summary>...`) on `private` members.** Period. Not on private fields, not on private methods, not on private nested types. The XML-doc-on-private-field is the most common violation. If the field needs explanation, the *name* needs work.
 - XML docs that restate the method signature are forbidden the same way prose comments that restate code are: `/// <summary>Copies text to the clipboard.</summary>` on `Task CopyTextAsync(string text)` says nothing the signature doesn't.

@@ -187,7 +187,7 @@ core_rules_acknowledged:
           rename_diff: <string>     # required when disposition=rename
           extract_diff: <string>    # required when disposition=extract
           restore_diff: <string>    # required when disposition=restore
-          keep_reason: <string>     # required when disposition=keep-because; ≤12 words; MUST add information beyond comment text
+          keep_reason: <string>     # required when disposition=keep-because; MUST add information beyond comment text
       diff_metric_check: <string>   # cross-check: rg-violation count or git-diff-extracted count matched against per_site_citations.Count
       divergence_acknowledged: <string>  # required when rg-battery count > per_site_citations.Count; ≤50-word specific reason; logged to panel-misses.csv.divergence_override_history
     rationale: <string>             # REQUIRED when status=not-applicable; 3-30w, >=1 repo/code-specific token, NOT in {na,n/a,skip,none,unknown,false-positive,not-applicable} (anti-tautology)

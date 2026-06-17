@@ -1,10 +1,12 @@
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)] [string] $BaseRef,
+    [string] $BaseRef,
     [string] $HeadRef = 'HEAD',
     [string] $RepoRoot = '',
-    [string] $AuditPath = '.github/pr-quality-gate/audits/last.md'
+    [string] $AuditPath = '.github/pr-quality-gate/audits/last.md',
+    [switch] $StagedMode,
+    [switch] $WorktreeReceipt
 )
 
 $ErrorActionPreference = 'Stop'
@@ -48,6 +50,79 @@ function Invoke-Git {
         exit $script:ExitInvocation
     }
     return [PSCustomObject]@{ Stdout = $stdout; ExitCode = $exit; Stderr = $stderr }
+}
+
+if ($StagedMode) {
+    $stagedDiffResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '--unified=0')
+    $diffLines = @($stagedDiffResult.Stdout) | ForEach-Object { $_ }
+    $unparseablePaths = @(Get-UnparseableDiffPaths -DiffLines $diffLines)
+    if ($unparseablePaths.Count -gt 0) {
+        foreach ($badPath in $unparseablePaths) { Write-Violation "staged diff has a quoted/unparseable file-path header; comment coverage cannot be verified (rename the file to avoid quoted characters): $badPath" }
+        exit $script:ExitViolation
+    }
+    $sites = Get-NewCommentSites -DiffLines $diffLines
+    if ($sites.Count -eq 0) {
+        Write-Host "OK: no new comment sites in staged diff."
+        exit $script:ExitOk
+    }
+
+    $amendAllowed = ($env:PANEL_GATE_AMEND) -and ($env:PANEL_GATE_AMEND -ne '0')
+    $acceptableParents = @()
+    $headResult = Invoke-Git -Arguments @('rev-parse', 'HEAD') -AllowFailure
+    if ($headResult.ExitCode -ne 0) {
+        $acceptableParents = @($script:GitEmptyTreeSha)
+    } else {
+        $acceptableParents += ($headResult.Stdout | Out-String).Trim()
+        if ($amendAllowed) {
+            $headParentResult = Invoke-Git -Arguments @('rev-parse', 'HEAD^') -AllowFailure
+            if ($headParentResult.ExitCode -eq 0) {
+                $acceptableParents += ($headParentResult.Stdout | Out-String).Trim()
+            } else {
+                $acceptableParents += $script:GitEmptyTreeSha
+            }
+        }
+    }
+
+    if ($WorktreeReceipt) {
+        $receiptFull = Join-Path $RepoRoot $AuditPath
+        if (-not (Test-Path -LiteralPath $receiptFull)) {
+            Write-Violation "staged diff adds $($sites.Count) new comment block(s) but no '$AuditPath' exists on disk. Run the comment audit, write the receipt, and keep it on disk."
+            exit $script:ExitViolation
+        }
+        $auditLines = @(Get-Content -LiteralPath $receiptFull)
+    } else {
+        $receiptResult = Invoke-Git -Arguments @('show', ":$AuditPath") -AllowFailure
+        if ($receiptResult.ExitCode -ne 0 -or -not $receiptResult.Stdout) {
+            Write-Violation "staged diff adds $($sites.Count) new comment block(s) but no fresh '$AuditPath' is staged. Run the comment audit, write the receipt, and stage it."
+            exit $script:ExitViolation
+        }
+        $auditLines = @($receiptResult.Stdout) | ForEach-Object { $_ }
+    }
+
+    $audit = $null
+    foreach ($candidateParent in $acceptableParents) {
+        $candidate = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha $candidateParent
+        if ($candidate.Valid) { $audit = $candidate; break }
+        if (-not $audit) { $audit = $candidate }
+    }
+    if (-not $audit.Valid) {
+        foreach ($err in $audit.Errors) { Write-Violation "staged $AuditPath : $err" }
+        foreach ($bad in $audit.InvalidBullets) { Write-Violation "staged $AuditPath : invalid bullet '$($bad.Line)' - $($bad.Reason)" }
+        exit $script:ExitViolation
+    }
+
+    $coverageErrors = @(Test-CommentCoverage -Sites $sites -Bullets $audit.Bullets)
+    if ($coverageErrors.Count -gt 0) {
+        foreach ($coverageError in $coverageErrors) { Write-Violation "staged $AuditPath : $coverageError" }
+        exit $script:ExitViolation
+    }
+    Write-Host "OK: staged comment audit covers all $($sites.Count) new comment block(s)."
+    exit $script:ExitOk
+}
+
+if (-not $BaseRef) {
+    Write-Invocation "BaseRef is required in CI/history mode (use -StagedMode for the pre-commit hook)"
+    exit $script:ExitInvocation
 }
 
 $baseShaResult = Invoke-Git -Arguments @('merge-base', $BaseRef, $HeadRef)
@@ -104,23 +179,25 @@ foreach ($commitSha in $commitsForward) {
     }
 
     $diffResult = if ($parentResult.ExitCode -ne 0) {
-        Invoke-Git -Arguments @('--no-pager', 'diff', $script:GitEmptyTreeSha, $commitSha, '--unified=0')
+        Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', $script:GitEmptyTreeSha, $commitSha, '--unified=0')
     } else {
-        Invoke-Git -Arguments @('--no-pager', 'diff', "${expectedParentSha}..${commitSha}", '--unified=0')
+        Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', "${expectedParentSha}..${commitSha}", '--unified=0')
     }
     $diffLines = @($diffResult.Stdout) | ForEach-Object { $_ }
 
+    $unparseablePaths = @(Get-UnparseableDiffPaths -DiffLines $diffLines)
+    foreach ($badPath in $unparseablePaths) {
+        $violations += "Commit ${shortSha}: quoted/unparseable file-path header; comment coverage cannot be verified: $badPath"
+    }
     $newSites = Get-NewCommentSites -DiffLines $diffLines
-    $newCount = $newSites.Count
-    $coveredCount = Get-CoveredCommentCount -AuditResult $check
+    $coverageErrors = @(Test-CommentCoverage -Sites $newSites -Bullets $check.Bullets)
 
-    if ($newCount -gt $coveredCount) {
-        $violations += "Commit ${shortSha}: $newCount new-or-rewritten comment site(s) in diff but only $coveredCount covered audit entries (approved+exempt only; drops and deleted are audit-trail-only and never satisfy coverage per comment-protocol.md §Persisted audit record)"
-        foreach ($site in ($newSites | Select-Object -First 20)) {
-            $violations += "  comment at $($site.File):$($site.Line)"
+    if ($coverageErrors.Count -gt 0) {
+        foreach ($coverageError in $coverageErrors) {
+            $violations += "Commit ${shortSha}: $coverageError"
         }
-    } else {
-        Write-Host "Commit ${shortSha}: $newCount new comment(s), $coveredCount covered audit entries - OK"
+    } elseif ($unparseablePaths.Count -eq 0) {
+        Write-Host "Commit ${shortSha}: $($newSites.Count) new comment block(s), all site+wording covered - OK"
     }
 }
 

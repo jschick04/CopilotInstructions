@@ -43,3 +43,19 @@ bb2038a1bccf8cc2  checker bootstrap (StrictMode + module imports + Resolve-RepoR
 9fae694941a8a6b7  per-checker test scaffolding (npa vs playbook-refs self-test)
 39c2cc2ace307f0e  per-checker test scaffolding (npa vs playbook-refs self-test)
 2ce6ef6e7609a9f7  per-checker test scaffolding (npa vs playbook-refs self-test)
+
+# Parallel staged-mode gate logic between the two sibling pre-commit gates
+# (check-comment-audit.ps1 vs check-post-code-change.ps1): the acceptable-parents
+# amend-handling (rev-parse HEAD / HEAD^ under PANEL_GATE_AMEND), the staged-receipt
+# read (-WorktreeReceipt disk vs `git show :path`), the candidate-parent validation
+# loop, and the `if (-not $BaseRef)` invocation guard. These are structural scaffolding
+# (parent-resolution, receipt-read, validation loop), NOT the gates' decision logic, which
+# stays distinct (Test-AuditFile vs Test-PanelLedger). Extracting them would couple two
+# independently-evolving gates for marginal line savings; each gate stays self-contained
+# and independently auditable. Same self-contained-per-gate disposition as the
+# checker-bootstrap waivers above.
+93c72ef430c33728  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
+268d2c79c3ba63aa  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
+4633aee39592e3cd  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
+efad131936ee9af6  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
+ee566c7d0f352280  parallel staged-gate logic (check-comment-audit vs check-post-code-change)

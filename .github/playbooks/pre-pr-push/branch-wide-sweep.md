@@ -51,7 +51,6 @@ For each comment:
 - **Rename-first protocol** (mandatory). Test with: *"Can a better name on the function / parameter / variable / type carry this fact?"* If yes, rename and delete the comment. **This is the highest-yield rule for the branch-wide sweep** - later commits often add context that makes the rename obvious where it wasn't during the original commit.
 - **Hard prohibitions deleted on sight.** Same list as `per-commit-micro-hygiene.md`.
 - **Allowed cases must pass the one-line justification test.** If you can't write a clause matching one of the three allowed cases ("non-obvious invariant: X" / "external constraint: Y" / "trade-off: Z"), delete the comment.
-- **Length cap on inline comments.** ≤ 12 words for `//` and `#`.
 
 ### 4. Pre-existing comments - out of scope unless the branch touched the surrounding code
 

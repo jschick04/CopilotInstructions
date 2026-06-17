@@ -281,5 +281,5 @@ Export-ModuleMember -Function `
     Read-RawAuditNote, Write-AuditNote, Remove-AuditNote, `
     Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Test-PanelNoteExists, `
     Get-NormalizedRemoteIdentity, Test-IsInstructionsRepo, Assert-AuditSetup, `
-    Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-CoveredCommentCount `
+    Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-NewCommentSites, Get-UnparseableDiffPaths, Test-CommentCoverage, Get-CoveredCommentCount `
     -Variable PanelNoteRef, CommentNoteRef, GitEmptyTreeSha

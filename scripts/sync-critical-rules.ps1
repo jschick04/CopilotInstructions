@@ -118,7 +118,7 @@ foreach ($s in $highTierSlugs) {
 [void]$sb.Append("        - file: <path>`n")
 [void]$sb.Append("          line: <int or range>`n")
 [void]$sb.Append("          disposition: <rename | extract | remove | restore | keep-because>`n")
-[void]$sb.Append("          keep_reason: <≤12 words; MUST add information beyond comment text>`n")
+[void]$sb.Append("          keep_reason: <rationale; MUST add information beyond comment text>`n")
 [void]$sb.Append("      diff_metric_check: <rg-violation count vs per_site_citations count>`n")
 [void]$sb.Append("    rationale: <≤30 words; required for not-applicable>`n")
 [void]$sb.Append("``````")
