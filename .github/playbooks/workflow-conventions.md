@@ -64,7 +64,7 @@ The user may explicitly skip any playbook step or entire phase. When they do:
 
 ## In-session self-audit - forget-class reminder (NOT a gate)
 
-For any session that will make code or governance changes, the agent MAY register a recurring self-audit schedule (~4 min) that runs `git status --porcelain` and, if there are edits without a recorded `PANEL CONVERGED` / `PRE-EDIT SENTINEL` block for the current change, STOPs and re-runs the pre-implementation panel before any further edits or commit. Re-arm this schedule on any post-compaction resume of such a session, independent of current tree state (the next-commit case starts with a clean tree). Prompt template:
+For any session that will make code or governance changes, the agent MAY register a recurring self-audit schedule (~4 min) that runs `git status --porcelain` and, if there are edits without a recorded `PANEL CONVERGED` / `PRE-EDIT SENTINEL` block for the current change, STOPs and re-runs the pre-implementation panel before any further edits or commit. Re-arm this schedule whenever such a session resumes from a summary, independent of current tree state (the next-commit case starts with a clean tree). Prompt template:
 
 > SELF-AUDIT panel-skip tripwire. Run `git -C <repo> status --porcelain`. If it shows any modified/added/staged file AND no real `PANEL CONVERGED` / `PRE-EDIT SENTINEL` block is present in your current live transcript for the change those files represent (a block present only in a summary counts as absent): STOP, tell the user the pre-implementation panel was skipped, and run the full panel before any further edits or commit. If a panel IS on record, reply `self-audit: panel on record` and continue. Never take destructive action. Stop the schedule once the change ships.
 

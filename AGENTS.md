@@ -37,7 +37,7 @@ phase_transition_intent=implementation->git | tests_status=<project>:<count> pas
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
-- Post-compact resumed sessions: this sentinel MUST fire again (no inherited approval).
+- A summary-only PRE-GIT SENTINEL is not inherited - re-emit (no inherited approval).
 - Panel `READY` does NOT clear this sentinel. Emitting it does NOT satisfy `ask_user`.
 
 ### git add - the USER stages (review signal)
