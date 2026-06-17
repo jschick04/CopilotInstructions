@@ -66,6 +66,12 @@ Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345' 
 Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 --> trailing prose' -FilePath 'README.md') 'read-receipt-token line with text after the closer is NOT exempt'
 Assert-True (Test-IsNewCommentLine -Content '<!-- read-receipt-token: abc12345 sneaky -->' -FilePath 'README.md') 'read-receipt-token with extra content before the closer is NOT exempt'
 
+Assert-False (Test-IsNewCommentLine -Content '| rule | ... <!-- --> ... |' -FilePath '.github/pr-quality-gate/pattern-catalog.md') 'pattern-catalog.md is path-excluded (it enumerates comment syntax)'
+Assert-False (Test-IsNewCommentLine -Content '| ... `//` `#` `/* */` ... |' -FilePath '.github/pr-quality-gate/pattern-catalog.sources/00-catalog.md') 'pattern-catalog source markdown is path-excluded'
+Assert-True (Test-IsNewCommentLine -Content '<!-- a real comment -->' -FilePath 'docs/pattern-catalog.md') 'a like-named file outside the gate path is NOT excluded'
+Assert-True (Test-IsNewCommentLine -Content '# real code comment' -FilePath '.github/pr-quality-gate/pattern-catalog.sources/helper.ps1') 'a non-markdown file under pattern-catalog.sources/ is NOT excluded (md-only carve-out)'
+Assert-True (Test-IsNewCommentLine -Content '<!-- a real comment -->' -FilePath 'nested/.github/pr-quality-gate/pattern-catalog.md') 'a nested decoy path ending in the catalog name is NOT excluded (anchor is repo-root-relative)'
+
 Assert-True (Test-IsNewCommentLine -Content '# python comment' -FilePath 'app.py') 'Python #'
 Assert-True (Test-IsNewCommentLine -Content '    # indented' -FilePath 'app.py') 'Python indented #'
 Assert-False (Test-IsNewCommentLine -Content '#!/usr/bin/env python' -FilePath 'app.py') 'Python shebang excluded'
@@ -132,12 +138,73 @@ $diff3 = @(
 $sites = Get-NewCommentSites -DiffLines $diff3
 Assert-Equal 0 $sites.Count 'Unknown extension (.txt) silently skipped'
 
+$diffDashHeader = @(
+    'diff --git a/q.sql b/q.sql',
+    '--- a/q.sql',
+    '+++ b/q.sql',
+    '@@ -1 +1 @@',
+    '--- approved wording',
+    '+-- reworded comment never audited'
+)
+$sites = Get-NewCommentSites -DiffLines $diffDashHeader
+Assert-Equal 1 $sites.Count 'a removed -- comment (renders as ---) does NOT null file tracking; the new -- comment is still detected'
+
+$diffDashLower = @(
+    'diff --git a/q.sql b/q.sql',
+    '--- a/q.sql',
+    '+++ b/q.sql',
+    '@@ -1,3 +1,4 @@',
+    '--- old top note',
+    '+-- new top note',
+    ' SELECT 1;',
+    '+-- brand new comment lower in the file'
+)
+$sites = Get-NewCommentSites -DiffLines $diffDashLower
+Assert-Equal 2 $sites.Count 'a removed -- comment higher up does not suppress a brand-new -- comment lower in the same file'
+
+$diffPlusContent = @(
+    'diff --git a/a.cs b/a.cs',
+    '--- a/a.cs',
+    '+++ b/a.cs',
+    '@@ -1 +1,2 @@',
+    ' code();',
+    '+    // real comment after a context line'
+)
+$sites = Get-NewCommentSites -DiffLines $diffPlusContent
+Assert-Equal 1 $sites.Count 'a comment added after a context line is detected (line counter tracks context lines)'
+
+$diffQuotedPath = @(
+    'diff --git "a/we\"ird.sql" "b/we\"ird.sql"',
+    '--- "a/we\"ird.sql"',
+    '+++ "b/we\"ird.sql"',
+    '@@ -0,0 +1 @@',
+    '+-- comment in a quoted-path file'
+)
+$bad = @(Get-UnparseableDiffPaths -DiffLines $diffQuotedPath)
+Assert-Equal 1 $bad.Count 'a quoted +++ file-path header is flagged as unparseable (gate fails closed instead of silently 0-siting)'
+$clean = @(Get-UnparseableDiffPaths -DiffLines $diffPlusContent)
+Assert-Equal 0 $clean.Count 'a normal (unquoted) diff has no unparseable paths'
+$inHunkPlus = @(
+    'diff --git a/a.md b/a.md',
+    '+++ b/a.md',
+    '@@ -0,0 +1 @@',
+    '++++ b/not-a-header content'
+)
+Assert-Equal 0 (@(Get-UnparseableDiffPaths -DiffLines $inHunkPlus)).Count 'a +++ -shaped line INSIDE a hunk is content, not flagged as a quoted header'
+
 Write-Host ""
 Write-Host "=== Test-AuditBulletShape ===" -ForegroundColor Cyan
 
-$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: bcl quirk'
-Assert-Equal 'approved' $shape.Form 'Approved with allowed-case AND justification is valid'
+$sha64 = 'a' * 64
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: bcl quirk | comment_sha: $sha64"
+Assert-Equal 'approved' $shape.Form 'Approved with allowed-case AND justification AND comment_sha is valid'
 Assert-True $shape.Valid 'Approved bullet valid=true'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: bcl quirk'
+Assert-False $shape.Valid 'Approved WITHOUT comment_sha is invalid'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: bcl quirk | comment_sha: <64-hex>'
+Assert-False $shape.Valid 'Approved with placeholder comment_sha is invalid'
 
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: 17 | allowed-case: trade-off |'
 Assert-False $shape.Valid 'Approved WITHOUT justification is invalid'
@@ -182,8 +249,8 @@ $auditLines = @(
     'parent_sha: a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74',
     'commit_subject: Add foo',
     'Comment audit: scope=src/Foo.cs, 2 new lines, 2 approved.',
-    '- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: explains race-handling',
-    '- src/Foo.cs:55: approval_turn: 17 | allowed-case: trade-off | justification: lock-vs-lockfree benchmark loss'
+    "- src/Foo.cs:42: approval_turn: 17 | allowed-case: non-obvious invariant | justification: explains race-handling | comment_sha: $('a' * 64)",
+    "- src/Foo.cs:55: approval_turn: 17 | allowed-case: trade-off | justification: lock-vs-lockfree benchmark loss | comment_sha: $('b' * 64)"
 )
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
 Assert-True $result.Valid 'Audit with 2 valid approved bullets is valid'
@@ -258,17 +325,73 @@ $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3d
 Assert-False $result.Valid '7-char hex prefix of expected -> INVALID (exact 40-char binding; no prefix match)'
 
 Write-Host ""
-Write-Host "=== Get-CoveredCommentCount (regression) ===" -ForegroundColor Cyan
+Write-Host "=== Test-CommentCoverage (site + sha bijection) ===" -ForegroundColor Cyan
 
-$result = [PSCustomObject]@{
-    ApprovedCount = 3; ExemptCount = 2; DegradedCount = 1; NoResponseCount = 1; DeletedCount = 5
-}
-Assert-Equal 5 (Get-CoveredCommentCount -AuditResult $result) 'Covered count = approved + exempt ONLY (drops + deleted excluded - regression)'
+$covDiff = @(
+    'diff --git a/src/Foo.cs b/src/Foo.cs',
+    '--- a/src/Foo.cs',
+    '+++ b/src/Foo.cs',
+    '@@ -1,1 +1,5 @@',
+    ' class Foo {',
+    '+    // single line comment',
+    '+    int x = 0;',
+    '+    // block line one',
+    '+    // block line two'
+)
+$covSites = Get-NewCommentSites -DiffLines $covDiff
+Assert-Equal 2 $covSites.Count 'two sites: one single-line comment, one 2-line block'
+$single = @($covSites | Where-Object { $_.StartLine -eq 2 })[0]
+$block  = @($covSites | Where-Object { $_.StartLine -eq 4 })[0]
+Assert-Equal 2 $single.EndLine 'single-line site spans one line (start 2, end 2)'
+Assert-Equal 5 $block.EndLine '2-line block is ONE site (start 4, end 5)'
 
-$result = [PSCustomObject]@{
-    ApprovedCount = 0; ExemptCount = 0; DegradedCount = 10; NoResponseCount = 10; DeletedCount = 10
-}
-Assert-Equal 0 (Get-CoveredCommentCount -AuditResult $result) 'All-drops audit covers 0 real diff comments'
+$bulletSingle = Test-AuditBulletShape -BulletLine "- src/Foo.cs:2: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: $($single.Sha)"
+$bulletBlockExempt = Test-AuditBulletShape -BulletLine '- src/Foo.cs:4: approval_turn: n/a - exempt: generated'
+$errs = @(Test-CommentCoverage -Sites $covSites -Bullets @($bulletSingle, $bulletBlockExempt))
+Assert-Equal 0 $errs.Count 'matching approved (sha) + exempt-at-real-block-start -> no coverage errors'
+
+$bulletBlockApproved = Test-AuditBulletShape -BulletLine "- src/Foo.cs:4: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: $($block.Sha)"
+$errs = @(Test-CommentCoverage -Sites @($block) -Bullets @($bulletBlockApproved))
+Assert-Equal 0 $errs.Count '2-line block covered by ONE approved bullet carrying the block sha'
+
+$bulletWrongSha = Test-AuditBulletShape -BulletLine "- src/Foo.cs:2: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: $('c' * 64)"
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @($bulletWrongSha))
+Assert-True (($errs -join ' ') -match 'mismatch') 'sha mismatch at a covered site -> error'
+
+$bulletNoSha = Test-AuditBulletShape -BulletLine '- src/Foo.cs:2: approval_turn: 9 | allowed-case: trade-off | justification: x'
+Assert-False $bulletNoSha.Valid 'approved bullet missing comment_sha is invalid'
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @($bulletNoSha))
+Assert-True (($errs -join ' ') -match 'uncovered') 'invalid (no-sha) bullet does not cover its site -> uncovered'
+
+$bulletPlaceholder = Test-AuditBulletShape -BulletLine '- src/Foo.cs:2: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: <64-hex>'
+Assert-False $bulletPlaceholder.Valid 'placeholder comment_sha is invalid'
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @($bulletPlaceholder))
+Assert-True (($errs -join ' ') -match 'uncovered') 'placeholder-sha bullet does not cover its site -> uncovered'
+
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @())
+Assert-True (($errs -join ' ') -match 'uncovered') 'site with no bullet at all -> uncovered'
+
+$orphan = Test-AuditBulletShape -BulletLine "- src/Foo.cs:99: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: $('a' * 64)"
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @($bulletSingle, $orphan))
+Assert-True (($errs -join ' ') -match 'orphan') 'cover bullet whose line is not a site -> orphan error'
+
+$exemptPhantom = Test-AuditBulletShape -BulletLine '- src/Foo.cs:77: approval_turn: n/a - exempt: generated'
+$errs = @(Test-CommentCoverage -Sites @() -Bullets @($exemptPhantom))
+Assert-True (($errs -join ' ') -match 'orphan') 'exempt bullet at a phantom line (no detected site) -> orphan'
+
+$dup1 = Test-AuditBulletShape -BulletLine "- src/Foo.cs:2: approval_turn: 9 | allowed-case: trade-off | justification: x | comment_sha: $($single.Sha)"
+$dup2 = Test-AuditBulletShape -BulletLine '- src/Foo.cs:2: approval_turn: n/a - exempt: generated'
+$errs = @(Test-CommentCoverage -Sites @($single) -Bullets @($dup1, $dup2))
+Assert-True (($errs -join ' ') -match 'ambiguous|more than one') 'two cover bullets at the same File:Line -> dup-key error'
+
+$errs = @(Test-CommentCoverage -Sites @() -Bullets @())
+Assert-Equal 0 $errs.Count 'zero sites + zero cover bullets -> no errors'
+
+$shaPlain = Get-CommentBlockSha -AddedCommentLines @('// hello', '// world')
+$shaReindented = Get-CommentBlockSha -AddedCommentLines @('        // hello', '   // world')
+Assert-Equal $shaPlain $shaReindented 're-indent (leading/trailing whitespace) does NOT change the block sha'
+$shaSyntaxChange = Get-CommentBlockSha -AddedCommentLines @('/* hello */', '// world')
+Assert-True ($shaPlain -cne $shaSyntaxChange) 'changing // to /* */ DOES change the block sha (byte-exact wording bind)'
 
 Write-Host ""
 Write-Host "=== history-walk integration: first-add commit is validated, not bootstrap-skipped (dual-gate hardening) ===" -ForegroundColor Cyan
@@ -295,6 +418,44 @@ try {
 finally {
     Set-Location $PSScriptRoot
     Remove-Item -LiteralPath $tmpCA -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+Write-Host "=== staged-mode integration (-StagedMode -WorktreeReceipt) ===" -ForegroundColor Cyan
+
+$tmpSM = Join-Path ([System.IO.Path]::GetTempPath()) ("ca-staged-" + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $tmpSM -Force | Out-Null
+function TGSM { & git -C $tmpSM @args 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { throw "gitSM failed: $($args -join ' ')" } }
+function HeadSM { ((& git -C $tmpSM rev-parse HEAD) | Out-String).Trim() }
+function Invoke-Staged { & pwsh -NoProfile -File $checkerPath -StagedMode -WorktreeReceipt -RepoRoot $tmpSM *> $null; return $LASTEXITCODE }
+try {
+    TGSM init; TGSM config user.email 't@e.com'; TGSM config user.name 'T'; TGSM config commit.gpgsign false; TGSM config core.autocrlf false
+    New-Item -ItemType Directory -Path (Join-Path $tmpSM '.github/pr-quality-gate/audits') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $tmpSM 'src') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $tmpSM 'scripts') -Force | Out-Null
+    Set-Content (Join-Path $tmpSM 'scripts/check-comment-audit.ps1') '# anchor stub'
+    Set-Content (Join-Path $tmpSM 'README.md') '# r'; TGSM add -A; TGSM commit -m 'init'
+    $smHead = HeadSM
+    $auditFile = Join-Path $tmpSM '.github/pr-quality-gate/audits/last.md'
+
+    Set-Content -LiteralPath (Join-Path $tmpSM 'src/code.cs') "class C {`n    // block line one`n    // block line two`n}"
+    TGSM add -A
+    $blockSha = Get-CommentBlockSha -AddedCommentLines @('// block line one', '// block line two')
+
+    Assert-Equal 1 (Invoke-Staged) 'staged comment block with NO receipt on disk -> violation (fail-closed)'
+
+    Set-Content -LiteralPath $auditFile @("parent_sha: $smHead", 'commit_subject: add code', "- src/code.cs:2: approval_turn: 7 | allowed-case: trade-off | justification: x | comment_sha: $('d' * 64)")
+    Assert-Equal 1 (Invoke-Staged) 'staged receipt with a mismatched comment_sha -> violation'
+
+    Set-Content -LiteralPath $auditFile @("parent_sha: $smHead", 'commit_subject: add code', "- src/code.cs:2: approval_turn: 7 | allowed-case: trade-off | justification: x | comment_sha: $blockSha")
+    Assert-Equal 0 (Invoke-Staged) 'staged receipt covering the block with the matching sha -> OK'
+
+    Set-Content -LiteralPath $auditFile @('parent_sha: deadbeefdeadbeefdeadbeefdeadbeefdeadbeef', 'commit_subject: add code', "- src/code.cs:2: approval_turn: 7 | allowed-case: trade-off | justification: x | comment_sha: $blockSha")
+    Assert-Equal 1 (Invoke-Staged) 'staged receipt with a stale parent_sha -> violation'
+}
+finally {
+    Set-Location $PSScriptRoot
+    Remove-Item -LiteralPath $tmpSM -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host ""

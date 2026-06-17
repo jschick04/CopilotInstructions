@@ -47,7 +47,7 @@ For every new comment, FIRST ask: *"Can a better name on the function / paramete
 
 - If yes → rename and delete the comment. The rename almost always wins.
 - If the rename has cross-file caller implications (crosses an interface / impl boundary, changes a signature) → escalate to the cleanup-commit-buckets decision (see `cleanup-commit-buckets.md`).
-- If no → check the comment passes the length cap (≤ 12 words for inline `//` and `#`).
+- If the rename can't carry it, the comment must clear the step-3 `ask_user` approval gate.
 
 ### 4. Hard prohibitions - delete on sight
 

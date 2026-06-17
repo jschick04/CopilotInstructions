@@ -263,7 +263,6 @@ These standards apply to **every** code change, in every language. Reviewers rej
 - **Hard prohibitions** (no exceptions):
   - No comments restating code. No "why we're about to do this" narration. No multi-line `//` design-decision prose. No speculation about future callers/surfaces. No restating contract terms encoded in naming/signature. No `TODO`/`FIXME`/`HACK`/`XXX`. No panel-artifact references (`Slot N`, `Round N`, etc.). No test section-separator banners. No comments restating a test's name.
 - **Allowed** (rare; short + load-bearing + not inferable): non-obvious algorithmic invariant; external-constraint workaround; deliberate trade-off.
-- **Length cap:** one line, <= 12 words.
 - **Self-review pass:** every new/rewritten comment must have valid `approval_turn:` citation; missing -> delete.
 - **Remove stale comments** when touching surrounding code.
 

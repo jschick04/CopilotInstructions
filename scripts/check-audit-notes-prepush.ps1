@@ -109,21 +109,24 @@ foreach ($sha in $commitSet.Keys) {
         if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
     }
 
-    $diffFull = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('--no-pager', 'diff', '--no-renames', $parent, $sha)
+    $diffFull = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--no-renames', $parent, $sha)
     if ($diffFull.ExitCode -ne 0) {
         Write-Host "ERROR: 'git diff' for commit ${short} (parent ${parent}) failed (exit $($diffFull.ExitCode)); cannot count new comment lines. Failing closed rather than skipping validation."
         exit $ExitViolation
     }
-    $newCount = Get-NewCommentCount -DiffLines @($diffFull.Stdout)
-    if ($newCount -gt 0) {
+    $diffLinesFull = @($diffFull.Stdout)
+    $unparseablePaths = @(Get-UnparseableDiffPaths -DiffLines $diffLinesFull)
+    foreach ($badPath in $unparseablePaths) {
+        $violations += "commit ${short} (comment): quoted/unparseable file-path header; comment coverage cannot be verified: $badPath"
+    }
+    $sites = Get-NewCommentSites -DiffLines $diffLinesFull
+    if ($sites.Count -gt 0) {
         $cv = Read-CommentNoteValidated -RepoRoot $RepoRoot -CommitSha $sha
         if (-not $cv.Valid) {
             foreach ($e in $cv.Errors) { $violations += "commit ${short} (comment): $e" }
         } else {
-            $covered = Get-CoveredCommentCount -AuditResult $cv.Audit
-            if ($covered -lt $newCount) {
-                $violations += "commit ${short} (comment): $newCount new comment line(s) but the note covers only $covered"
-            }
+            $coverageErrors = @(Test-CommentCoverage -Sites $sites -Bullets $cv.Audit.Bullets)
+            foreach ($coverageError in $coverageErrors) { $violations += "commit ${short} (comment): $coverageError" }
         }
     }
 }

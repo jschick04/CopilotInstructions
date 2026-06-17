@@ -31,7 +31,7 @@ gate|diff_shown=yes:t<N>|diff_approved=yes:t<N+M>:"<approval phrase>"|staged_dif
 subject|proposed_subject="<exact -m string>"|subject_approved=yes:t<K>:"<phrase|edited to:...>"|format_check=single_line:yes,co_authored_by_trailer:no,body:no,conventional_commit_prefix:no,subject_length_chars:<int>
 comment_audit|audit_record=<note:receipt .github/pr-quality-gate/audits/last.md authored, flushed to git note by post-commit | inline-consuming-repo | FAILS(machinery present but receipt missing)>|parent_sha=<literal SHA from receipt header = git rev-parse HEAD at write time; EMPTY_TREE for root>|new_or_rewritten=<int>|approval_entries=<int valid approval_turn bullets>|schema_source="comment-protocol.md §Persisted audit record + post-code-change.md §2.6"
 core_rules_acknowledged:   # caveman one-line-per-slug per post-code-change.md §"core_rules_acknowledged - chat-emission form (caveman)"; enumerate EVERY HIGH-tier review-pass-only slug; aggregate counts INVALID
-  - slug:<slug> status:applied sites:<site[,...]> metric:rg=<C/N> disp:<rename|extract|remove|restore|keep> [keep_reason:"<=12w"]
+  - slug:<slug> status:applied sites:<site[,...]> metric:rg=<C/N> disp:<rename|extract|remove|restore|keep> [keep_reason:"<rationale>"]
   - ... (one line per slug x disposition-group; status:na lines carry na_reason)
 full_scan_results:   # REQUIRED iff this turn ALSO commits a catalog edit (new slug OR enhanced audit-method); absent/empty = §1A.3 violation. Structured per-site (STAYS):
   - new_or_enhanced_slug: <slug>
