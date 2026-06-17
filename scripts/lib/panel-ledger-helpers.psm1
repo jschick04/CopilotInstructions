@@ -160,10 +160,23 @@ function Test-Transcript {
     $verdictRx = [regex]::Escape($ReadyVerdict)
     $grammar = '^\s*-\s*slot:(\S+)\s+model:(\S+)\s+family:(claude|gpt|gemini)\s+role:(rubber-duck|code-review)\s+tier:(heavy|light)\s+verdict:(' + $verdictRx + '|NEEDS_REWORK)\s+rounds:([0-9]{1,3})\s*$'
     $candidates = New-Object System.Collections.Generic.List[string]
+    $findings = New-Object System.Collections.Generic.List[string]
     for ($i = $headerIdx + 1; $i -lt $lines.Count; $i++) {
         $ln = [string]$lines[$i]
         if ($ln -cmatch '^\s*[A-Za-z][\w-]*:') { break }
         if ($ln -cmatch '^\s*-\s*slot:') { $candidates.Add($ln) }
+        elseif ($ln -cmatch '^\s*-\s*findings:\s*(.*)$') { $findings.Add($matches[1]) }
+    }
+    $findingsArr = $findings.ToArray()
+    if ($findingsArr.Count -ne 1) {
+        $errors.Add("$HeaderName block has $($findingsArr.Count) '- findings:' line(s); exactly 1 required (the panel-findings disclosure note)")
+    } else {
+        $findingsValue = ([string]$findingsArr[0]).Trim()
+        if (-not ($findingsValue -match '\S')) {
+            $errors.Add("$HeaderName '- findings:' line is empty; record a one-line panel-findings summary")
+        } elseif ($findingsValue -cmatch '^<[^>]*>$') {
+            $errors.Add("$HeaderName '- findings:' line is an unsubstituted placeholder ('$findingsValue'); fill in the actual panel findings")
+        }
     }
     $candidates = $candidates.ToArray()
     $reviewers = New-Object System.Collections.Generic.List[object]

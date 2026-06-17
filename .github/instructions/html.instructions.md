@@ -34,6 +34,7 @@ applyTo: "**/*.html,**/*.htm,**/*.razor,**/*.cshtml"
 
 - Use semantic elements (`<header>`, `<nav>`, `<main>`, `<article>`, `<section>`, `<footer>`).
 - Include appropriate ARIA attributes for accessibility.
+- In Razor, never bind a raw `bool` to an enumerated `aria-*` state (`aria-expanded`, `aria-pressed`, `aria-checked`, `aria-selected`): Blazor applies boolean-attribute semantics, so `aria-expanded="@isOpen"` emits a bare `aria-expanded` when `true` and omits it entirely when `false` - never the `"true"`/`"false"` string these states require, so assistive tech reads no valid state. Bind an explicit string - `aria-expanded="@(isOpen ? "true" : "false")"` for states that are always meaningful; use `@(cond ? "true" : null)` (which omits the attribute) only where absence IS the off-state, e.g. `aria-current`.
 - Keep inline styles to a minimum; prefer CSS classes.
 - Use meaningful `id` and `class` names (kebab-case: `item-list`, `header-nav`).
 - Validate HTML structure.

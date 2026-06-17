@@ -158,16 +158,18 @@ POST-CODE-CHANGE LEDGER
   tests_run: <result summary or n/a>
   # ... plus every gate row from review-workflow-gates-sweeps.md §2B, including:
   pre-code-change-panel: ran, unanimous          # OR user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>. tier>=1: N/A rejected; tier 2 (safety-critical path): ran ONLY.
-  # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict READY_TO_IMPLEMENT. Header bare; <...> fail closed.
+  # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict READY_TO_IMPLEMENT. Header bare; exactly-1 `- findings:` line; <...> fail closed.
   pre-panel-transcript:
     - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+    - findings: <one-line pre-panel summary of what the panel caught and how it was resolved>
   diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>   # author-asserted; shape-checked only
   approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
   safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
   post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>; tier 2 (safety-critical): ran ONLY
-  # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare.
+  # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare. Exactly-1 `- findings:` line (whole-value <...> fails closed).
   panel-transcript:
     - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
+    - findings: <one-line post-panel summary of what the panel caught and how it was resolved>
     # one line per reviewer; full-slate floor (always, in this instructions repo): >= 4 distinct slots, >= 1 claude, >= 2 gpt, >= 1 gemini, >= 1 rubber-duck, >= 2 code-review, >= 1 heavy; every verdict READY; rounds >= 1. See review-workflow-gates-sweeps.md §2B.
   core_rules_acknowledged:
     - slug: <string>
@@ -190,7 +192,7 @@ appendix=none
 
 Here `appendix=none` is valid because `delta-g` sites (the value after `/`) and `comment` failed-sites are both 0. When either is >0, `appendix=none` is INVALID (§2B rule 6): emit the canonical structured `delta-g-sweeps` site sub-block + `comment` failed-site bullets (from the schema above) in its place, NOT pipe-compressed. The `pre-impl-trigger-detections`/`pre-impl-playbook-decisions`/`playbook-invocations` sub-blocks always follow in their structured form.
 
-**Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` field when diff has a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` field when diff has test files OR any production-source SUT modification (new exported member, signature change, new conditional branch, new method declaration public OR private, new error-handling branch). Private-only SUT branches DO trigger the ITD rule. See `pr-quality-gate/pattern-catalog.md` for full audit methods.
+**Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` on a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` on test files OR any SUT modification (private-only branches included). See `pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 The pre-commit gate (step 4 in `pre-commit.md`) consumes `core_rules_acknowledged` and re-validates against the staged diff before commit. The two emissions can differ if the agent edits between post-code-change and pre-commit; the pre-commit version is authoritative.
 

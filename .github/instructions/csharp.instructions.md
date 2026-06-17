@@ -55,7 +55,7 @@ The .NET ecosystem standard is `src/` for production projects and `tests/` for t
 
 ## Access modifiers - least-permissive that still compiles
 
-Default to the most-restrictive access modifier at every level. Promoting later expands the API surface, ties the codebase to consumers you didn't intend to support, and makes future tightening a breaking change. Demoting later requires combing through every consumer site (markup, reflection, DI, attributes, friend assemblies). Start tight; widen only when a real consumer demands it.
+Default to the most-restrictive access modifier at every level. Promoting later expands the API surface and makes future tightening a breaking change; demoting later requires combing every consumer site (markup, reflection, DI, attributes, friend assemblies). Start tight; widen only when a real consumer demands it.
 
 **Restrictive-to-permissive progression in C# - these are the six axes the cross-language audit playbook (`.github/playbooks/least-privilege-audit.md`) checks for every public type:**
 
@@ -69,9 +69,9 @@ Default to the most-restrictive access modifier at every level. Promoting later 
 **When the audit runs:**
 
 - **At authoring** - pick the most restrictive modifier that satisfies the immediate consumer set; don't future-proof speculatively.
-- **At end of a unit of work** - touched-file scope of the audit fires automatically as part of `post-code-change.md` (any new `public` type/member must be justified by a real consumer or demoted before the diff is shown).
-- **Before first review push** - branch-wide scope of the audit fires automatically as part of `pre-pr-push.md` when the branch touches public API surface across multiple files.
-- **On demand** - user requests an "API tightening", "visibility audit", "least-privilege sweep", or similar; the canonical procedure is in `.github/playbooks/least-privilege-audit.md` (single source of truth - do NOT re-derive the 6-axis matrix here).
+- **At end of a unit of work** - touched-file scope of the audit fires automatically as part of `post-code-change.md` (new `public` types/members must be justified or demoted before the diff is shown).
+- **Before first review push** - branch-wide scope fires automatically as part of `pre-pr-push.md` when the branch touches public API surface across multiple files.
+- **On demand** - user requests an "API tightening", "visibility audit", "least-privilege sweep", or similar; the canonical procedure is in `.github/playbooks/least-privilege-audit.md` (single source of truth).
 
 **C#-specific reflection caveats - verify these still work after tightening:**
 
@@ -81,7 +81,7 @@ Default to the most-restrictive access modifier at every level. Promoting later 
 - **`Microsoft.Maui.Hosting` / `Microsoft.Extensions.DependencyInjection`** - works for internal types when the registering assembly has visibility (friend asm).
 - **Generic component constraints in Razor** (e.g., `IModalService.Show<TModal, TResult> where TModal : IComponent`) - internal `TModal` works fine across friend assemblies.
 - **Razor markup binding from another assembly** - `<InternalComponent />` works when IVT is granted; the Razor compiler in the consuming assembly resolves through friend visibility. Use `rg --type-add 'razor:*.razor' -t razor` (or `-t html`) when searching for Razor markup consumers, plus `_Imports.razor` and `@inherits` directives.
-- **Razor `[Parameter]` properties** - must be `public` with a `public` setter (framework parameter binding asserts this). **`[CascadingParameter]`** is also framework-set, but Blazor's component activator uses non-public reflection and current versions accept non-public cascading parameters; verify with build + a render test before tightening (some house styles still keep them public for consistency - codify your stance per project). **`[Inject]`** properties can be non-public / `internal`; verify the injection still resolves after tightening. **`[JSInvokable]`** methods invoked from JavaScript must be `public` (the JS interop dispatcher uses public reflection).
+- **Razor `[Parameter]` properties** - must be `public` with a `public` setter (framework parameter binding asserts this). **`[CascadingParameter]`** is also framework-set, but Blazor's component activator uses non-public reflection and current versions accept non-public cascading parameters; verify with build + a render test before tightening. **`[Inject]`** properties can be non-public / `internal`; verify the injection still resolves after tightening. **`[JSInvokable]`** methods invoked from JavaScript must be `public` (the JS interop dispatcher uses public reflection).
 - **Source generators** may have visibility assumptions; build after tightening.
 
 **C#-specific friend-assembly mechanism:** when an `internal` type / member needs to be reachable from another assembly we own (test project, MAUI head consuming a UI service), grant access via `[InternalsVisibleTo("OtherAssembly")]`. Two declaration locations:
@@ -128,7 +128,7 @@ The "sibling pattern" (interface + implementation in **one** file) is a narrow e
 
 When any of those conditions fails, **keep two files** in the same feature folder. Specifically:
 
-- **Public interfaces always live in their own file.** Even when the impl name matches and the impl is in the same assembly, a `public interface` is part of the assembly's API surface; consumers (in this repo or downstream) navigate to it by file name (`IFoo.cs`), tooling (Go-to-File, source-link, NuGet docs, IntelliSense peek-definition) assumes one-public-type-per-file, and bundling it with the impl makes future tightening / a second implementation a noisier diff. This matches Microsoft's own large repos (.NET runtime, ASP.NET Core, EF Core), StyleCop SA1402/SA1649, and the "vertical slice / feature folder" convention.
+- **Public interfaces always live in their own file.** Even when the impl name matches and the impl is in the same assembly, a `public interface` is part of the assembly's API surface; consumers (in this repo or downstream) navigate to it by file name (`IFoo.cs`), tooling (Go-to-File, source-link, NuGet docs, IntelliSense peek-definition) assumes one-public-type-per-file, and bundling it with the impl makes future tightening / a second implementation a noisier diff. This matches Microsoft's large repos, StyleCop SA1402/SA1649, and the vertical-slice convention.
 - **Mismatched names always stay as two files** (`IFileLogger` + `DebugLogService`, `ILogWatcherService` + `LiveLogWatcherService`). The mismatch signals that the implementation has its own concept beyond "default impl of the interface".
 - **Multiple implementations of one interface always stay as separate files** (one for the interface, one per impl).
 - **Cross-assembly interfaces** (impl lives in a different assembly than the interface - e.g., `IActiveItemsProvider` defined in `Acme.Core` but implemented by `OrderService` in `Acme.UI`) **always stay in their own file** in the defining assembly, regardless of whether the consuming assembly happens to have a single matching impl.
@@ -151,7 +151,7 @@ When any of those conditions fails, **keep two files** in the same feature folde
 
 `Helpers/`, `Utilities/`, `Misc/`, **flat `Common/`** (no sub-folders), and similar catch-all folders are anti-patterns: they collect unrelated code that has no other home, hide coupling, and grow without bound. Every file should live in a folder that names a domain concept or technical concern, not a generic bucket.
 
-**Cross-cutting / cross-assembly domain types live in `Common/<Domain>/`** - not in flat `Common/` and not in any slice folder. The parent `Common/` is a navigational marker; the `<Domain>/` sub-folder (`Common/Events/`, `Common/Channels/`, `Common/Databases/`) is the actual domain-named feature folder per the rule. Sub-divide `Common/` by DOMAIN, not by KIND (no `Common/Models/` + `Common/Helpers/`). See [Core §3.12](coding-standards-code.instructions.md#312-within-assembly-folder-topology-vertical-slice-clean-architecture) for the full topology rule and [§3.13](coding-standards-code.instructions.md#313-plan-structure-for-growth-not-for-current-file-count) for the plan-for-growth threshold (create the `<Domain>/` sub-folder up front when you can name 2+ likely future additions, even with a single file today).
+**Cross-cutting / cross-assembly domain types live in `Common/<Domain>/`** - not in flat `Common/` and not in any slice folder. The parent `Common/` is a navigational marker; the `<Domain>/` sub-folder (`Common/Events/`, `Common/Channels/`, `Common/Databases/`) is the actual domain-named feature folder per the rule. Sub-divide `Common/` by DOMAIN, not by KIND (no `Common/Models/` + `Common/Helpers/`). See [Core §3.12](coding-standards-code.instructions.md#312-within-assembly-folder-topology-vertical-slice-clean-architecture) for the full topology rule and [§3.13](coding-standards-code.instructions.md#313-plan-structure-for-growth-not-for-current-file-count) for the plan-for-growth threshold (create the sub-folder up front when you can name 2+ likely additions).
 
 **Standard folder conventions per project type:**
 - **.NET class libraries (domain-library style):** feature folders (`PayloadResolvers/`, `Providers/`, `Readers/`), `Common/<Domain>/` for cross-slice domain types (DTOs, contracts, well-known constants, algorithm helpers), `Interop/` for P/Invoke + handles + native structs (per FxCop CA1060), `Logging/` for tracing primitives, `Extensions/` for true extension method classes (named `*Extensions`, not `*Methods`). Avoid `Models/` as a flat catch-all - distribute slice-internal models into their owning feature folder, and cross-slice models into `Common/<Domain>/`.
@@ -177,6 +177,12 @@ Delete `Properties/AssemblyInfo.cs` if IVT was its only content.
 - **At project creation:** lay out the folder convention up front per the project type above.
 - **At every reorg PR:** validate against the conventions; document deliberate deviations with rationale in PR description.
 - **Whenever a `Helpers/` or `Utilities/` folder appears:** treat as a refactor signal. Each file in it should move to a feature folder, an `Extensions/`, an `Interop/`, or be promoted to a domain concept folder.
+
+---
+
+## Argument validation - validate at the public boundary
+
+A public factory that forwards its argument into a validating constructor leaks the *constructor's* parameter name to a caller who never passed it: `Create(string name) => new Foo(name)` (where `Foo`'s ctor calls `ArgumentException.ThrowIfNullOrEmpty(value)`) throws `ParamName` `"value"` on `Create("")`, a name the caller never used. Validate up front (`ArgumentException.ThrowIfNullOrEmpty(name)`) so the thrown `ParamName` names the caller-visible parameter.
 
 ---
 

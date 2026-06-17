@@ -121,8 +121,9 @@ POST-CODE-CHANGE LEDGER
     pre-code-change-panel: <ran, unanimous | user-waived: "panel-waive-acknowledged" ref:<call-ref> | N/A: reason>
       # tier>=1: ran|user-waived (N/A rejected). tier 2 (safety-critical path): ran ONLY. N/A only when not panel-required. `<...>` fails closed.
     pre-panel-transcript:
-      # like panel-transcript but verdict READY_TO_IMPLEMENT; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel.
+      # verdict READY_TO_IMPLEMENT; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel. Exactly-1 `- findings:`.
       - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+      - findings: <one-line pre-panel summary; what was caught + how resolved>
     diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>
       # author-asserted repro REFERENCE; shape-checked only (not a verified lock). Required when tier>=1.
     approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
@@ -131,16 +132,15 @@ POST-CODE-CHANGE LEDGER
     post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
       # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
-      # REQUIRED iff `ran, unanimous`; validated by Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed.
+      # REQUIRED iff `ran, unanimous`; Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed. Exactly-1 `- findings:`.
       - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
+      - findings: <one-line post-panel summary; what was caught + how resolved>
     intent-driven-testing-audit: <ran: prospective | ran: retrospective | N/A: <reason>>
       # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
-      # Fires when diff has (a) NEW/modified test files OR (b) any production change to the SUT surface
-      # (new exported member, signature change, new branch if/switch/?:/when, new state mutation, new
-      # method decl public OR private, new try/catch/throw, new state-transition). `N/A` MUST cite a
-      # carve-out from `intent-driven-testing.md` (rename-only, mechanical-port per §3.4, auto-generated
-      # tests, pure whitespace/comment, pure deletion). Bare `N/A` / `N/A: private-only SUT delta` is
-      # NOT valid (private branches still need coverage per §3.4 Direction B).
+      # Fires on NEW/modified tests OR any SUT-surface change (exported member, signature, new
+      # branch, state mutation, public OR private method, try/catch/throw). `N/A` MUST cite an
+      # `intent-driven-testing.md` carve-out (rename-only, mechanical-port §3.4, generated, whitespace,
+      # deletion). Bare `N/A` / `N/A: private-only` NOT valid (private branches need coverage, §3.4 B).
     delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A: reason>
       # Format/semantics in `multi-model-review/pr-creation-mirror-prompt.md` Delta K (status enum,
       # evidence/rationale, branch_new_files_verified, falsifiability). Unlike other §2B rows, this

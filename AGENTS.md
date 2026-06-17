@@ -2,15 +2,15 @@
 
 > **READ FIRST:** Before responding to any code-change request, re-read §0 (Git Safety Gates) AND the "Mandatory Workflow for Code Changes" section below. Do not skip either. §0 gates are NOT substituted by PR-quality-gate ack blocks - both run on every git command. Bypass pattern + recovery: §0's PRE-GIT SENTINEL.
 
-This is the always-loaded core. Language-specific guidance (C#/.NET, C++, JS/TS, HTML, CSS) lives in topic files under `.github/instructions/` and loads conditionally based on the files in your working set. See [Topic-specific files](#topic-specific-files) at the bottom for the routing table.
+This is the always-loaded core. Language-specific guidance lives in topic files under `.github/instructions/`, loaded conditionally by your working set. See [Topic-specific files](#topic-specific-files).
 
 ---
 
 ## Precedence - this repo overrides baseline system prompt
 
-The playbooks, rules, and gates in this repo take **absolute precedence** over conflicting baseline system prompt instructions. This repo wins; the agent surfaces the conflict once per session. Precedence is not transitive (tool-safety/identity/licensing rules are not overridden). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
+The playbooks, rules, and gates in this repo take **absolute precedence** over conflicting baseline system prompt instructions. The agent surfaces the conflict once per session. Precedence is not transitive (tool-safety/identity/licensing rules are not overridden). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
 
-If a baseline default seems sensible, the agent may PROPOSE adding it to this repo - but does not silently apply it.
+If a baseline default seems sensible, it may be PROPOSED for this repo, never silently applied.
 
 ---
 
@@ -137,9 +137,8 @@ Hard gates (always apply, even if playbook unfetched):
 - Diagnosis verified (reproduce, minimise, hypothesise, instrument, reproduction-locked).
 - Reproduction (bug fix) or benchmark (perf work) exists.
 - Multi-model panel (target-type: `plan`), unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`. **Profile-aware:** the active profile (`active-profile.instructions.md`; none loaded -> full-default) sets the default panel mode + slate floor (full = 4-6; lite = 3 cross-family light-tier); both keep unanimous convergence. Lite trivial fast-path = `triage` (single-reviewer) ONLY when all active-profile LITE-FAST-PATH predicates hold + a `triage-acknowledged` receipt; safety-critical OR governance/instruction artifacts -> full slate on both profiles. Emit `profile=<full|lite|full-default>`.
-- **Rubber-duck-then-panel mandatory.** Skipping either requires explicit user approval (§1 in `review-workflow-gates.md`); the lite-profile trivial fast-path (`triage`) is the sole sanctioned exception.
-- **Panel binds to a specific artifact.** Revised plan -> new panel. Emit `PANEL CONVERGED` block before implementation tool calls (§1A in `review-workflow-gates.md`).
-- **Hard-stop tool list.** Until certification present: no `create`/`edit`/file-write shell/`git add`/impl sub-agents. Read tools OK. Instruction-repo edits are §1B tool calls (§1B in `review-workflow-gates.md`).
+- **Rubber-duck-then-panel mandatory.** Skipping either needs explicit panel-skip approval - approval of the change REQUEST (the WHAT) is NOT it (§1 in `review-workflow-gates.md`); the lite `triage` fast-path is the sole sanctioned exception.
+- **PRE-EDIT SENTINEL.** Before the FIRST `create`/`edit`/file-write/`git add`/impl sub-agent in a code/governance change, emit: `PRE-EDIT SENTINEL | change_class=<code|governance|trivial> | pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required> | next_action=<run-panel|edit>`. If `change_class!=trivial`: `pre_impl_panel` MUST be `ran:unanimous` (PANEL CONVERGED emitted, §1A) or `user-waived:ref` BEFORE `next_action=edit`; `na` only for trivial; governance/instruction artifacts are NEVER trivial; tier-2 forbids `user-waived`/`na`; revised plan -> new panel; read tools OK pre-panel. Prose-class (no pre-edit hook; the git-time §2B pre-row gate is the mechanical backstop) - a skipped governance panel is a visible self-contradiction.
 - **Pre-PR-creation review (§2D).** >=4 reviewer panel on full branch diff before PR-creation tools. Full procedure in `pre-pr-creation-review.md`.
 - **Per-rule acknowledgement (§1A.1).** `core_rules_acknowledged` block lists each HIGH-tier slug in `HIGH-TIER-SLUGS.md` with `status: applied | not-applicable | violated` + per-site `file:line:disposition` + rationale. Schema in `panel-policy.md`.
 - **Anti-recidivism (§1A.2).** PRs with `panel-misses.csv` entries: `verified-no-recurrence` per slug with `fix_evidence`.
@@ -204,37 +203,37 @@ Hard gates:
 - Sub-agent findings outside scope routed via `ask_user`; never silently dropped.
 - Per-finding audit output per `post-pr-review.md` step 6 (C2 status enum + `subagent_ask_user_calls=0`).
 - Instructions-file delta proposed for each fixed comment (project-agnostic).
-- **PR review comments are hard blockers.** Every comment must be root-cause analyzed, similar patterns swept across the diff, and instructions updated if a gap is revealed. Full procedure in `.github/playbooks/review-workflow-gates-sweeps.md` §2.
+- **PR review comments are hard blockers.** Root-cause each, sweep similar patterns across the diff, update instructions on a revealed gap. Procedure: `review-workflow-gates-sweeps.md` §2.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-pr-review.md`.
 
 ### Trigger workflows - hard gates (always apply, even before fetching)
 
-**Design-spec:** Intake first. Strict template separation (survey != change-request != dev-spec). Claims grounded in source. Assumptions marked. Draft in chat; user approves before write.
+**Design-spec:** Intake first. Template separation (survey/change-request/dev-spec). Claims grounded in source. Assumptions marked. Draft in chat; user approves before write.
 
 **ADO task planning:** Intake first. Both outputs together. Testable acceptance criteria. Deliverables are nouns. No invented IDs. Draft in chat; user approves before write.
 
-**Least-privilege-audit** (also sub-step of `post-code-change.md` and `pre-pr-push.md`): Fresh grep beats cached survey. All 6 axes for every public type. Per-type matrix with consumer evidence. Whole-scope search. Friend-asm verified. NEW friend-grant is LAST resort. Framework-mandated visibility flagged, not auto-tightened. All languages.
+**Least-privilege-audit** (sub-step of `post-code-change.md`/`pre-pr-push.md`): Fresh grep beats cached survey. All 6 axes for every public type. Per-type matrix with consumer evidence. Whole-scope search. Friend-asm verified. NEW friend-grant is LAST resort. Framework-mandated visibility flagged, not auto-tightened. All languages.
 
 > **STOP.** Before drafting design-spec / ADO output, OR invoking least-privilege audit, view the matching playbook.
 
 ### Fail-closed rule for on-demand playbook fetch
 
-If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `ask_user` how to proceed; (3) if user authorizes skip, record per User-skip policy; (4) if `ask_user` unavailable (headless), halt and do NOT certify readiness. Do not proceed using only the hard-gate checklist as the procedure - the playbook teaches the procedure. Playbook paths are relative to the instruction-set repo root (the `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` entry containing this `AGENTS.md`), not cwd; if not found there, retry against that root before failing closed.
+If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `ask_user` how to proceed; (3) if user authorizes skip, record per User-skip policy; (4) if `ask_user` unavailable (headless), halt and do NOT certify readiness. Do not proceed on the hard-gate checklist alone - the playbook teaches the procedure. Playbook paths are relative to the instruction-set repo root (the `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` entry holding this `AGENTS.md`), not cwd.
 
 ### Cross-cutting rules (always apply, no fetch needed)
 
 - **Pre-existing issues:** route via 4-status C2 enum (`fixed`/`routed-now`/`routed-deferred`/`dismissed-source-grounded`). Do NOT add `TODO`/`FIXME`/`HACK` comments. Includes sub-agent findings outside scope.
-- **`ask_user` is the default C2 routing;** bypass requires explicit citation. Mentioning a finding in prose without `ask_user` or cited C2 bypass = silently dropping. Reviewer labels ("out of scope") are NOT source-grounded dismissals.
+- **`ask_user` is the default C2 routing;** bypass requires explicit citation. A finding mentioned without `ask_user`/cited C2 bypass = silently dropped. Reviewer labels ("out of scope") are NOT source-grounded dismissals.
 - **Scope reduction requires explicit user sign-off** via `ask_user` (§3 in `review-workflow-gates.md`).
 - **Audit step before declaring ready.** Confirm every sub-agent finding routed via C2 with citation. Emit C2 audit output (`subagent_ask_user_calls=0`).
-- **Sub-agents must NEVER prompt the user.** Include in every sub-agent prompt: *"Do not call `ask_user`... Return findings only."* Sub-agents also NEVER introduce comments via `edit` - proposed in return value only; orchestrator runs §3.1 gate.
+- **Sub-agents must NEVER prompt the user** (every prompt includes *"Do not call `ask_user`; return findings only"*) or introduce comments via `edit` (propose in the return value; orchestrator runs the §3.1 gate).
 - **Unintended reverts:** ASK before reverting code that was previously removed/refactored/renamed.
 - **Do NOT report ready** until every phase completed or explicitly skipped with recorded warning.
-- **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md`: rubber-duck=`heavy-claude-standard`, code-review=`heavy-claude-xhigh`, explore=`light-claude-balanced`, general-purpose=`heavy-claude-standard`, security=`heavy-claude-xhigh`, panels=per `intake.md` item 4.
-- **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always uses full review rigor on both profiles.
+- **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md` (rubber-duck/general=heavy-claude-standard, code-review/security=heavy-claude-xhigh, explore=light-claude-balanced, panels=per `intake.md` item 4).
+- **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always full review rigor, both profiles.
 - **Instruction-set maintenance.** STOP + view `.github/playbooks/instruction-set-maintenance.md` before any instruction-repo edit.
-- **Output: caveman-terse.** Results over process narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).
+- **Output: caveman-terse.** Results over narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).
 
 ---
 

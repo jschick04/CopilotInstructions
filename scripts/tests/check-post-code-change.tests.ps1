@@ -193,25 +193,31 @@ $crC   = '      - slot:crc model:claude-opus-4.8 family:claude role:code-review 
 $crG1  = '      - slot:crg1 model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY rounds:2'
 $crG2  = '      - slot:crg2 model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY rounds:2'
 $crGem = '      - slot:crgem model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY rounds:2'
+$find  = '      - findings: closed a fail-open and tightened a regex'
 
-Assert-True  (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem)) 'valid full slate (2 DISTINCT GPT models) -> valid (distinct-by-slot does not false-reject the happy path)'
+Assert-True  (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find)) 'valid full slate (2 DISTINCT GPT models) + findings -> valid (distinct-by-slot does not false-reject the happy path)'
 Assert-False (Test-TranscriptValid @()) 'ran, unanimous with NO panel-transcript block -> INVALID'
-Assert-False (Test-TranscriptValid @($HDR)) 'panel-transcript header but no reviewer lines -> INVALID'
-Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2)) 'transcript missing the Gemini family -> INVALID'
-Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crGem)) 'transcript with only 1 GPT reviewer -> INVALID (full floor needs >= 2 GPT)'
-Assert-False (Test-TranscriptValid @($HDR, $duckC, $crG1, $crGem)) 'transcript with only 1 code-review (and 3 reviewers) -> INVALID'
-$dup = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, ($crG2 -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
+Assert-False (Test-TranscriptValid @($HDR, $find)) 'panel-transcript header + findings but no reviewer lines -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $find)) 'transcript missing the Gemini family -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crGem, $find)) 'transcript with only 1 GPT reviewer -> INVALID (full floor needs >= 2 GPT)'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crG1, $crGem, $find)) 'transcript with only 1 code-review (and 3 reviewers) -> INVALID'
+$dup = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find, ($crG2 -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
 Assert-False (Test-TranscriptValid $dup) 'duplicate reviewer slot (a dup carrying NEEDS_REWORK cannot be masked) -> INVALID'
-$rework = @($HDR, $duckC, $crC, $crG1, $crG2, ($crGem -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
+$rework = @($HDR, $duckC, $crC, $crG1, $crG2, ($crGem -replace 'verdict:READY', 'verdict:NEEDS_REWORK'), $find)
 Assert-False (Test-TranscriptValid $rework) 'a NEEDS_REWORK verdict (floor path, not grammar) -> INVALID (panel not converged)'
-$rounds0 = @($HDR, ($duckC -replace 'rounds:2', 'rounds:0'), $crC, $crG1, $crG2, $crGem)
+$rounds0 = @($HDR, ($duckC -replace 'rounds:2', 'rounds:0'), $crC, $crG1, $crG2, $crGem, $find)
 Assert-False (Test-TranscriptValid $rounds0) 'rounds:0 -> INVALID (>= 1 required, distinct from malformed)'
-$bigRounds = @($HDR, ($duckC -replace 'rounds:2', 'rounds:1000'), $crC, $crG1, $crG2, $crGem)
+$bigRounds = @($HDR, ($duckC -replace 'rounds:2', 'rounds:1000'), $crC, $crG1, $crG2, $crGem, $find)
 Assert-False (Test-TranscriptValid $bigRounds) 'rounds:1000 (4 digits) -> INVALID (malformed; bounded so no [int] overflow)'
-$allLight = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem) -replace 'tier:heavy', 'tier:light'
+$allLight = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find) -replace 'tier:heavy', 'tier:light'
 Assert-False (Test-TranscriptValid $allLight) 'all light-tier slate -> INVALID (full floor needs >= 1 heavy)'
-$malformed = @($HDR, $duckC, $crC, $crG1, $crG2, '      - slot:x family:gpt role:code-review verdict:READY')
+$malformed = @($HDR, $duckC, $crC, $crG1, $crG2, $find, '      - slot:x family:gpt role:code-review verdict:READY')
 Assert-False (Test-TranscriptValid $malformed) 'a malformed reviewer line (missing fields) -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem)) 'full slate but NO findings line -> INVALID (exactly-1 findings required)'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find, ($find -replace 'closed', 'also'))) 'TWO findings lines -> INVALID (exactly-1)'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, '      - findings:    ')) 'empty findings line -> INVALID'
+Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, '      - findings: <one-line-summary>')) 'whole-value placeholder findings -> INVALID (fail-closed template)'
+Assert-True  (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, '      - findings: fixed <Foo>.Create paramName leak')) 'findings text containing inner <...> (a generic/type) -> VALID (whole-value guard, not contains)'
 $outOfBlock = @("parent_sha: $tParent", 'commit_subject: t', 'POST-CODE-CHANGE LEDGER', '  gates:',
     '    post-code-change-panel: ran, unanimous', '    panel-transcript:', '    build: passed', '    tests: passed, 1/1',
     '  appendix:', $duckC, $crC, $crG1, $crG2, $crGem)
@@ -224,7 +230,23 @@ if (Test-Path $playbook) {
     $tmplSlot = @($pbLines | Where-Object { $_ -cmatch '^\s*-\s*slot:' })
     $tmplBlock = @('    panel-transcript:') + $tmplSlot
     Assert-False (Test-TranscriptValid $tmplBlock) 'the shipped post-code-change.md transcript template (placeholders) -> INVALID (stale-template fail-closed)'
+    $tmplFind = @($pbLines | Where-Object { $_ -cmatch '^\s*-\s*findings:' })
+    Assert-True ([bool]($tmplFind.Count -ge 2)) 'post-code-change.md ships a `- findings:` line in BOTH transcript templates'
+    $validSlate = @($duckC, $crC, $crG1, $crG2, $crGem)
+    foreach ($tf in $tmplFind) {
+        Assert-False (Test-TranscriptValid (@($HDR) + $validSlate + @($tf))) "shipped findings template '$(([string]$tf).Trim())' + valid slate -> INVALID (whole-value <...> fail-closed)"
+    }
 }
+
+Write-Host ""
+Write-Host "=== PRE-EDIT SENTINEL enum <-> LEDGER pre-code-change-panel row (drift guard) ===" -ForegroundColor Cyan
+$agentsRaw = Get-Content (Join-Path $PSScriptRoot '../../AGENTS.md') -Raw
+$sweeps2 = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
+Assert-True ($agentsRaw -match 'PRE-EDIT SENTINEL') 'AGENTS.md defines the PRE-EDIT SENTINEL'
+Assert-True ($agentsRaw -match [regex]::Escape('pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required>')) 'sentinel pre_impl_panel enum = the fixed 3-value set'
+Assert-True ($agentsRaw -match 'NEVER trivial') 'sentinel: governance/instruction artifacts NEVER trivial'
+Assert-True ($agentsRaw -match [regex]::Escape('tier-2 forbids `user-waived`/`na`')) 'sentinel: tier-2 forbids user-waived/na'
+Assert-True ($sweeps2 -match [regex]::Escape('pre-code-change-panel: <ran, unanimous | user-waived: "panel-waive-acknowledged" ref:<call-ref> | N/A: reason>')) '2B pre-code-change-panel row carries the 3 mapped values (<-> sentinel enum)'
 
 $floor = Get-PanelSlateFloor
 $pp = Get-Content (Join-Path $PSScriptRoot '../../.github/pr-quality-gate/panel-policy.md') -Raw
