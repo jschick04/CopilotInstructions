@@ -239,6 +239,30 @@ Assert-True $shape.Valid 'Deleted valid=true'
 $shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a $([char]0x2014) made-up-reason"
 Assert-False $shape.Valid 'Unknown n/a disposition is invalid'
 
+$shape = Test-AuditBulletShape -BulletLine "- src/Foo.cs:42: approval_turn: n/a - exempt: typo | comment_sha: $('a' * 64)"
+Assert-False $shape.Valid 'Canonical exempt category with trailing content is invalid'
+Assert-True ($shape.Reason -like '*canonical exempt category has unexpected trailing content*') 'Canonical-exempt-with-trailing reports the trailing-content reason, not non-canonical'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - degraded-mode-drop | extra'
+Assert-False $shape.Valid 'Canonical n/a disposition with trailing content is invalid'
+Assert-True ($shape.Reason -like '*canonical n/a disposition has unexpected trailing content*') 'degraded-mode-drop with trailing reports the trailing-content reason'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - no-response-drop | extra'
+Assert-False $shape.Valid 'no-response-drop with trailing content is invalid'
+Assert-True ($shape.Reason -like '*canonical n/a disposition has unexpected trailing content*') 'no-response-drop with trailing reports the trailing-content reason'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - exempt: TYPO | x'
+Assert-True ($shape.Reason -like '*non-canonical exempt category*') 'Wrong-case TYPO is non-canonical, not canonical-with-trailing'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - exempt: typox | x'
+Assert-True ($shape.Reason -like '*non-canonical exempt category*') 'Prefix-only typox is non-canonical, not canonical-with-trailing'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - exempt: typo|x'
+Assert-True ($shape.Reason -like '*non-canonical exempt category*') 'No-space typo|x is a single non-canonical token, not canonical-with-trailing'
+
+$shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: n/a - Degraded-Mode-Drop | x'
+Assert-True ($shape.Reason -like '*unknown n/a disposition*') 'Wrong-case Degraded-Mode-Drop is unknown disposition, not canonical-with-trailing'
+
 $shape = Test-AuditBulletShape -BulletLine '- src/Foo.cs:42: approval_turn: bogus'
 Assert-False $shape.Valid 'Bare bogus approval_turn is invalid'
 
