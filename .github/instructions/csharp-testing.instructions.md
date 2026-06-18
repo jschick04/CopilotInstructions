@@ -4,6 +4,8 @@ applyTo: "**/*Tests*/**/*.cs,**/*Tests.cs,**/tests/**/*.cs,**/*Test/**/*.cs,**/*
 
 # C# / .NET Test Infrastructure Instructions
 
+<!-- read-receipt-token: 9668b682 -->
+
 > **Scope:** loaded automatically when the working set contains C# test files or test-project files. Extends the always-loaded `AGENTS.md` core AND the C# topic file `csharp.instructions.md` (which loads for any `.cs` / `.csproj`). The rules below apply specifically to test code - production C# rules live in `csharp.instructions.md`.
 
 > **xUnit version note:** examples use **xUnit v3** syntax (the current shipping major). On v3, `IAsyncLifetime` inherits `IAsyncDisposable` and lifecycle hooks return `ValueTask`; `TestContext.Current` flows the cancellation token across `await` resumption points. xUnit v2 projects substitute `Task` for `ValueTask` and don't have `TestContext.Current` (pass `CancellationToken.None` or a per-test `CancellationTokenSource` instead).

@@ -4,6 +4,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 # C# / .NET Code Style Instructions
 
+<!-- read-receipt-token: ce40932c -->
+
 > **Scope:** loaded on C# / Razor / project files. Contains naming conventions, formatting, member ordering, expression/block preferences, using directives, redundant qualifiers. Siblings: `csharp.instructions.md`, `csharp-runtime.instructions.md`, `csharp-smells.instructions.md`.
 
 ---

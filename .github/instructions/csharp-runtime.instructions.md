@@ -4,6 +4,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 # C# / .NET Runtime, Lifecycle & Concurrency Instructions
 
+<!-- read-receipt-token: 553df520 -->
+
 > **Scope:** loaded on C# / Razor / project files. Contains async/disposal/JS-interop lifecycle, return-value contracts, concurrency primitives, lifecycle serialization, null-forgiving operator. Siblings: `csharp.instructions.md`, `csharp-style.instructions.md`, `csharp-smells.instructions.md`.
 
 ---

@@ -35,6 +35,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'playbook-refs unit tests';    Script = 'scripts/tests/check-playbook-refs.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'comment-audit unit tests';    Script = 'scripts/tests/check-comment-audit.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-ledger unit tests';   Script = 'scripts/tests/check-post-code-change.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'read-receipts unit tests';  Script = 'scripts/tests/check-read-receipts.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency (commits)';  Script = 'scripts/check-diff-consistency-ci.ps1';         LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency unit tests'; Script = 'scripts/tests/check-diff-consistency.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'checker-registry parity';     Script = 'scripts/check-checker-registry.ps1';            LocalArgs = @();                     EnvSkippable = $false }

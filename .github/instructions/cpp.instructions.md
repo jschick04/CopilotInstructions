@@ -4,6 +4,8 @@ applyTo: "**/*.cpp,**/*.h,**/*.hpp,**/*.cc,**/*.cxx,**/*.c"
 
 # C++ Instructions
 
+<!-- read-receipt-token: c37263b2 -->
+
 > **Scope:** loaded automatically when the working set contains C/C++ source or header files. Extends the always-loaded `AGENTS.md` core.
 
 ---

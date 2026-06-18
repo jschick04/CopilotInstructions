@@ -22,6 +22,7 @@ function New-IdRepo {
     if (-not $NoSetup) {
         git -C $dir config --add notes.rewriteRef (Get-PanelNoteRef)
         git -C $dir config --add notes.rewriteRef (Get-CommentNoteRef)
+        git -C $dir config --add notes.rewriteRef (Get-ReadsNoteRef)
         git -C $dir config notes.rewriteMode overwrite
         git -C $dir config core.hooksPath '.githooks'
     }

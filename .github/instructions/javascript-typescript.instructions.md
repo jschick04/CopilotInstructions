@@ -4,6 +4,8 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 
 # JavaScript / TypeScript Instructions
 
+<!-- read-receipt-token: 9516a1db -->
+
 > **Scope:** loaded automatically when the working set contains JS/TS source files. Extends the always-loaded `AGENTS.md` core.
 
 ---

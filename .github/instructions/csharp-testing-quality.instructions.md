@@ -4,6 +4,8 @@ applyTo: "**/*Tests*/**/*.cs,**/*Tests.cs,**/tests/**/*.cs,**/*Test/**/*.cs,**/*
 
 # C# / .NET Test Quality Instructions
 
+<!-- read-receipt-token: f98df5c2 -->
+
 > **Scope:** loaded on C# test files. Contains test-purpose audit-and-delete framework. Siblings: `csharp-testing.instructions.md` (layout, naming, constants), `csharp-testing-sync.instructions.md` (alternative patterns, synchronization).
 
 ---

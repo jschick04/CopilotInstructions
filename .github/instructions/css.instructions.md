@@ -4,6 +4,8 @@ applyTo: "**/*.css,**/*.scss,**/*.sass,**/*.less"
 
 # CSS Instructions
 
+<!-- read-receipt-token: f7a6b78d -->
+
 > **Scope:** loaded automatically when the working set contains CSS/SCSS/SASS/LESS files. Extends the always-loaded `AGENTS.md` core.
 
 ---

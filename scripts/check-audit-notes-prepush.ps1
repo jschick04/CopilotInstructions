@@ -20,6 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force -DisableNameChecking
 Import-Module (Join-Path $PSScriptRoot 'lib/audit-note-helpers.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'lib/read-receipt-helpers.psm1') -Force -DisableNameChecking
 
 $ExitOk = 0; $ExitViolation = 1
 
@@ -86,6 +87,8 @@ if ($setupErrors.Count -gt 0) {
 }
 
 $violations = @()
+$readsGatedSet = @(Get-GatedTopicFiles -RepoRoot $RepoRoot)
+$readsGitInvoke = { param($a) (Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs $a).Stdout }
 foreach ($sha in $commitSet.Keys) {
     $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
     $parent = Get-CommitParentSha -RepoRoot $RepoRoot -CommitSha $sha
@@ -127,6 +130,29 @@ foreach ($sha in $commitSet.Keys) {
         } else {
             $coverageErrors = @(Test-CommentCoverage -Sites $sites -Bullets $cv.Audit.Bullets)
             foreach ($coverageError in $coverageErrors) { $violations += "commit ${short} (comment): $coverageError" }
+        }
+    }
+
+    if ($readsGatedSet.Count -gt 0) {
+        $readsMatched = @(Get-MatchedGatedFiles -GatedSet $readsGatedSet -DiffArgs @('diff', '--name-only', '--diff-filter=ACMRT', $parent, $sha) -GitInvoke $readsGitInvoke)
+        if ($readsMatched.Count -gt 0) {
+            $rv = Read-ReadsNoteValidated -RepoRoot $RepoRoot -CommitSha $sha
+            if (-not $rv.Valid) {
+                foreach ($e in $rv.Errors) { $violations += "commit ${short} (reads): $e" }
+            } else {
+                $cited = Read-ReadsReceipt -Lines $rv.NoteLines
+                foreach ($gf in $readsMatched) {
+                    $treeContent = ((Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('show', "${sha}:$($gf.Path)")).Stdout -join "`n")
+                    $commitToken = if ($treeContent) { Get-TokenFromContent -Content $treeContent } else { $null }
+                    if (-not $commitToken) {
+                        $violations += "commit ${short} (reads): gated file '$($gf.Path)' has no valid token at this commit"
+                    } elseif (-not $cited.Reads.ContainsKey($gf.Path)) {
+                        $violations += "commit ${short} (reads): missing read receipt for '$($gf.Path)' (expected @$commitToken)"
+                    } elseif ($cited.Reads[$gf.Path] -ne $commitToken) {
+                        $violations += "commit ${short} (reads): stale token for '$($gf.Path)': note cites @$($cited.Reads[$gf.Path]) but commit-tree is @$commitToken"
+                    }
+                }
+            }
         }
     }
 }

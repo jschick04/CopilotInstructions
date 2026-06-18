@@ -47,6 +47,7 @@ if ($resolved.ExitCode -ne 0 -or -not $commit) {
 $receipts = @(
     [PSCustomObject]@{ Kind = 'panel';   Ref = (Get-PanelNoteRef);   Path = '.github/pr-quality-gate/audits/post-code-change-last.md' }
     [PSCustomObject]@{ Kind = 'comment'; Ref = (Get-CommentNoteRef); Path = '.github/pr-quality-gate/audits/last.md' }
+    [PSCustomObject]@{ Kind = 'reads';   Ref = (Get-ReadsNoteRef);   Path = '.github/pr-quality-gate/audits/read-receipts-last.md' }
 )
 
 $flushed = @()

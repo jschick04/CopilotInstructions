@@ -154,7 +154,7 @@ else
     # The audit ledgers live in local git notes (never pushed). Two independent refs
     # (panel + comment) carried across amend/rebase via rewriteMode=overwrite; the note's
     # audited_tree freshness binding still rejects a stale carry onto a changed commit.
-    for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment; do
+    for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment refs/notes/copilot-audit-reads; do
         if ! git -C "$REPO_ROOT" config --local --get-all notes.rewriteRef 2>/dev/null | grep -qx "$REF"; then
             if ! git -C "$REPO_ROOT" config --local --add notes.rewriteRef "$REF"; then
                 echo "ERROR: failed to add notes.rewriteRef=$REF (check .git/config write permissions)." >&2
@@ -168,7 +168,7 @@ else
         echo "       Re-run this installer after resolving the git config write failure." >&2
         exit 1
     fi
-    echo "Configured notes.rewriteRef (panel + comment) + notes.rewriteMode=overwrite (local only; notes are never pushed)."
+    echo "Configured notes.rewriteRef (panel + comment + reads) + notes.rewriteMode=overwrite (local only; notes are never pushed)."
 fi
 
 echo ""
