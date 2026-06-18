@@ -8,8 +8,8 @@ $script:Pass = 0
 $script:Fail = 0
 
 . (Join-Path $PSScriptRoot 'test-common.ps1')
-Import-Module (Join-Path $PSScriptRoot '..\lib\read-receipt-helpers.psm1') -Force -DisableNameChecking
-$checker = (Resolve-Path (Join-Path $PSScriptRoot '..\check-read-receipts.ps1')).Path
+Import-Module (Join-Path $PSScriptRoot '../lib/read-receipt-helpers.psm1') -Force -DisableNameChecking
+$checker = (Resolve-Path (Join-Path $PSScriptRoot '../check-read-receipts.ps1')).Path
 
 function Invoke-Checker {
     param([string] $Repo)
@@ -123,7 +123,7 @@ Set-Content (Join-Path $aud5 'read-receipts-last.md') "parent_sha: $head5`nreads
 Assert-True ((Invoke-Checker $repo5) -eq 1) 'EMPTY staged gated file, valid worktree token -> exit 1 (git-show-success gate, not content-truthiness; no fail-open)'
 
 Write-Host "=== meta: the REAL repo gated set is exactly 13, all tokened (drift/tokenless guard) ==="
-$realRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$realRepo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $realGated = @(Get-GatedTopicFiles -RepoRoot $realRepo)
 Assert-True ($realGated.Count -eq 13) "real gated set = 13 (got $($realGated.Count))"
 Assert-True (@($realGated | Where-Object { -not $_.Token }).Count -eq 0) 'every real gated topic file carries a valid token'
