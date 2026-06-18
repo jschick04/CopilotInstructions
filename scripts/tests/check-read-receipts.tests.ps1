@@ -49,7 +49,7 @@ New-Instr -Dir $instr -Name 'fake-cs'  -ApplyTo '**/*.cs'      -Token '11111111'
 New-Instr -Dir $instr -Name 'fake-py'  -ApplyTo '**/*.{py,go}' -Token '22222222'
 New-Instr -Dir $instr -Name 'universal' -ApplyTo '**/*'        -Token '33333333'
 git -C $repo add -A 2>$null; git -C $repo commit -q -m 'fixtures' 2>$null
-$gated = @(Get-GatedTopicFiles -RepoRoot $repo)
+$gated = @(Get-WorktreeGatedTopicFiles -RepoRoot $repo)
 Assert-True ($gated.Count -eq 2) 'gated set = 2 (the **/* universal file is excluded)'
 
 Write-Host "=== glob matching (root-level + brace-glob + docs-only skip) ==="
@@ -122,9 +122,47 @@ $aud5 = Join-Path $repo5 '.github/pr-quality-gate/audits'; New-Item -ItemType Di
 Set-Content (Join-Path $aud5 'read-receipts-last.md') "parent_sha: $head5`nreads=.github/instructions/fake-cs.instructions.md@11111111`n" -NoNewline
 Assert-True ((Invoke-Checker $repo5) -eq 1) 'EMPTY staged gated file, valid worktree token -> exit 1 (git-show-success gate, not content-truthiness; no fail-open)'
 
+Write-Host "=== applyTo patterns are resolved from the STAGED index, not the worktree (round-6 bot finding) ==="
+$repo6 = New-TestGitRepository -Prefix 'rr6'
+$instr6 = Join-Path $repo6 '.github/instructions'; New-Item -ItemType Directory -Path $instr6 -Force | Out-Null
+New-Instr -Dir $instr6 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+git -C $repo6 add -A 2>$null; git -C $repo6 commit -q -m 'init applyTo **/*.cs' 2>$null
+Set-Content (Join-Path $repo6 'Foo.cs') 'class F{}'; git -C $repo6 add -A 2>$null
+New-Instr -Dir $instr6 -Name 'fake-cs' -ApplyTo '**/*.razor' -Token '11111111'
+Assert-True ((Invoke-Checker $repo6) -eq 1) 'worktree applyTo narrowed to **/*.razor (unstaged) but staged **/*.cs matches the staged Foo.cs -> exit 1 (no fail-open; staged applyTo authoritative)'
+
+Write-Host "=== staged applyTo **/* (universal) excludes the file from gating (index-authoritative exclusion) ==="
+$repo7 = New-TestGitRepository -Prefix 'rr7'
+$instr7 = Join-Path $repo7 '.github/instructions'; New-Item -ItemType Directory -Path $instr7 -Force | Out-Null
+New-Instr -Dir $instr7 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+git -C $repo7 add -A 2>$null; git -C $repo7 commit -q -m 'init' 2>$null
+New-Instr -Dir $instr7 -Name 'fake-cs' -ApplyTo '**/*' -Token '11111111'
+Set-Content (Join-Path $repo7 'Foo.cs') 'class F{}'; git -C $repo7 add -A 2>$null
+New-Instr -Dir $instr7 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+Assert-True ((Invoke-Checker $repo7) -eq 0) 'staged applyTo is universal **/* -> fake-cs not a code gate in the index -> staged Foo.cs requires no receipt -> exit 0'
+
+Write-Host "=== gated membership is index-authoritative - a staged narrowing of a worktree-**/* file IS gated (no fail-open) ==="
+$repo8 = New-TestGitRepository -Prefix 'rr8'
+$instr8 = Join-Path $repo8 '.github/instructions'; New-Item -ItemType Directory -Path $instr8 -Force | Out-Null
+New-Instr -Dir $instr8 -Name 'fake-cs' -ApplyTo '**/*' -Token '11111111'
+git -C $repo8 add -A 2>$null; git -C $repo8 commit -q -m 'init universal' 2>$null
+New-Instr -Dir $instr8 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+Set-Content (Join-Path $repo8 'Foo.cs') 'class F{}'; git -C $repo8 add -A 2>$null
+New-Instr -Dir $instr8 -Name 'fake-cs' -ApplyTo '**/*' -Token '11111111'
+Assert-True ((Invoke-Checker $repo8) -eq 1) 'staged applyTo narrows **/* -> **/*.cs (worktree restored to **/*, unstaged) -> the staged narrowing is gated from the index -> staged Foo.cs needs a receipt -> exit 1 (membership not worktree-bound)'
+
+Write-Host "=== gated membership is index-authoritative - an UNSTAGED worktree delete cannot silently un-gate (no fail-open) ==="
+$repo9 = New-TestGitRepository -Prefix 'rr9'
+$instr9 = Join-Path $repo9 '.github/instructions'; New-Item -ItemType Directory -Path $instr9 -Force | Out-Null
+New-Instr -Dir $instr9 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+git -C $repo9 add -A 2>$null; git -C $repo9 commit -q -m 'init **/*.cs' 2>$null
+Remove-Item -LiteralPath (Join-Path $instr9 'fake-cs.instructions.md')
+Set-Content (Join-Path $repo9 'Foo.cs') 'class F{}'; git -C $repo9 add 'Foo.cs' 2>$null
+Assert-True ((Invoke-Checker $repo9) -eq 1) 'instruction file deleted in the worktree but the delete is unstaged -> still in the index -> staged Foo.cs is gated -> exit 1 (worktree-delete cannot silently un-gate)'
+
 Write-Host "=== meta: the REAL repo gated set is exactly 13, all tokened (drift/tokenless guard) ==="
 $realRepo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$realGated = @(Get-GatedTopicFiles -RepoRoot $realRepo)
+$realGated = @(Get-WorktreeGatedTopicFiles -RepoRoot $realRepo)
 Assert-True ($realGated.Count -eq 13) "real gated set = 13 (got $($realGated.Count))"
 Assert-True (@($realGated | Where-Object { -not $_.Token }).Count -eq 0) 'every real gated topic file carries a valid token'
 

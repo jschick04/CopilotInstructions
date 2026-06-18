@@ -194,6 +194,17 @@ try {
     Write-ReadsNote -Dir $dr -Sha $rcs -Path '.github/instructions/fake-cs.instructions.md' -Token '99999999'
     $rc = Invoke-Validator -Dir $dr -RefLines @(RefLine $rcs $rbase)
     Assert-True ($rc.ExitCode -ne 0 -and $rc.Output -match 'reads') 'gated .cs commit, stale reads token -> fail'
+
+    Write-Host "`n=== reads membership is per-commit-tree: a worktree delete of the instruction file does not un-gate the pushed commit ==="
+    $drd = New-IdRepo
+    New-Item -ItemType Directory -Path (Join-Path $drd '.github/instructions') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $drd '.github/instructions/fake-cs.instructions.md') "---`napplyTo: `"**/*.cs`"`n---`n`n# Fake CS`n`n<!-- read-receipt-token: 11111111 -->`n" -NoNewline
+    $drdBase = New-TestCommit -Directory $drd -File 'README.md' -Content 'base' -Message 'base + gated instr'
+    $drdCs = New-TestCommit -Directory $drd -File 'Foo.cs' -Content 'class F{}' -Message 'touch cs'
+    Write-PanelNote -Dir $drd -Sha $drdCs
+    Remove-Item -LiteralPath (Join-Path $drd '.github/instructions/fake-cs.instructions.md')
+    $rdd = Invoke-Validator -Dir $drd -RefLines @(RefLine $drdCs $drdBase)
+    Assert-True ($rdd.ExitCode -ne 0 -and $rdd.Output -match 'reads') 'instruction file deleted in the worktree (unstaged; still in every commit tree) -> the pushed gated .cs commit still requires a reads note -> fail (membership is per-commit-tree, no fail-open)'
 }
 finally { Remove-TestTempDirectories }
 
