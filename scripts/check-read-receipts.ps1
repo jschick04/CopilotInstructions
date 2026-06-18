@@ -52,6 +52,11 @@ if ($gatedSet.Count -eq 0) {
     exit $script:ExitOk
 }
 
+foreach ($gf in $gatedSet) {
+    $stagedContent = (& git @gitC show ":$($gf.Path)" 2>$null) -join "`n"
+    if ($LASTEXITCODE -eq 0) { $gf.Token = Get-TokenFromContent -Content $stagedContent }
+}
+
 $tokenless = @($gatedSet | Where-Object { -not $_.Token })
 if ($tokenless.Count -gt 0) {
     Write-Invocation "FAIL: gated topic file(s) lack a valid read-receipt-token header (fail-closed config):"
@@ -107,16 +112,14 @@ if (-not $matchParent) {
 
 $violations = New-Object System.Collections.Generic.List[string]
 foreach ($gf in $matched) {
-    $stagedContent = (& git @gitC show ":$($gf.Path)" 2>$null) -join "`n"
-    $currentToken = if ($stagedContent) { Get-TokenFromContent -Content $stagedContent } else { $gf.Token }
-    if (-not $currentToken) {
+    if (-not $gf.Token) {
         $violations.Add("gated file '$($gf.Path)' has no valid staged token (fail-closed)")
         continue
     }
     if (-not $receipt.Reads.ContainsKey($gf.Path)) {
-        $violations.Add("missing read receipt for '$($gf.Path)' (expected: reads=$($gf.Path)@$currentToken)")
-    } elseif ($receipt.Reads[$gf.Path] -ne $currentToken) {
-        $violations.Add("stale token for '$($gf.Path)': receipt cites @$($receipt.Reads[$gf.Path]) but current is @$currentToken")
+        $violations.Add("missing read receipt for '$($gf.Path)' (expected: reads=$($gf.Path)@$($gf.Token))")
+    } elseif ($receipt.Reads[$gf.Path] -ne $gf.Token) {
+        $violations.Add("stale token for '$($gf.Path)': receipt cites @$($receipt.Reads[$gf.Path]) but current is @$($gf.Token)")
     }
 }
 
