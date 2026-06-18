@@ -4,6 +4,8 @@ applyTo: "**/*.html,**/*.htm,**/*.razor,**/*.cshtml"
 
 # HTML Instructions
 
+<!-- read-receipt-token: 633aab2b -->
+
 > **Scope:** loaded automatically when the working set contains HTML/Razor markup files. Extends the always-loaded `AGENTS.md` core. (Razor/cshtml codebehind C# is covered by the C# instructions file.)
 
 ---

@@ -2,4 +2,5 @@
 # Local audit receipts, retained in git notes or worktree only.
 /.github/pr-quality-gate/audits/last.md
 /.github/pr-quality-gate/audits/post-code-change-last.md
+/.github/pr-quality-gate/audits/read-receipts-last.md
 /.github/pr-quality-gate/audits/signoff-receipt

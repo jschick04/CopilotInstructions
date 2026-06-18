@@ -4,6 +4,8 @@ applyTo: "**/*Tests*/**/*.cs,**/*Tests.cs,**/tests/**/*.cs,**/*Test/**/*.cs,**/*
 
 # C# / .NET Test Synchronization & Alternative Patterns Instructions
 
+<!-- read-receipt-token: b67d19d1 -->
+
 > **Scope:** loaded on C# test files. Contains alternative test-infrastructure patterns and test synchronization rules. Siblings: `csharp-testing.instructions.md` (layout, naming, constants), `csharp-testing-quality.instructions.md` (test purpose, audit).
 
 ---

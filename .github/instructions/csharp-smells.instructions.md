@@ -4,6 +4,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 # C# / .NET Recurring Code Smells Instructions
 
+<!-- read-receipt-token: 68c0f4aa -->
+
 > **Scope:** loaded on C# / Razor / project files. Contains C#-specific recurring code smells from PR reviews (extends [Core / Recurring code smells](coding-standards-code.instructions.md#310-recurring-code-smells-from-past-pr-reviews)). Siblings: `csharp.instructions.md`, `csharp-style.instructions.md`, `csharp-runtime.instructions.md`.
 
 ---

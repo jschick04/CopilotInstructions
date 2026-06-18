@@ -74,6 +74,32 @@ if git cat-file -e HEAD:scripts/check-comment-audit.ps1 2>/dev/null || [ -f scri
     fi
 fi
 
+# === Read-receipt gate (code-topic instruction files) =============================
+# A staged edit to a code file (matching a .github/instructions topic file's applyTo glob) must carry a
+# fresh reads=<file>@<token> citation in the gitignored read-receipts-last.md. Adoption-gated on script
+# presence; fail-closed if the committed checker is removed. Local fast-fail; the note->pre-push backstop
+# re-validates at push time.
+if git cat-file -e HEAD:scripts/check-read-receipts.ps1 2>/dev/null || [ -f scripts/check-read-receipts.ps1 ]; then
+    if [ ! -f scripts/check-read-receipts.ps1 ]; then
+        echo "ERROR: scripts/check-read-receipts.ps1 is committed (read-receipt gate adopted) but absent from the working tree." >&2
+        echo "       Refusing to commit removal/disable of the enforcement without verification (fail-closed)." >&2
+        exit 1
+    fi
+    if command -v pwsh >/dev/null 2>&1; then
+        if ! pwsh -NoProfile -File scripts/check-read-receipts.ps1 -StagedMode -WorktreeReceipt; then
+            echo "" >&2
+            echo "ERROR: the staged change edits code file(s) whose topic instruction file(s) need a read receipt." >&2
+            echo "       Read each matched .github/instructions topic file, then write its reads=<file>@<token> line into" >&2
+            echo "       .github/pr-quality-gate/audits/read-receipts-last.md (gitignored; the post-commit hook records it as a note)." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: pwsh not available; cannot verify the staged read receipts." >&2
+        echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        exit 1
+    fi
+fi
+
 # === Structural conformance (Layer-A fast-fail; CI is the authoritative gate) =======
 # Every Added/Copied/Renamed staged path must match the structure manifest, else block -
 # prevents cross-session folder divergence. Local fast-fail; CI runs it base-pinned (non-skippable).

@@ -4,6 +4,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 # C# / .NET Instructions
 
+<!-- read-receipt-token: a57437fd -->
+
 > **Scope:** loaded on C# / Razor / project files. Extends `AGENTS.md` core. Siblings: `csharp-style.instructions.md`, `csharp-runtime.instructions.md`, `csharp-smells.instructions.md`.
 
 ---

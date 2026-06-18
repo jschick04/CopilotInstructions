@@ -4,6 +4,8 @@ applyTo: "**/*.csproj,**/*.targets,**/*.props,**/*.vcxproj,**/*.vcxproj.filters,
 
 # MSBuild Instructions
 
+<!-- read-receipt-token: 5e460897 -->
+
 > **Scope:** loaded automatically when the working set contains MSBuild project files (`*.csproj`, `*.vcxproj`), targets files, props files, or `Directory.Build.*` / `Directory.Packages.props` infrastructure files. Language-agnostic; complements `csharp.instructions.md` (C# / .NET-specific csproj patterns) and `cpp.instructions.md` (vcxproj toolset / SDK pinning rules).
 
 ---

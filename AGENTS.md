@@ -90,11 +90,11 @@ Before executing the listed tool call, the matching file(s) MUST have been viewe
 | First-review `git push` | `.github/playbooks/pre-pr-push.md` |
 | Entering post-code-change (after edits, before showing diff) | `.github/playbooks/post-code-change.md` |
 | About to add/rewrite a comment | `.github/playbooks/comment-protocol.md` |
-| Editing code files | (auto-loaded via `applyTo` globs - no manual fetch needed) |
+| Editing code files | the matching `.github/instructions/*` topic file(s) - view-on-demand, receipt-gated |
 
 ### Read-receipt convention
 
-Gate blocks that depend on an on-demand file MUST include a `reads=<file>@<token>` field, where `<token>` is the value on the `read-receipt-token:` line in that file's header. CI rejects missing or stale tokens. Each on-demand file carries an HTML comment `<!-- read-receipt-token: XXXXXXXX -->` immediately after its H1 title. The token lives ONLY in each file's own header; CI extracts it at verify time (no central token map, which would let a gate cite a token without opening the file). `.github/pr-quality-gate/read-receipts.tsv` is only the registry of which files require a receipt.
+Gate blocks depending on an on-demand file include a `reads=<file>@<token>` field (`<token>` = that file's `read-receipt-token:` header value). `check-read-receipts` (commit) + the pre-push reads-note re-validation mechanically reject a CODE-topic citation (`.github/instructions/*` with a non-`**/*` `applyTo`) that is missing or stale; other on-demand reads stay convention. Each file carries its 8-hex `read-receipt-token:` in an HTML comment after its H1 - the ONLY token source, extracted at verify time (no central map). `read-receipts.tsv` lists the receipt files.
 
 ### Workflow router - which playbook to view based on the situation
 
