@@ -4,7 +4,7 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 # C# / .NET Code Style Instructions
 
-<!-- read-receipt-token: ce40932c -->
+<!-- read-receipt-token: 14607638 -->
 
 > **Scope:** loaded on C# / Razor / project files. Contains naming conventions, formatting, member ordering, expression/block preferences, using directives, redundant qualifiers. Siblings: `csharp.instructions.md`, `csharp-runtime.instructions.md`, `csharp-smells.instructions.md`.
 
@@ -73,9 +73,9 @@ Type suffixes carry semantic weight. Pick a suffix only when it conveys informat
 - Insert a final newline in every file.
 - Namespace must match folder structure.
 
-### Member Ordering (StyleCop Layout) - mandatory pre-commit
+### Member Ordering (StyleCop Layout)
 
-Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: Apply file layout` cleanup profile (`CSReorderTypeMembers` + `CSOptimizeUsings` enabled - sorts/prunes usings as a side effect; no other formatting touched). Invoke: `jb cleanupcode --settings="<path>\ReSharper.DotSettings" --profile="Joe: Apply file layout" --include="<files>" --no-build <solution>` (`JetBrains.ReSharper.GlobalTools` global tool provides `jb`).
+The canonical layout is the StyleCop member order - the kind order and within-entry sort defined below. Apply it manually or via your IDE's file-layout cleanup; reviewers check the resulting ORDER, not the tool used.
 
 **Kind order** (top-to-bottom): Constants → Static fields → Instance fields → Constructors/destructors → Delegates → Events → Enums → Interfaces → Properties → Indexers → Methods → Operators → Nested structs → Nested classes. For Events / Properties / Indexers / Methods: Public group first, then Interface-impl group, then Other group.
 
@@ -87,7 +87,7 @@ Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: A
 - Constructors / destructors: Static → Kind (Constructor → Destructor) → Access. *No name sort.*
 - Nested structs / nested classes: Static → Access → Name.
 
-**Mandatory rename hygiene:** Every rename shifts the member's alphabetical position within its (kind, access, static) bucket. Re-run `Joe: Apply file layout` on touched files before staging, OR move manually. Reviewers (human and bot) flag out-of-position members on sight - most common rename-PR round-N comment. Self-check when the tool is unavailable: list members per access bucket and confirm alphabetical.
+**Mandatory rename hygiene:** Every rename shifts the member's alphabetical position within its (kind, access, static) bucket. Re-apply the layout to touched files before staging (IDE file-layout cleanup, or move manually). Reviewers (human and bot) flag out-of-position members on sight - the most common rename-PR round-N comment. Self-check: list members per access bucket and confirm alphabetical.
 
 ### Expression Preferences
 
@@ -142,7 +142,7 @@ Source: ReSharper StyleCop Layout (priority 150), applied via the user's `Joe: A
 - Don't separate import groups.
 - Don't prioritize System directives first.
 - **A file MUST NOT `using` its own declared namespace.** Self-namespace imports (`using Acme.Feature.Parsing;` inside a file declared `namespace Acme.Feature.Parsing;`) are redundant and a smell - they read as "the author was unsure where the type lives" and reviewers always flag them. The compiler resolves same-namespace types without any `using`. IDE0005 catches this when `EnforceCodeStyleInBuild` is on; for repos without that, `post-code-change.md` step 2.5 includes a grep check: `rg '^using ([\w.]+);' <file.cs>` cross-referenced against the file's `namespace X;` declaration.
-- **When sorting / removing usings, the formatter must respect the repo's `.editorconfig` AND any ReSharper `.DotSettings` overrides.** Specifically, honor `dotnet_separate_import_directive_groups`, `dotnet_sort_system_directives_first`, and `csharp_using_directive_placement`. Use `dotnet format` (which honors `.editorconfig` natively) or ReSharper / Rider cleanup with the solution's settings. Do NOT use a tool that defaults to "System first" sorting and ignores `.editorconfig` - it produces a churn diff that fights the project convention. If you cannot determine which tool is in use, do NOT bulk-resort usings; only remove the genuinely unused entries and leave the order alone. The same rule applies to manual edits: never re-order existing using lines just because one block "looks tidier" - the convention is whatever the project's `.editorconfig` says, period.
+- **When sorting / removing usings, the formatter must respect the repo's `.editorconfig`.** Specifically, honor `dotnet_separate_import_directive_groups`, `dotnet_sort_system_directives_first`, and `csharp_using_directive_placement`. Use `dotnet format` (which honors `.editorconfig` natively). Do NOT use a tool that defaults to "System first" sorting and ignores `.editorconfig` - it produces a churn diff that fights the project convention. If you cannot determine which tool is in use, do NOT bulk-resort usings; only remove the genuinely unused entries and leave the order alone. The same rule applies to manual edits: never re-order existing using lines just because one block "looks tidier" - the convention is whatever the project's `.editorconfig` says, period.
 - **Pre-commit cleanup is whole-solution scope, not just the diff's touched files.** A file move, namespace change, or rename refactor leaves stale `using` directives and over-qualified type references in *consumer* files that the diff doesn't list. The post-code-change hygiene step (`post-code-change.md` step 1) runs `dotnet format style <slnx-or-csproj> --no-restore --severity warn --diagnostics IDE0001 IDE0002 IDE0005 IDE0065` over the whole solution, then `--verify-no-changes` to confirm. Restrict to the using/qualifier diagnostics - a blanket `dotnet format --severity info` triggers unrelated style fixers (collection initializers, expression preferences, member ordering) and produces a churn diff. If `.editorconfig` has these diagnostics at default `silent` severity AND the project lacks `<EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>`, IDE0005 in particular is silent and the cleanup is a no-op - temporarily append `dotnet_diagnostic.IDE000{1,2,5,65}.severity = warning` to `.editorconfig` for the cleanup pass, then restore the original. Propose the permanent fix (severity entries or `EnforceCodeStyleInBuild`) to the user when the workaround fires twice on the same repo.
 
 ### Redundant Qualifiers
