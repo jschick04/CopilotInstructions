@@ -1,8 +1,8 @@
 #Requires -Version 5.1
 # Code-topic read-receipt gate. Pre-commit usage: -StagedMode -WorktreeReceipt. For every gated
 # code-topic instruction file (.github/instructions/*.instructions.md with a NON-**/* applyTo) whose glob
-# matches a STAGED changed path, the gitignored receipt audits/read-receipts-last.md MUST carry a
-# reads=<file>@<token> citation whose token equals the file's CURRENT staged header token. Missing
+# matches a STAGED changed path, the gitignored receipt .github/pr-quality-gate/audits/read-receipts-last.md
+# MUST carry a reads=<file>@<token> citation whose token equals the file's CURRENT staged header token. Missing
 # citation, stale token, or a gated file lacking a valid token -> FAIL (fail-closed). Honest ceiling:
 # forces a current-token citation on the commit (defeats FORGET/silent-skip); does NOT prove the file was
 # read. Commit-time, not edit-time; post-commit flush + pre-push re-validation give push-time parity.
