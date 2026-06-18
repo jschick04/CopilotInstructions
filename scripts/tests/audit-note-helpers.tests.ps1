@@ -53,7 +53,7 @@ function New-ReadsBody {
     param([string] $Parent)
     @(
         "parent_sha: $Parent"
-        'reads=.github/instructions/csharp.instructions.md@a57437fd'
+        'reads=topic/example.instructions.md@deadbeef'
     )
 }
 
@@ -95,7 +95,7 @@ try {
     Assert-True (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid 'reads note with correct parent_sha + fresh tree -> valid'
     Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
     Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note with wrong parent_sha -> invalid (stale across rebase)'
-    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines @('reads=.github/instructions/csharp.instructions.md@a57437fd')
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines @('reads=topic/example.instructions.md@deadbeef')
     Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note missing parent_sha -> invalid (fail-closed)'
     Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody ($rcParent.Substring(0, 7)))
     Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note with a 7-char prefix parent_sha -> invalid (full 40-char required; parity with panel/comment)'

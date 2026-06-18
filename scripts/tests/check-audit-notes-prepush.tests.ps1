@@ -44,6 +44,11 @@ function Write-CommentNote {
     for ($i = 1; $i -le $Bullets; $i++) { $body += "- src.cs:${i}: approval_turn: n/a - exempt: generated" }
     Write-AuditNote -RepoRoot $Dir -NoteRef (Get-CommentNoteRef) -CommitSha $Sha -BodyLines $body
 }
+function Write-ReadsNote {
+    param([string] $Dir, [string] $Sha, [string] $Path, [string] $Token)
+    $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
+    Write-AuditNote -RepoRoot $Dir -NoteRef (Get-ReadsNoteRef) -CommitSha $Sha -BodyLines @("parent_sha: $parent", "reads=$Path@$Token")
+}
 
 function Invoke-Validator {
     param([string] $Dir, [string[]] $RefLines)
@@ -173,6 +178,22 @@ try {
     $fakeRemote = 'deadbeefbeefbeefbeefbeefbeefbeefbeefdead'
     $rgf = Invoke-Validator -Dir $dgf -RefLines @(RefLine $g1 $fakeRemote)
     Assert-True ($rgf.ExitCode -ne 0 -and $rgf.Output -match 'rev-list') 'rev-list failure (remote tip not present) -> non-zero exit (fail closed, not skip)'
+
+    Write-Host "`n=== reads note: a commit matching a gated code-topic glob requires a fresh reads note ==="
+    $dr = New-IdRepo
+    New-Item -ItemType Directory -Path (Join-Path $dr '.github/instructions') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $dr '.github/instructions/fake-cs.instructions.md') "---`napplyTo: `"**/*.cs`"`n---`n`n# Fake CS`n`n<!-- read-receipt-token: 11111111 -->`n" -NoNewline
+    $rbase = New-TestCommit -Directory $dr -File 'README.md' -Content 'base' -Message 'base + gated instr'
+    $rcs = New-TestCommit -Directory $dr -File 'Foo.cs' -Content 'class F{}' -Message 'touch cs'
+    Write-PanelNote -Dir $dr -Sha $rcs
+    $ra = Invoke-Validator -Dir $dr -RefLines @(RefLine $rcs $rbase)
+    Assert-True ($ra.ExitCode -ne 0 -and $ra.Output -match 'reads') 'gated .cs commit, no reads note -> fail (reads enforcement)'
+    Write-ReadsNote -Dir $dr -Sha $rcs -Path '.github/instructions/fake-cs.instructions.md' -Token '11111111'
+    $rb = Invoke-Validator -Dir $dr -RefLines @(RefLine $rcs $rbase)
+    Assert-True ($rb.ExitCode -eq 0) 'gated .cs commit, fresh valid reads note (token matches commit tree) -> pass'
+    Write-ReadsNote -Dir $dr -Sha $rcs -Path '.github/instructions/fake-cs.instructions.md' -Token '99999999'
+    $rc = Invoke-Validator -Dir $dr -RefLines @(RefLine $rcs $rbase)
+    Assert-True ($rc.ExitCode -ne 0 -and $rc.Output -match 'reads') 'gated .cs commit, stale reads token -> fail'
 }
 finally { Remove-TestTempDirectories }
 
