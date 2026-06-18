@@ -95,7 +95,7 @@ if (-not $receipt.ParentSha) {
     Write-Invocation "FAIL: receipt has no parent_sha line."
     exit $script:ExitViolation
 }
-if ($receipt.ParentSha -cnotmatch '^[0-9a-f]{40}$') {
+if ($receipt.ParentSha -cnotmatch '^[a-fA-F0-9]{40}$') {
     Write-Invocation "FAIL: receipt parent_sha '$($receipt.ParentSha)' must be a full 40-char SHA."
     exit $script:ExitViolation
 }

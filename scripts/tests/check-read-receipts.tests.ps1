@@ -73,6 +73,8 @@ Assert-True ((Invoke-Checker $repo) -eq 0) 'valid receipt -> exit 0'
 Assert-True ((Invoke-Checker $repo) -eq 1) 'stale token -> exit 1'
 Set-Content $receiptPath "parent_sha: $($head.Substring(0,12))`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
 Assert-True ((Invoke-Checker $repo) -eq 1) 'abbreviated 12-char parent_sha -> exit 1 at commit (full 40-char required; closes the staged<->note wedge)'
+Set-Content $receiptPath "parent_sha: $($head.ToUpper())`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
+Assert-True ((Invoke-Checker $repo) -eq 0) 'uppercase 40-char parent_sha -> exit 0 (mixed-case hex accepted; case-insensitive match)'
 
 Write-Host "=== docs-only clean-skip + tokenless fail-closed ==="
 $repo2 = New-TestGitRepository -Prefix 'rr2'

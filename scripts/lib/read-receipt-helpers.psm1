@@ -119,7 +119,7 @@ function Read-ReadsReceipt {
     $reads = @{}
     foreach ($line in $Lines) {
         $l = ([string]$line).TrimEnd("`r")
-        $pm = [regex]::Match($l, '^\s*parent_sha:\s*([0-9a-f]{7,40})\s*$')
+        $pm = [regex]::Match($l, '^\s*parent_sha:\s*([a-fA-F0-9]{7,40})\s*$')
         if ($pm.Success) { $parent = $pm.Groups[1].Value; continue }
         $rm = [regex]::Match($l, $script:ReadsLineRx)
         if ($rm.Success) { $reads[$rm.Groups['file'].Value.Trim()] = $rm.Groups['token'].Value }
