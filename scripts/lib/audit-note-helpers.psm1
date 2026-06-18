@@ -1,6 +1,6 @@
 #Requires -Version 5.1
 # Local git-notes audit ledger helpers (redesign: committed ledgers -> local notes,
-# zero remote footprint). Two independent refs (panel + comment) so a partial amend
+# zero remote footprint). Three independent refs (panel + comment + reads) so a partial amend
 # rewrites only the regenerated ref. Each note carries a FRESHNESS binding re-checked
 # at read time: audited_tree (the commit's tree) catches amends (tree changed); the
 # receipt's existing parent_sha catches rebases (parent changed). Both together bind
@@ -217,6 +217,18 @@ function Read-ReadsNoteValidated {
     )
     $n = Read-FreshAuditNote -RepoRoot $RepoRoot -NoteRef $script:ReadsNoteRef -CommitSha $CommitSha -Kind 'read-receipts'
     if (-not $n.Ok) { return [PSCustomObject]@{ Valid = $false; Errors = $n.Errors; NoteLines = $null } }
+    $parentLine = @($n.NoteLines) | Where-Object { $_ -cmatch '^\s*parent_sha:\s*(\S+)\s*$' } | Select-Object -First 1
+    if (-not $parentLine) {
+        return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note is missing its 'parent_sha:' binding"); NoteLines = $null }
+    }
+    [void]($parentLine -cmatch '^\s*parent_sha:\s*(\S+)\s*$')
+    $noteParent = $matches[1]
+    if ($noteParent -cnotmatch '^[0-9a-fA-F]{40}$') {
+        return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note parent_sha '$noteParent' must be a full 40-char SHA"); NoteLines = $null }
+    }
+    if ($n.Parent -and -not $noteParent.Equals($n.Parent, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note parent_sha '$noteParent' does not match the commit parent '$($n.Parent)' (stale note carried across a rebase)"); NoteLines = $null }
+    }
     return [PSCustomObject]@{ Valid = $true; Errors = @(); NoteLines = $n.NoteLines }
 }
 

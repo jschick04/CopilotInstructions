@@ -49,6 +49,13 @@ function New-CommentBody {
         'Comment audit: scope=<none>, 0 new comment lines, zero-count justification: test fixture.'
     )
 }
+function New-ReadsBody {
+    param([string] $Parent)
+    @(
+        "parent_sha: $Parent"
+        'reads=.github/instructions/csharp.instructions.md@a57437fd'
+    )
+}
 
 try {
     Write-Host "`n=== write/read round-trip + freshness ==="
@@ -80,6 +87,18 @@ try {
     Write-AuditNote -RepoRoot $r -NoteRef (Get-PanelNoteRef) -CommitSha $c1 -BodyLines $badParentBody
     $vBad = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -GovernanceTier 1
     Assert-True (-not $vBad.Valid) 'note with wrong parent_sha -> invalid (stale)'
+
+    Write-Host "`n=== Read-ReadsNoteValidated: parent_sha binding (rebase parity with panel/comment) ==="
+    $rc = New-TestCommit -Directory $r -File 'reads.txt' -Content 'rr' -Message 'reads commit'
+    $rcParent = Get-CommitParentSha -RepoRoot $r -CommitSha $rc
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody $rcParent)
+    Assert-True (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid 'reads note with correct parent_sha + fresh tree -> valid'
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef')
+    Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note with wrong parent_sha -> invalid (stale across rebase)'
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines @('reads=.github/instructions/csharp.instructions.md@a57437fd')
+    Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note missing parent_sha -> invalid (fail-closed)'
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody ($rcParent.Substring(0, 7)))
+    Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note with a 7-char prefix parent_sha -> invalid (full 40-char required; parity with panel/comment)'
 
     Write-Host "`n=== freshness: stale tree (direct + real rewriteRef amend-carry) ==="
     # direct: a note whose audited_tree points at a different commit's tree

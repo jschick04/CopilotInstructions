@@ -151,9 +151,9 @@ echo "=== Configuring local audit-note refs ==="
 if ! git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     echo "WARNING: not a git repository. Skipping notes config."
 else
-    # The audit ledgers live in local git notes (never pushed). Two independent refs
-    # (panel + comment) carried across amend/rebase via rewriteMode=overwrite; the note's
-    # audited_tree freshness binding still rejects a stale carry onto a changed commit.
+    # The audit ledgers live in local git notes (never pushed). Three independent refs
+    # (panel + comment + reads) carried across amend/rebase via rewriteMode=overwrite; each note's
+    # audited_tree + parent_sha bindings reject a stale carry onto an amended or rebased commit.
     for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment refs/notes/copilot-audit-reads; do
         if ! git -C "$REPO_ROOT" config --local --get-all notes.rewriteRef 2>/dev/null | grep -qx "$REF"; then
             if ! git -C "$REPO_ROOT" config --local --add notes.rewriteRef "$REF"; then

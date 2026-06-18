@@ -95,7 +95,11 @@ if (-not $receipt.ParentSha) {
     Write-Invocation "FAIL: receipt has no parent_sha line."
     exit $script:ExitViolation
 }
-$matchParent = $acceptable | Where-Object { $_.StartsWith($receipt.ParentSha) -or $receipt.ParentSha.StartsWith($_) -or $_ -eq $receipt.ParentSha }
+if ($receipt.ParentSha -cnotmatch '^[0-9a-f]{40}$') {
+    Write-Invocation "FAIL: receipt parent_sha '$($receipt.ParentSha)' must be a full 40-char SHA."
+    exit $script:ExitViolation
+}
+$matchParent = $acceptable | Where-Object { $_.Equals($receipt.ParentSha, [System.StringComparison]::OrdinalIgnoreCase) }
 if (-not $matchParent) {
     Write-Invocation "FAIL: receipt parent_sha '$($receipt.ParentSha)' does not match HEAD ($($head)) - re-author the receipt for the current commit (set PANEL_GATE_AMEND=1 to also accept HEAD^)."
     exit $script:ExitViolation
