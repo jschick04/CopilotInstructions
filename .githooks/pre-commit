@@ -44,7 +44,7 @@ if git cat-file -e HEAD:scripts/check-post-code-change.ps1 2>/dev/null || [ -f s
         fi
     else
         echo "ERROR: pwsh not available; cannot verify the post-code-change panel LEDGER." >&2
-        echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        echo "       Install PowerShell 7+ (pwsh); the pre-push note gate is the only backstop (these receipts live in unpushed git notes that CI cannot read)." >&2
         exit 1
     fi
 fi
@@ -69,7 +69,7 @@ if git cat-file -e HEAD:scripts/check-comment-audit.ps1 2>/dev/null || [ -f scri
         fi
     else
         echo "ERROR: pwsh not available; cannot verify the staged comment audit." >&2
-        echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        echo "       Install PowerShell 7+ (pwsh); the pre-push note gate is the only backstop (these receipts live in unpushed git notes that CI cannot read)." >&2
         exit 1
     fi
 fi
@@ -95,7 +95,7 @@ if git cat-file -e HEAD:scripts/check-read-receipts.ps1 2>/dev/null || [ -f scri
         fi
     else
         echo "ERROR: pwsh not available; cannot verify the staged read receipts." >&2
-        echo "       Install PowerShell 7+ (pwsh). Bypass at your own risk: git commit --no-verify (CI verifies PRs)." >&2
+        echo "       Install PowerShell 7+ (pwsh); the pre-push note gate is the only backstop (these receipts live in unpushed git notes that CI cannot read)." >&2
         exit 1
     fi
 fi

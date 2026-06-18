@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Show the local audit notes (panel + comment) attached to commits. Read-only display
+# Show the local audit notes (panel + comment + reads) attached to commits. Read-only display
 # helper; the notes are local-only (never pushed). Default shows HEAD; pass -Range for a
 # span (e.g. 'origin/main..HEAD' or 'HEAD~5..HEAD').
 [CmdletBinding()]

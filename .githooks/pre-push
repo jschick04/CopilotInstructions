@@ -4,7 +4,8 @@
 #   2. Force-push sign-off: any non-fast-forward update requires a fresh tree-bound sign-off.
 #   3. Local-CI mirror (scripts/run-local-ci.ps1).
 # Reads the pre-push ref-update list from stdin. Bypassable via `git push --no-verify`;
-# branch protection + CI are the backstops (zero-remote-footprint design - honestly local).
+# branch protection is the remote backstop and CI re-runs the mirrored local-CI checks, but the
+# panel/comment/reads audit notes are local-only (CI cannot read them) - zero-remote-footprint design.
 #
 # Wired by core.hooksPath=.githooks (setup.ps1 / setup.sh). See pre-pr-push.md for rationale.
 
@@ -68,5 +69,5 @@ if command -v pwsh >/dev/null 2>&1; then
         exit 1
     fi
 else
-    echo "WARNING: pwsh not found; skipping local pre-push gates. CI is the authoritative gate." >&2
+    echo "WARNING: pwsh not found; skipping local pre-push gates. CI re-runs the mirrored checks, but the panel/comment/reads audit notes are local-only (CI cannot read them) - nothing revalidates them on this push." >&2
 fi

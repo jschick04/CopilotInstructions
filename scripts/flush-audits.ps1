@@ -7,9 +7,9 @@
 # repo, so the loaded instructions never modify a consuming project's .git.
 #
 # Freshness: each note is stamped with the commit's tree (audited_tree). Because that
-# binds the WHOLE tree, ANY amend/rebase makes carried notes stale -> re-author BOTH
-# receipts and re-run this script. The two refs (panel + comment) are independent so a
-# single-receipt re-flush never destroys the other ref's note (spec R1).
+# binds the WHOLE tree, ANY amend/rebase makes carried notes stale -> re-author the
+# receipts and re-run this script. The three refs (panel + comment + reads) are independent
+# so a single-receipt re-flush never destroys the other refs' notes (spec R1).
 [CmdletBinding()]
 param(
     [string] $RepoRoot = '',
