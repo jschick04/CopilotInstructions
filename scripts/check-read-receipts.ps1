@@ -42,24 +42,31 @@ $gitC = @('-C', $RepoRoot, '-c', 'core.quotePath=false')
 $gitInvoke = { param($a) & git @gitC @a }
 
 try {
-    $gatedSet = @(Get-GatedTopicFiles -RepoRoot $RepoRoot)
+    $listed = & git @gitC ls-files --cached -- '.github/instructions'
+    if ($LASTEXITCODE -ne 0) { throw "git ls-files exited $LASTEXITCODE enumerating .github/instructions" }
+    $readBlob = { param([string] $p) [string]((& git @gitC show ":$p") -join "`n") }
+    $classified = @(Get-GatedTopicsFromBlobs -Paths @($listed) -ReadBlob $readBlob)
 } catch {
-    Write-Invocation "FAIL: could not resolve the gated topic set: $($_.Exception.Message)"
+    Write-Invocation "FAIL: could not enumerate the staged gated topic set: $($_.Exception.Message)"
     exit $script:ExitInvocation
 }
-if ($gatedSet.Count -eq 0) {
-    Write-Invocation "no gated topic files found (.github/instructions with non-**/* applyTo) - nothing to enforce."
-    exit $script:ExitOk
+
+$badApplyTo = @($classified | Where-Object { $_.Kind -eq 'absent' })
+if ($badApplyTo.Count -gt 0) {
+    Write-Invocation "FAIL: staged gated topic file(s) have no applyTo (fail-closed config):"
+    $badApplyTo | ForEach-Object { Write-Host "    - $($_.Path)" }
+    exit $script:ExitViolation
 }
 
-foreach ($gf in $gatedSet) {
-    $stagedContent = (& git @gitC show ":$($gf.Path)" 2>$null) -join "`n"
-    if ($LASTEXITCODE -eq 0) { $gf.Token = Get-TokenFromContent -Content $stagedContent }
+$gatedSet = @($classified | Where-Object { $_.Kind -eq 'gate' })
+if ($gatedSet.Count -eq 0) {
+    Write-Invocation "no staged gated topic files (.github/instructions with non-**/* applyTo) - nothing to enforce."
+    exit $script:ExitOk
 }
 
 $tokenless = @($gatedSet | Where-Object { -not $_.Token })
 if ($tokenless.Count -gt 0) {
-    Write-Invocation "FAIL: gated topic file(s) lack a valid read-receipt-token header (fail-closed config):"
+    Write-Invocation "FAIL: staged gated topic file(s) lack a valid read-receipt-token header (fail-closed config):"
     $tokenless | ForEach-Object { Write-Host "    - $($_.Path)" }
     exit $script:ExitViolation
 }

@@ -87,7 +87,6 @@ if ($setupErrors.Count -gt 0) {
 }
 
 $violations = @()
-$readsGatedSet = @(Get-GatedTopicFiles -RepoRoot $RepoRoot)
 $readsGitInvoke = { param($a) (Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs $a).Stdout }
 foreach ($sha in $commitSet.Keys) {
     $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
@@ -133,6 +132,17 @@ foreach ($sha in $commitSet.Keys) {
         }
     }
 
+    $treeList = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('ls-tree', '-r', '--name-only', $sha, '--', '.github/instructions')
+    if ($treeList.ExitCode -ne 0) {
+        Write-Host "ERROR: 'git ls-tree' for commit ${short} failed (exit $($treeList.ExitCode)); cannot enumerate gated topic files. Failing closed rather than skipping validation."
+        exit $ExitViolation
+    }
+    $commitReadBlob = { param([string] $p) [string]((Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('show', "${sha}:$p")).Stdout -join "`n") }
+    $commitClassified = @(Get-GatedTopicsFromBlobs -Paths @($treeList.Stdout) -ReadBlob $commitReadBlob)
+    foreach ($absentGate in @($commitClassified | Where-Object { $_.Kind -eq 'absent' })) {
+        $violations += "commit ${short} (reads): gated file '$($absentGate.Path)' has no applyTo at this commit"
+    }
+    $readsGatedSet = @($commitClassified | Where-Object { $_.Kind -eq 'gate' })
     if ($readsGatedSet.Count -gt 0) {
         $readsMatched = @(Get-MatchedGatedFiles -GatedSet $readsGatedSet -DiffArgs @('diff', '--name-only', '--diff-filter=ACMRT', $parent, $sha) -GitInvoke $readsGitInvoke)
         if ($readsMatched.Count -gt 0) {

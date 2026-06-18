@@ -76,21 +76,55 @@ function Get-TokenFromContent {
     return $null
 }
 
-function Get-GatedTopicFiles {
+function Resolve-TopicGate {
+    param(
+        [Parameter(Mandatory)][string] $Path,
+        [Parameter(Mandatory)][AllowEmptyString()][string] $Content
+    )
+    $applyTo = Get-ApplyToFromContent -Content $Content
+    if ([string]::IsNullOrWhiteSpace($applyTo)) {
+        return [pscustomobject]@{ Path = $Path; Kind = 'absent'; Patterns = @(); Token = $null }
+    }
+    if ($applyTo.Trim('"', "'", ' ') -eq '**/*') {
+        return [pscustomobject]@{ Path = $Path; Kind = 'universal'; Patterns = @(); Token = $null }
+    }
+    return [pscustomobject]@{
+        Path     = $Path
+        Kind     = 'gate'
+        Patterns = @(Expand-ApplyToPatterns -ApplyTo $applyTo)
+        Token    = Get-TokenFromContent -Content $Content
+    }
+}
+
+function Get-GatedTopicsFromBlobs {
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]] $Paths,
+        [Parameter(Mandatory)][scriptblock] $ReadBlob
+    )
+    $result = New-Object System.Collections.Generic.List[object]
+    foreach ($p in $Paths) {
+        $rel = ([string]$p).TrimEnd("`r").Trim()
+        if ($rel -notmatch '^\.github/instructions/[^/]+\.instructions\.md$') { continue }
+        $content = [string](& $ReadBlob $rel)
+        $result.Add((Resolve-TopicGate -Path $rel -Content $content))
+    }
+    return $result.ToArray()
+}
+
+function Get-WorktreeGatedTopicFiles {
     param([Parameter(Mandatory)][string] $RepoRoot)
     $dir = Join-Path $RepoRoot '.github/instructions'
     if (-not (Test-Path -LiteralPath $dir)) { return @() }
     $result = New-Object System.Collections.Generic.List[object]
     foreach ($f in (Get-ChildItem -LiteralPath $dir -Filter '*.instructions.md' -File | Sort-Object Name)) {
-        $content = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8
-        $applyTo = Get-ApplyToFromContent -Content $content
-        if ([string]::IsNullOrWhiteSpace($applyTo)) { continue }
-        if ($applyTo.Trim('"', "'", ' ') -eq '**/*') { continue }
+        $content = [string](Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8)
         $rel = '.github/instructions/' + $f.Name
+        $classification = Resolve-TopicGate -Path $rel -Content $content
+        if ($classification.Kind -ne 'gate') { continue }
         $result.Add([pscustomobject]@{
-            Path     = $rel
-            Patterns = @(Expand-ApplyToPatterns -ApplyTo $applyTo)
-            Token    = Get-TokenFromContent -Content $content
+            Path     = $classification.Path
+            Patterns = $classification.Patterns
+            Token    = $classification.Token
         })
     }
     return $result.ToArray()
@@ -128,4 +162,5 @@ function Read-ReadsReceipt {
 }
 
 Export-ModuleMember -Function Split-ApplyToTopLevel, Expand-Brace, Expand-ApplyToPatterns,
-    Get-ApplyToFromContent, Get-TokenFromContent, Get-GatedTopicFiles, Get-MatchedGatedFiles, Read-ReadsReceipt
+    Get-ApplyToFromContent, Get-TokenFromContent, Resolve-TopicGate, Get-GatedTopicsFromBlobs,
+    Get-WorktreeGatedTopicFiles, Get-MatchedGatedFiles, Read-ReadsReceipt
