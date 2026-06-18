@@ -96,6 +96,32 @@ git -C $repo3 add -A 2>$null; git -C $repo3 commit -q -m 'init' 2>$null
 git -C $repo3 rm -q Foo.cs 2>$null
 Assert-True ((Invoke-Checker $repo3) -eq 0) 'delete-only gated .cs -> clean-skip exit 0 (--diff-filter=ACMRT excludes D)'
 
+Write-Host "=== staged token is authoritative; a tokenless worktree edit does not false-fail (round-3 bot finding) ==="
+$repo4 = New-TestGitRepository -Prefix 'rr4'
+$instr4 = Join-Path $repo4 '.github/instructions'; New-Item -ItemType Directory -Path $instr4 -Force | Out-Null
+New-Instr -Dir $instr4 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+git -C $repo4 add -A 2>$null; git -C $repo4 commit -q -m 'init' 2>$null
+Set-Content (Join-Path $repo4 'Foo.cs') 'class F{}'; git -C $repo4 add -A 2>$null
+$head4 = (git -C $repo4 rev-parse HEAD).Trim()
+$aud4 = Join-Path $repo4 '.github/pr-quality-gate/audits'; New-Item -ItemType Directory -Path $aud4 -Force | Out-Null
+Set-Content (Join-Path $aud4 'read-receipts-last.md') "parent_sha: $head4`nreads=.github/instructions/fake-cs.instructions.md@11111111`n" -NoNewline
+Set-Content (Join-Path $instr4 'fake-cs.instructions.md') "---`napplyTo: `"**/*.cs`"`n---`n`n# Fake CS`n`n(token removed in worktree, still present staged)`n" -NoNewline
+Assert-True ((Invoke-Checker $repo4) -eq 0) 'tokenless worktree edit but valid staged token + receipt -> exit 0 (staged authoritative)'
+
+Write-Host "=== staged EMPTY gated file fails closed even when the worktree token is valid (no fail-open) ==="
+$repo5 = New-TestGitRepository -Prefix 'rr5'
+$instr5 = Join-Path $repo5 '.github/instructions'; New-Item -ItemType Directory -Path $instr5 -Force | Out-Null
+New-Instr -Dir $instr5 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+git -C $repo5 add -A 2>$null; git -C $repo5 commit -q -m 'init' 2>$null
+Set-Content -LiteralPath (Join-Path $instr5 'fake-cs.instructions.md') -Value '' -NoNewline
+Set-Content (Join-Path $repo5 'Foo.cs') 'class F{}'
+git -C $repo5 add -A 2>$null
+New-Instr -Dir $instr5 -Name 'fake-cs' -ApplyTo '**/*.cs' -Token '11111111'
+$head5 = (git -C $repo5 rev-parse HEAD).Trim()
+$aud5 = Join-Path $repo5 '.github/pr-quality-gate/audits'; New-Item -ItemType Directory -Path $aud5 -Force | Out-Null
+Set-Content (Join-Path $aud5 'read-receipts-last.md') "parent_sha: $head5`nreads=.github/instructions/fake-cs.instructions.md@11111111`n" -NoNewline
+Assert-True ((Invoke-Checker $repo5) -eq 1) 'EMPTY staged gated file, valid worktree token -> exit 1 (git-show-success gate, not content-truthiness; no fail-open)'
+
 Write-Host "=== meta: the REAL repo gated set is exactly 13, all tokened (drift/tokenless guard) ==="
 $realRepo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $realGated = @(Get-GatedTopicFiles -RepoRoot $realRepo)
