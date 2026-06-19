@@ -239,12 +239,10 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 
 ## 2. Commit Messages
 
-- **Single line only.** No body, no footers, no trailers.
+- **Single line only.** No body, no footers, no trailers. Fail-closed by `check-commit-message`.
 - **Suppress `Co-authored-by: Copilot` trailer.** Use `-m "<message>"` only.
 - **Describe the change**, not which plan item. No `A2`, plan numbers, or Conventional-Commit prefixes.
 - **Imperative mood, no trailing period.**
-
-Examples: OK: `Defer CategoryDisplayName join until first read` / BAD: `perf: defer CategoryDisplayName join (A2)` / BAD: any trailer.
 
 > §4 governs commit author identity and push authentication; this section governs message content only.
 
@@ -259,7 +257,7 @@ These standards apply to **every** code change, in every language. Reviewers rej
 **Over-commenting is the most common style violation across past PRs. The default answer to "should I add a comment here?" is NO.**
 
 - **Default: no comments.** Code is the primary documentation. Names carry intent.
-- **Three-step comment protocol - HARD GATE on every NEW or rewritten comment.** Step 1: clarity check (names already clear? -> no comment). Step 2: rename check (better name carries the fact? -> rename + drop). Step 3: `ask_user` approval gate (on reject/no-response -> DROP). **Headless -> DROP, never block.** Categorical bans not reachable via step 3; default-OFF rules reachable but HIGH bar. Sub-agents: proposed in return value only. Exempt categories: `typo`|`deletion`|`stale-comment-fix-per-§3.9/§3.10`|`generated`|`vendored`|`THROWAWAY-header`. Full procedure in `.github/playbooks/comment-protocol.md`.
+- **Three-step comment protocol - HARD GATE on every NEW or rewritten comment** (clarity check -> rename check -> `ask_user` approval; on reject / no-response / headless -> DROP, never block). Enforced fail-closed by `check-comment-audit` (each new/rewritten comment needs a valid `approval_turn:` citation or a canonical exempt token). Sub-agents: propose in return value only. Full procedure + the 6 exempt categories: `.github/playbooks/comment-protocol.md`.
 - **Hard prohibitions** (no exceptions):
   - No comments restating code. No "why we're about to do this" narration. No multi-line `//` design-decision prose. No speculation about future callers/surfaces. No restating contract terms encoded in naming/signature. No `TODO`/`FIXME`/`HACK`/`XXX`. No panel-artifact references (`Slot N`, `Round N`, etc.). No test section-separator banners. No comments restating a test's name.
 - **Allowed** (rare; short + load-bearing + not inferable): non-obvious algorithmic invariant; external-constraint workaround; deliberate trade-off.
@@ -270,7 +268,7 @@ These standards apply to **every** code change, in every language. Reviewers rej
 
 > **C# adds:** XML doc comment rules. See `csharp.instructions.md`.
 
-General coding standards (naming, tests, perf, defaults, state predicates, deferred mutations, user-facing text, recurring smells, project/folder structure) live in two auto-loaded files: `coding-standards.instructions.md` (universal, loaded on every edit) covers naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, and user-facing text; `coding-standards-code.instructions.md` (loaded on code edits) covers tests, performance, state predicates, deferred mutations, recurring smells, and project/folder structure.
+General coding standards live in two auto-loaded files: `coding-standards.instructions.md` (universal, every edit) covers naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text; `coding-standards-code.instructions.md` (code edits) covers tests, performance, state predicates, deferred mutations, recurring smells, project/folder structure.
 
 ### 3.14 No em-dashes or smart punctuation (HARD BAN)
 
