@@ -4,7 +4,7 @@ Three convergence models for `multi-model-review.md`. The user selects one at in
 
 ## Model A - Unanimous (default)
 
-**Convergence condition**: ALL reviewers verdict `DESIGN_READY` AND 0 unaddressed blocking findings.
+**Convergence condition**: ALL reviewers emit their success verdict (`DESIGN_READY` for design-class targets, `CODE_REVIEW_READY` for a `diff` target) AND 0 unaddressed blocking findings.
 
 **When to use**: high-stakes artifacts (production code changes, security-sensitive specs, public API designs). Strictest - catches every concern; slowest to converge.
 
@@ -12,7 +12,7 @@ Three convergence models for `multi-model-review.md`. The user selects one at in
 
 ## Model B - Threshold (≥75% acceptance)
 
-**Convergence condition**: ≥75% of reviewers verdict `DESIGN_READY` AND 0 unaddressed blocking findings.
+**Convergence condition**: ≥75% of reviewers emit their success verdict AND 0 unaddressed blocking findings.
 
 **When to use**: medium-stakes artifacts where one reviewer's NEEDS verdict on precise polish shouldn't block; the threshold prevents a single outlier from forcing iteration on agreed-as-non-blocking concerns.
 
@@ -32,9 +32,9 @@ Across iteration runs in real use, the convergence trend is **asymptotic**: each
 
 **Implications**:
 
-- **Max-loop exceedance is a normal outcome** when the trend is asymptotic. Continuing past max-loop has diminishing returns; round N+1 may reduce findings to 3-4 but is unlikely to produce unanimous DESIGN_READY.
+- **Max-loop exceedance is a normal outcome** when the trend is asymptotic. Continuing past max-loop has diminishing returns; round N+1 may reduce findings to 3-4 but is unlikely to produce unanimous convergence.
 - **Threshold convergence + C2 `routed-deferred` is acceptable** when:
-  - ≥75% reviewers verdict DESIGN_READY AND 0 unaddressed blocking findings exist; AND
+  - ≥75% reviewers emit their success verdict AND 0 unaddressed blocking findings exist; AND
   - The sole-NEEDS reviewer's findings are precise polish (1-2 line fixes, no architectural concern); AND
   - The asymptotic-convergence intake control (`intake.md` item 10) is ON.
   Under those conditions, the precise-polish findings auto-route to `routed-deferred`. **Citation requirement** (per `evidence-gate-spec.md` C2 audit): the orchestrator MUST auto-create a session-todo with id `auto-deferred-<theme>-<yyyymmddHHMMSS>` and cite it in the C2 audit output entry - `routed-deferred` without external-record citation is NOT acceptable per the canonical C2 status definitions.

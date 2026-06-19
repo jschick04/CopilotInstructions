@@ -153,7 +153,7 @@ Categories (summary): 1. Bugs/logic errors, 2. Security, 3. Argument/input valid
 
 **Tooling discipline**: read-only inspection only. No `ask_user`, no file modifications, no sub-agents.
 
-**REQUIRED final line**: `VERDICT: <DESIGN_READY | NEEDS_ANOTHER_ROUND>`
+**REQUIRED final line**: `VERDICT: <CODE_REVIEW_READY | NEEDS_ANOTHER_ROUND>`
 
 ## Procedure
 

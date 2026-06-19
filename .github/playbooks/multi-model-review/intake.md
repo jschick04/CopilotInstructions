@@ -26,7 +26,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
    The user can override individual slots, swap families, or add an additional model when convergence is critical.
 
-5. **Convergence model** - `unanimous` (default; all reviewers verdict DESIGN_READY) / `threshold` (≥75% DESIGN_READY + 0 unaddressed blocking) / `confidence-weighted` (≥80% avg confidence + 0 unaddressed blocking). See `convergence-models.md` for details and selection guidance.
+5. **Convergence model** - `unanimous` (default; all reviewers emit their success verdict) / `threshold` (≥75% success verdict + 0 unaddressed blocking) / `confidence-weighted` (≥80% avg confidence + 0 unaddressed blocking). See `convergence-models.md` for details and selection guidance.
 
 6. **Max-loop count** - default **5**. On exceedance, agent escalates via `ask_user` per the asymptotic-convergence-pattern lesson (do NOT silently loop past max-loop).
 

@@ -468,7 +468,7 @@ component lifecycle, pool-flush before file-handle operations.
 read-only `powershell` for `git --no-pager diff` / `show` / `log`). No
 `ask_user`, no file modifications, no sub-agent launches.
 
-**REQUIRED final line**: `VERDICT: <DESIGN_READY | NEEDS_ANOTHER_ROUND>`
+**REQUIRED final line**: `VERDICT: <CODE_REVIEW_READY | NEEDS_ANOTHER_ROUND>`
 ```
 
 ## Maintenance
