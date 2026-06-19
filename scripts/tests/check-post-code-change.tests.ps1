@@ -262,7 +262,7 @@ Write-Host ""
 Write-Host "=== KV v1 keyset includes the pre fields (2B grammar + worked example sync) ===" -ForegroundColor Cyan
 $sweepsRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
 $pccRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md') -Raw
-foreach ($k in @('prepanel=', 'diag=', 'g3=', 'g5=', 'g6=')) {
+foreach ($k in @('prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=')) {
     Assert-True ($sweepsRaw -match [regex]::Escape($k)) "2B KV grammar contains '$k'"
     Assert-True ($pccRaw -match [regex]::Escape($k)) "post-code-change.md worked KV example contains '$k' (no drift)"
 }
@@ -354,6 +354,28 @@ Assert-False (G6V $g6reqYes) 'REQUIRED trigger=yes + decision=not-required-trigg
 $g6reqYesOk = @(New-Ledger) | ForEach-Object { $_ -replace 'implementation-planning: no$', 'implementation-planning: yes' -replace 'implementation-planning: not-required-trigger-not-detected', 'implementation-planning: invoked' }
 Assert-True  (G6V $g6reqYesOk) 'REQUIRED trigger=yes + decision=invoked -> ok'
 Assert-True  (G6V (@(New-Ledger) | Where-Object { $_ -notmatch '^\s*pre-impl-trigger-detections:' -and $_ -notmatch '^\s*project-vocabulary:' }) 0) 'G6 not required @ tier0'
+
+Write-Host ""
+Write-Host "=== implementation-checkpoint (D3 co-presence node; gated on the DESIGN panel having run) ===" -ForegroundColor Cyan
+function ICErrs { param([string[]] $Block) @(Test-LedgerImplementationCheckpoint -LedgerLines $Block).Count }
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: complete','  design_ready: yes','  diff_matches_design: yes')) -eq 0) 'checkpoint complete/yes/yes -> 0 errors'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: complete','  design_ready: yes','  diff_matches_design: diverged:"review feedback reshaped the API"')) -eq 0) 'checkpoint diff_matches_design=diverged disclosure -> 0 errors'
+Assert-True  ((ICErrs @('post-code-change-panel: ran, unanimous')) -ge 1) 'checkpoint block absent -> error (co-presence)'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: wip','  design_ready: yes','  diff_matches_design: yes')) -ge 1) 'checkpoint status!=complete -> error'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: complete','  design_ready: no','  diff_matches_design: yes')) -ge 1) 'checkpoint design_ready!=yes -> error'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: complete','  design_ready: yes','  diff_matches_design: no')) -ge 1) 'checkpoint diff_matches_design bare "no" (not a disclosure) -> error'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: complete','  design_ready: yes','  diff_matches_design: diverged:""')) -ge 1) 'checkpoint diverged with EMPTY note -> error'
+Assert-True  ((ICErrs @('implementation-checkpoint:','  status: <fill>','  design_ready: yes','  diff_matches_design: yes')) -ge 1) 'checkpoint status placeholder -> error'
+Assert-True  ((ICErrs @('implementation-checkpoint:','next-key: x')) -eq 3) 'childless checkpoint block -> 3 per-key absent errors (load-bearing, not the null guard)'
+$icTP = '1234567890abcdef1234567890abcdef12345678'
+function PLValid { param([string[]] $Lines, [int] $Tier = 1) (Test-PanelLedger -LedgerLines $Lines -ExpectedParentSha $icTP -GovernanceTier $Tier).Valid }
+$icBase = @("parent_sha: $icTP", 'commit_subject: x', 'POST-CODE-CHANGE LEDGER', '  gates:')
+Assert-True  (PLValid (@(New-Ledger))) 'baseline ledger (design ran, checkpoint present) -> valid'
+$noIC = $icBase + (Get-ValidPreRows -OmitImplementationCheckpoint) + @('    post-code-change-panel: ran, unanimous') + (Get-ValidPanelTranscript) + @('    build: passed', '    tests: passed, 1/1')
+Assert-False (PLValid $noIC) 'design panel ran but implementation-checkpoint MISSING -> INVALID (trigger fires on the DESIGN panel having run)'
+Assert-False (PLValid (@(New-Ledger) | ForEach-Object { $_ -replace 'status: complete', 'status: wip' })) 'full design-ran ledger, checkpoint status!=complete -> INVALID'
+$waivedNoIC = $icBase + (Get-ValidPreRows -PrePanel 'user-waived: "panel-waive-acknowledged" ref:t1' -OmitImplementationCheckpoint) + @('    post-code-change-panel: ran, unanimous') + (Get-ValidPanelTranscript) + @('    build: passed', '    tests: passed, 1/1')
+Assert-True  (PLValid $waivedNoIC) 'pre-panel user-waived (DESIGN panel NOT ran) + no checkpoint -> valid @ tier1 (trigger does not fire)'
 
 Write-Host ""
 Write-Host "=== End-to-end checker (temp git repo) ===" -ForegroundColor Cyan

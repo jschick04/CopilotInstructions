@@ -156,11 +156,11 @@ Hard gates:
 - **Recurring-pattern sweep with findings count.** MANDATORY on every commit-bound change; silent skip is the failure mode.
 - **Prior-PR-review sweep.** Two-scope: current PR thread + last 10 merged PRs (§2A in `review-workflow-gates-sweeps.md`).
 - **DRY remediation gate.** Refactor where 2+ files share >=5 identical lines (§2C in `review-workflow-gates-sweeps.md`). DRY gate output shape: `ran, <N> duplications, <K> refactored, <J> waived`.
+- **IMPLEMENTATION_READY checkpoint** before the panel: self-attest complete + `design_ready` + `diff_matches_design`; git co-presence check (§2.8).
 - Multi-model panel, unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`.
 - §3.1 comment audit evidence-gate output.
-- Diagnosis-verifying re-run passes.
-- Affected builds + tests pass.
-- **Post-code-change ledger emitted before commit.** Without it in current turn, the commit is forbidden (§2B in `review-workflow-gates-sweeps.md`). Ledger enumerates every gate with status `ran` | `N/A: <reason>` | `user-waived: "<quote>"`.
+- Diagnosis-verifying re-run, affected builds + tests pass.
+- **Post-code-change ledger emitted before commit.** Without it in current turn, the commit is forbidden (§2B in `review-workflow-gates-sweeps.md`).
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/post-code-change.md`.
 

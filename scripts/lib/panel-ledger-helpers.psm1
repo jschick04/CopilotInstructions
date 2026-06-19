@@ -337,6 +337,36 @@ function Test-LedgerG6 {
     return $errs.ToArray()
 }
 
+function Test-LedgerImplementationCheckpoint {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines)
+    $errs = New-Object System.Collections.Generic.List[string]
+    $map = Get-LedgerSubBlockMap -LedgerLines $LedgerLines -ParentKey 'implementation-checkpoint'
+    if ($null -eq $map) {
+        $errs.Add("missing required 'implementation-checkpoint:' block (the pre-code-change DESIGN panel ran, so the implementation node must be co-present)")
+        return $errs.ToArray()
+    }
+
+    $status = if ($map.Contains('status')) { [string]$map['status'] } else { $null }
+    if ($null -eq $status) { $errs.Add("implementation-checkpoint missing 'status'") }
+    elseif ($status -cmatch '<[^>]*>') { $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'status'") }
+    elseif ($status -cne 'complete') { $errs.Add("implementation-checkpoint 'status' must be 'complete' (got '$status')") }
+
+    $designReady = if ($map.Contains('design_ready')) { [string]$map['design_ready'] } else { $null }
+    if ($null -eq $designReady) { $errs.Add("implementation-checkpoint missing 'design_ready'") }
+    elseif ($designReady -cmatch '<[^>]*>') { $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'design_ready'") }
+    elseif ($designReady -cne 'yes') { $errs.Add("implementation-checkpoint 'design_ready' must be 'yes' (got '$designReady')") }
+
+    $diffMatches = if ($map.Contains('diff_matches_design')) { [string]$map['diff_matches_design'] } else { $null }
+    if ($null -eq $diffMatches) { $errs.Add("implementation-checkpoint missing 'diff_matches_design'") }
+    elseif ($diffMatches -cmatch '<[^>]*>') { $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'diff_matches_design'") }
+    elseif (-not (($diffMatches -cmatch '^yes$') -or ($diffMatches -cmatch '^diverged:\s*"[^"\s][^"]*"\s*$'))) {
+        $errs.Add("implementation-checkpoint 'diff_matches_design' must be 'yes' or a diverged disclosure ('diverged:`"<one-line note>`"') (got '$diffMatches')")
+    }
+
+    return $errs.ToArray()
+}
+
 function Test-PanelLedger {
     [CmdletBinding()]
     param(
@@ -454,6 +484,9 @@ function Test-PanelLedger {
                 foreach ($e in (Test-PrePanelTranscript -LedgerLines $LedgerLines)) {
                     $result.Valid = $false; $result.Errors += $e
                 }
+                foreach ($e in (Test-LedgerImplementationCheckpoint -LedgerLines $LedgerLines)) {
+                    $result.Valid = $false; $result.Errors += $e
+                }
             }
         }
     }
@@ -505,4 +538,4 @@ function Test-PanelLedger {
     return $result
 }
 
-Export-ModuleMember -Function Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-LedgerG6, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha -Variable GitEmptyTreeSha
+Export-ModuleMember -Function Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-LedgerG6, Test-LedgerImplementationCheckpoint, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha -Variable GitEmptyTreeSha
