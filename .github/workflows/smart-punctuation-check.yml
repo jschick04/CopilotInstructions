@@ -1,6 +1,6 @@
 name: smart-punctuation-check
 
-# Enforce the AGENTS.md 3.14 ban on em-dash (U+2014) / en-dash (U+2013) in repo text.
+# Enforce the AGENTS.md 3.14 ban on smart punctuation (em/en-dash, horizontal bar, curly single/double quotes, ellipsis) in repo text.
 # An exception allowlist (.github/pr-quality-gate/data/smart-punctuation-allowlist.txt) lists any files
 # permitted to retain a banned char; it is normally empty (the ban is enforced repo-wide). No paths
 # filter: a banned character can appear in any tracked text file.
@@ -16,12 +16,12 @@ permissions:
 
 jobs:
   smart-punctuation-check:
-    name: No banned smart punctuation (em/en-dash)
+    name: No banned smart punctuation
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
-      - name: Check for banned em/en-dashes outside the allowlist
+      - name: Check for banned smart punctuation outside the allowlist
         shell: pwsh
         run: ./scripts/check-no-smart-punctuation.ps1
       - name: Run check-no-smart-punctuation unit tests

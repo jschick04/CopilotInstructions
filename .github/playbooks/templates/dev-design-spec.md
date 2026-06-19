@@ -8,7 +8,7 @@ A dev design spec describes **how an approved feature will be built, deployed, o
 
 When to use which template:
 
-| You're answering… | Template |
+| You're answering... | Template |
 | --- | --- |
 | *"What does the system look like today?"* | `current-state-survey.md` |
 | *"What should change and why?"* | `design-change-request.md` |

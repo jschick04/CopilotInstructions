@@ -22,14 +22,14 @@ Produce a design-spec document - one of three modes: a **current-state survey** 
 
 Triggered when the user asks for a **durable artifact** describing a system or design change - any of:
 
-- *"can you do an architect review of…"*
-- *"I need a design spec for…"* / *"write up a design spec for…"*
-- *"current-state survey for…"*
-- *"I need a design change request for…"*
-- *"write up a design for…"*
-- *"document the current architecture of…"*
-- *"document what we have in prod for…"*
-- *"dev design spec for…"* / *"implementation spec for…"* / *"build spec for…"*
+- *"can you do an architect review of..."*
+- *"I need a design spec for..."* / *"write up a design spec for..."*
+- *"current-state survey for..."*
+- *"I need a design change request for..."*
+- *"write up a design for..."*
+- *"document the current architecture of..."*
+- *"document what we have in prod for..."*
+- *"dev design spec for..."* / *"implementation spec for..."* / *"build spec for..."*
 - *"how will we build / ship / test (the approved feature) X?"* (when phrased as a request for a written spec, not a casual question)
 
 These are **strong triggers**: the agent immediately offers this playbook via `ask_user` (*"this looks like a design-spec ask - want me to run the design-spec playbook?"*). Decline-then-no-retry rule applies (per `AGENTS.md` trigger detection).
@@ -67,7 +67,7 @@ Bundle independent questions in one `ask_user` prompt. Sequential follow-ups onl
 
 **Picking the mode** (use these prompts when the user is unsure):
 
-| You're answering… | Mode |
+| You're answering... | Mode |
 | --- | --- |
 | *"What does the system look like today?"* | current-state survey |
 | *"What should change and why?"* | design-change request |

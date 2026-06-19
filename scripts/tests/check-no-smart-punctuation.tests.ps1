@@ -79,6 +79,20 @@ $d = New-Repo -Files @{ 'a.md' = "range 1${en}2" } -Allowlist @('# header')
 $r = Invoke-Checker $d
 Assert-True ($r.ExitCode -eq 1) 'en-dash is also caught'
 
+$expandedCases = @(
+    @('horizontal-bar', [char]0x2015),
+    @('left-single-quote', [char]0x2018),
+    @('right-single-quote', [char]0x2019),
+    @('left-double-quote', [char]0x201C),
+    @('right-double-quote', [char]0x201D),
+    @('ellipsis', [char]0x2026)
+)
+foreach ($case in $expandedCases) {
+    $d = New-Repo -Files @{ 'a.md' = "smart $($case[1]) punct" } -Allowlist @('# header')
+    $r = Invoke-Checker $d
+    Assert-True ($r.ExitCode -eq 1) "$($case[0]) (smart punctuation) is caught"
+}
+
 # '#'-comment + blank lines in allowlist are ignored
 $d = New-Repo -Files @{ 'a.md' = "has $em" } -Allowlist @('# comment', '', 'a.md')
 $r = Invoke-Checker $d

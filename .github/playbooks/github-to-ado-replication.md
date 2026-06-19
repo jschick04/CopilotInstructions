@@ -125,8 +125,8 @@ Present a table to the user showing what will be created:
 ```
 | GitHub # | ADO Type    | Title                          | Est (days) | Status  |
 |----------|-------------|--------------------------------|------------|---------|
-| #540     | Deliverable | Re-evaluate Blazor Component…  | 3          | CREATE  |
-| #526     | Bug         | Banner: chevron nav not work…  | 1          | CREATE  |
+| #540     | Deliverable | Re-evaluate Blazor Component...  | 3          | CREATE  |
+| #526     | Bug         | Banner: chevron nav not work...  | 1          | CREATE  |
 | #539     | Deliverable | (already exists as ADO #12345) | -          | SKIP    |
 ```
 
