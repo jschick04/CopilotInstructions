@@ -256,7 +256,8 @@ function Test-LedgerDisclosureRow {
         return $errs.ToArray()
     }
     $val = ($line -replace ('^\s*' + [regex]::Escape($RowKey) + ':\s*'), '').Trim()
-    if ($val -cmatch '<[^>]*>') {
+    $placeholderScan = $val -replace '"[^"]*"', '""'
+    if (($placeholderScan -cmatch '<[^>]*>') -or ($val -cmatch '"\s*<[^>]*>\s*"')) {
         $errs.Add("unsubstituted template placeholder for $RowKey")
         return $errs.ToArray()
     }

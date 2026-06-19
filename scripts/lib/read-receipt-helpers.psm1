@@ -2,7 +2,7 @@
 # Shared logic for the code-topic read-receipt gate, imported by check-read-receipts.ps1 (staged,
 # pre-commit) and check-audit-notes-prepush.ps1 (history, pre-push) so gated-set resolution + glob
 # matching + token extraction never drift between the two. GATED SET = every
-# .github/instructions/*.instructions.md whose applyTo is a NON-**/* (code-specific) glob: the 12
+# .github/instructions/*.instructions.md whose applyTo is a NON-**/* (code-specific) glob: the 15
 # language topic files + coding-standards-code; the universal **/* file is excluded. applyTo may use
 # brace alternation - git wildmatch does NOT brace-expand, so Expand-Brace does it (else
 # coding-standards-code's .py/.go/.rs linchpin matches nothing). A gated file MUST carry a valid
