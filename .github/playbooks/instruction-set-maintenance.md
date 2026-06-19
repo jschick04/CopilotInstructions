@@ -49,9 +49,9 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 
 1. **Draft the spec** (in the session folder, not the repo).
 2. **Rubber-duck** (Stage-1 single critical pass).
-3. **Panel** (Stage-2): the full slate per `panel-policy.md` (4-6 reviewers, >=3 model families); iterate to **unanimous** convergence; emit the `PANEL CONVERGED` certification BEFORE any repo edit (§1B in `review-workflow-gates.md`).
+3. **Panel** (Stage-2): the full slate per `panel-policy.md` (4-6 reviewers, >=3 model families); iterate to **unanimous** convergence; emit the `DESIGN PANEL CONVERGED` certification BEFORE any repo edit (§1B in `review-workflow-gates.md`).
 4. **Implement** against the converged spec. Canonical schemas stay; add caveman chat-emission forms separately (canonical-vs-chat split). RE-MEASURE caps.
-5. **Diff-review panel** (all reviewers on the actual diff) -> unanimous READY.
+5. **Diff-review panel** (all reviewers on the actual diff) -> unanimous CODE_REVIEW_READY.
 6. **§0 commit gates** -> PR-based workflow.
 
 ## Caps & measurement

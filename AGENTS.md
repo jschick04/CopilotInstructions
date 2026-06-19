@@ -38,7 +38,7 @@ phase_transition_intent=implementation->git | tests_status=<project>:<count> pas
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
 - A summary-only PRE-GIT SENTINEL is not inherited - re-emit (no inherited approval).
-- Panel `READY` does NOT clear this sentinel. Emitting it does NOT satisfy `ask_user`.
+- Panel convergence does NOT clear this sentinel. Emitting it does NOT satisfy `ask_user`.
 
 ### git add - the USER stages (review signal)
 
@@ -125,7 +125,7 @@ All playbook paths are under `.github/playbooks/`. Domain triggers always confir
 
 **Always-loaded invariants:**
 - Ask-first principle: every playbook's Intake Questions run FIRST before any output. Phase triggers are mandatory; domain triggers are offered via `ask_user`.
-- User-skip policy: safety-critical skips (multi-model panel on non-trivial changes, branch-wide sweep for review pushes, verification-of-fix, pre-impl panel on any safety-critical class) require explicit user RE-CONFIRMATION before proceeding. Safety-critical includes at minimum: concurrency, security, crypto, native-interop, payment, auth, shared-state, data-integrity/schema/migration, destructive/irreversible ops, permissions/ACL, secrets/credentials, privacy/PII, release/deploy/CI, governance/instruction artifacts (canonical list in `workflow-conventions.md` §5; if uncertain, treat as safety-critical). All skips are recorded in session todos with warning. When in doubt whether a skip is safety-critical, default to "yes - re-confirm".
+- User-skip policy: safety-critical skips (multi-model panel on non-trivial changes, branch-wide sweep for review pushes, verification-of-fix, pre-impl panel on any safety-critical class) require explicit user RE-CONFIRMATION before proceeding. Safety-critical includes at minimum: concurrency, security, crypto, native-interop, payment, auth, shared-state, data-integrity/schema/migration, destructive/irreversible ops, permissions/ACL, secrets/credentials, privacy/PII, release/deploy/CI, governance/instruction artifacts (canonical list in `workflow-conventions.md` §5; if uncertain, treat as safety-critical). All skips are recorded in session todos with warning. When in doubt, re-confirm.
 - Record phase entry/exit in session todos per the phase-state convention.
 
 > **STOP.** For the full ask-first procedure, intake pre-fill rules, strong-vs-weak trigger detection, user-skip recording mechanics, and phase-state tracking convention, view `.github/playbooks/workflow-conventions.md` and `.github/playbooks/phase-state-convention.md`.
@@ -138,7 +138,7 @@ Hard gates (always apply, even if playbook unfetched):
 - Reproduction (bug fix) or benchmark (perf work) exists.
 - Multi-model panel (target-type: `plan`), unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`. **Profile-aware:** the active profile (`active-profile.instructions.md`; none loaded -> full-default) sets the default panel mode + slate floor (full = 4-6; lite = 3 cross-family light-tier); both keep unanimous convergence. Lite trivial fast-path = `triage` (single-reviewer) ONLY when all active-profile LITE-FAST-PATH predicates hold + a `triage-acknowledged` receipt; safety-critical OR governance/instruction artifacts -> full slate on both profiles. Emit `profile=<full|lite|full-default>`.
 - **Rubber-duck-then-panel mandatory.** Skipping either needs explicit panel-skip approval - approval of the change REQUEST (the WHAT) is NOT it (§1 in `review-workflow-gates.md`); the lite `triage` fast-path is the sole sanctioned exception.
-- **PRE-EDIT SENTINEL.** Before the FIRST `create`/`edit`/file-write/`git add`/impl sub-agent in a code/governance change, emit: `PRE-EDIT SENTINEL | change_class=<code|governance|trivial> | pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required> | next_action=<run-panel|edit>`. If `change_class!=trivial`: `pre_impl_panel` MUST be `ran:unanimous` (PANEL CONVERGED emitted, §1A) or `user-waived:ref` BEFORE `next_action=edit`; `na` only for trivial; governance/instruction artifacts are NEVER trivial; tier-2 forbids `user-waived`/`na`; revised plan -> new panel; read tools OK pre-panel. Prose-class (no edit-time hook; git-time §2B backstops). A summary-only PANEL CONVERGED / PRE-EDIT SENTINEL is NOT inherited - re-establish before the next edit.
+- **PRE-EDIT SENTINEL.** Before the FIRST `create`/`edit`/file-write/`git add`/impl sub-agent in a code/governance change, emit: `PRE-EDIT SENTINEL | change_class=<code|governance|trivial> | pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required> | next_action=<run-panel|edit>`. If `change_class!=trivial`: `pre_impl_panel` MUST be `ran:unanimous` (DESIGN PANEL CONVERGED emitted, §1A) or `user-waived:ref` BEFORE `next_action=edit`; `na` only for trivial; governance/instruction artifacts are NEVER trivial; tier-2 forbids `user-waived`/`na`; revised plan -> new panel; read tools OK pre-panel. Prose-class (no edit-time hook; git-time §2B backstops). A summary-only DESIGN PANEL CONVERGED / PRE-EDIT SENTINEL is NOT inherited - re-establish before the next edit.
 - **Pre-PR-creation review (§2D).** >=4 reviewer panel on full branch diff before PR-creation tools. Full procedure in `pre-pr-creation-review.md`.
 - **Per-rule acknowledgement (§1A.1).** `core_rules_acknowledged` block lists each HIGH-tier slug in `HIGH-TIER-SLUGS.md` with `status: applied | not-applicable | violated` + per-site `file:line:disposition` + rationale. Schema in `panel-policy.md`.
 - **Anti-recidivism (§1A.2).** PRs with `panel-misses.csv` entries: `verified-no-recurrence` per slug with `fix_evidence`.
@@ -171,7 +171,7 @@ Hard gates:
 - **Staged set approved.** User stages = review; commit-approval shows it. ALL commit ops (incl. `--amend`/cherry-pick/rebase); no "trivial amend" exemption.
 - **Ledger emitted before commit.** Fresh each commit; previous-turn waivers do not carry forward (§2B in `review-workflow-gates-sweeps.md`).
 - **Agent never auto-stages code.** Stages only artifacts; code only via `stage-for-me`, else pauses (`pre-commit.md` step 2).
-- **Panel READY != user-review.** Both independent; both must pass on project repos.
+- **Panel convergence != user-review.** Both independent; both must pass on project repos.
 - **Author identity verified per §4.1.** Preserved author also checked on amend/replay.
 - **Commit ownership confirmed** with `the agent`/`you (the user)` labels.
 - **Message approved** via separate `ask_user` before `git commit` runs.

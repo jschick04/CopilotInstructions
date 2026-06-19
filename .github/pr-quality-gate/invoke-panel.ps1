@@ -71,7 +71,7 @@ if (Test-Path -LiteralPath $syncScript) {
 # ===== Lint-only short-circuit (no panel) =====
 if ($Mode -eq 'lint-only') {
     @"
-PANEL CONVERGED
+CODE-REVIEW PANEL CONVERGED
   panel_invoked: false
   slate_mode: lint-only
   slate: lint-only - no panel
@@ -161,7 +161,7 @@ if ($PrRef) {
 # ===== Slate construction (delegated to orchestrator - script reports REQUIRED slate, doesn't launch agents itself) =====
 # This script is a CONTRACT-emitter, not an agent launcher. The orchestrator (the main agent running this in
 # a Copilot CLI session) reads the panel-policy.md, satisfies the slate-floor, launches the reviewer agents
-# via the task tool, collects verdicts, and emits PANEL CONVERGED itself. This script's job is to validate
+# via the task tool, collects verdicts, and emits CODE-REVIEW PANEL CONVERGED itself. This script's job is to validate
 # the receipt + extract review-pass-only prompts + emit a contract document the orchestrator must fulfill.
 
 if ($Mode -eq 'triage') {
@@ -204,7 +204,7 @@ PANEL LAUNCH CONTRACT (triage)
     4. Forward the same_state_recheck_preamble above
     5. Forward the system_prompt_rule_preamble above
     6. Collect the verdict (must include core_rules_acknowledged per panel-policy.md §Per-rule acknowledgement)
-    7. Emit PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, convergence_model: single-reviewer, convergence_result: <reviewer's verdict>, dropped_reviewers: [], must_fix_unresolved, core_rules_acknowledged, rule_coverage_passed, anti_recidivism_acknowledged
+    7. Emit CODE-REVIEW PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, convergence_model: single-reviewer, convergence_result: <reviewer's verdict>, dropped_reviewers: [], must_fix_unresolved, core_rules_acknowledged, rule_coverage_passed, anti_recidivism_acknowledged
 "@
     exit 0
 }
@@ -256,7 +256,7 @@ PANEL LAUNCH CONTRACT (lite)
     6. Handle drops per panel-policy.md
     7. If reviewers do not converge (NEEDS/REWORK), implement the required fixes and re-launch the lite slate (up to fix_iteration_count_cap; default 3) until unanimous or the cap is reached
     8. Each reviewer verdict MUST include core_rules_acknowledged per panel-policy.md
-    9. On convergence (unanimous): emit PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, slate, convergence_model: unanimous, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved, core_rules_acknowledged (union per slug), rule_coverage_passed, anti_recidivism_acknowledged
+    9. On convergence (unanimous): emit CODE-REVIEW PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, slate, convergence_model: unanimous, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved, core_rules_acknowledged (union per slug), rule_coverage_passed, anti_recidivism_acknowledged
 "@
     exit 0
 }
@@ -308,6 +308,6 @@ foreach ($l in $systemPromptPreambleLines) { "      $l" }
     6. Handle drops per panel-policy.md (0→proceed; 1→replace; 2→ask_user; ≥3→hard escalate)
     7. Iterate fix-then-re-panel up to fix_iteration_count_cap (default 3)
     8. Each reviewer verdict MUST include core_rules_acknowledged per panel-policy.md §Per-rule acknowledgement
-    9. On convergence: emit PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved, core_rules_acknowledged (union per slug), rule_coverage_passed, anti_recidivism_acknowledged
+    9. On convergence: emit CODE-REVIEW PANEL CONVERGED block in caveman KV form (scalars as pipe-KV; slate + core_rules_acknowledged enumerations preserved) with profile=$activeProfile, slate, convergence_model, convergence_result, dropped_reviewers, panel_rounds, fix_iteration_count, must_fix_unresolved, core_rules_acknowledged (union per slug), rule_coverage_passed, anti_recidivism_acknowledged
 "@
 exit 0

@@ -21,7 +21,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 
    **Format for findings**: bullet list, max ~10-15 bullets. Each: one-line summary + severity (blocking | major | minor) + where (file / section / line) if applicable + proposed mitigation.
 
-   **REQUIRED: end your output with this single line**: `VERDICT: <READY_TO_IMPLEMENT | NEEDS_ANOTHER_ROUND>`
+   **REQUIRED: end your output with this single line**: `VERDICT: <DESIGN_READY | NEEDS_ANOTHER_ROUND>`
 
    **Tooling discipline**:
    - **Read-only inspection allowed**: `view`, `grep`, `glob`, and `powershell` for read-only git commands (`git --no-pager diff`, `git --no-pager show`, `git --no-pager log`, `git --no-pager status`) - reviewers reviewing a `diff` target MUST be able to inspect the diff independently.
@@ -49,9 +49,9 @@ When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md
   6. `citations`: ≥1 `file:line` citation per participating file. For cross-file claims, EACH implicated file must be cited independently (e.g., a finding about field-X-missing-in-producer-2 needs citations to producer-1 setting it AND producer-2 not setting it AND the consumer branching on it).
   7. `body`: `{ description, why_bug, reproduction (or "Observational"), suggested_fix_class (advisory), confidence (high|medium|low) }`.
 - **VERDICT-emission rule** (target-type-specific):
-  - Emit `VERDICT: READY_TO_IMPLEMENT` when you have NO BLOCKING-severity findings remaining. Non-blocking findings (major / minor) are acceptable; they will be recorded as advisory C2 dispositions and do NOT require another round.
+  - Emit `VERDICT: DESIGN_READY` when you have NO BLOCKING-severity findings remaining. Non-blocking findings (major / minor) are acceptable; they will be recorded as advisory C2 dispositions and do NOT require another round.
   - Emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING-severity finding requires another iteration.
-  - This rule is target-type-specific reviewer behavior; the orchestrator's convergence check (Model A unanimous: ALL reviewers READY + `unaddressed_blocking=0`) is UNCHANGED.
+  - This rule is target-type-specific reviewer behavior; the orchestrator's convergence check (Model A unanimous: ALL reviewers DESIGN_READY + `unaddressed_blocking=0`) is UNCHANGED.
 - **Tooling discipline** (re-emphasized): read-only inspection only (`view` / `grep` / `glob` / read-only git). NO `ask_user`. NO file modifications. NO sub-agent launches.
 
 Full prompt template (added to the base prompt at step 2):
@@ -82,7 +82,7 @@ You have been assigned lane(s): <slot_to_lane_mapping[your_slot]>.
 7. body: { description, why_bug, reproduction (or "Observational"), suggested_fix_class (advisory), confidence (high|medium|low) }
 
 **VERDICT emission rule (TARGET-TYPE-SPECIFIC)**:
-- Emit `VERDICT: READY_TO_IMPLEMENT` when you have NO BLOCKING-severity findings remaining.
+- Emit `VERDICT: DESIGN_READY` when you have NO BLOCKING-severity findings remaining.
   Non-blocking findings (major/minor) are acceptable and recorded as advisory.
 - Emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration.
 
@@ -107,8 +107,8 @@ Return findings + VERDICT line only.
 ## Convergence check
 
 10. **Apply chosen convergence model** per `convergence-models.md`:
-    - `unanimous` - all reviewers `READY_TO_IMPLEMENT` AND 0 unaddressed blocking → CONVERGED.
-    - `threshold` - ≥75% `READY_TO_IMPLEMENT` AND 0 unaddressed blocking → CONVERGED.
+    - `unanimous` - all reviewers `DESIGN_READY` AND 0 unaddressed blocking → CONVERGED.
+    - `threshold` - ≥75% `DESIGN_READY` AND 0 unaddressed blocking → CONVERGED.
     - `confidence-weighted` - avg confidence ≥80% AND 0 unaddressed blocking → CONVERGED.
 
 ## C2 routing (ALWAYS - converged rounds may still have non-blocking findings)

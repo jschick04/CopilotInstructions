@@ -46,11 +46,11 @@ function New-TestCommit {
 function Get-ValidPanelTranscript {
     return @(
         '    panel-transcript:',
-        '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY rounds:2',
-        '      - slot:enforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY rounds:2',
-        '      - slot:integ model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY rounds:2',
-        '      - slot:scripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY rounds:2',
-        '      - slot:arch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY rounds:2',
+        '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:enforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:integ model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:scripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:arch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
         '      - findings: converged after closing a fail-open and tightening a regex'
     )
 }
@@ -58,11 +58,11 @@ function Get-ValidPanelTranscript {
 function Get-ValidPreTranscript {
     return @(
         '    pre-panel-transcript:',
-        '      - slot:pduck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
-        '      - slot:penforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
-        '      - slot:pinteg model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
-        '      - slot:pscripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
-        '      - slot:parch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY_TO_IMPLEMENT rounds:2',
+        '      - slot:pduck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:penforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:pinteg model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:pscripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:parch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
         '      - findings: converged after correcting the diagnosis and the approach'
     )
 }

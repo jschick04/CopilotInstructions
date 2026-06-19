@@ -68,7 +68,7 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 **Synthesis-time:**
 
 9. **Citation verification with ≤1 rework cap** - orchestrator `view`s each cited `file:line` and confirms the claim is supported BEFORE rendering the report. Outcomes per finding: `verified` / `verification-failed-dropped` / `verification-invalid-dropped` (citation file:line doesn't exist) / `verification-ambiguous-rework-1` (re-prompt originating reviewer once via `write_agent`) / `verification-twice-ambiguous-dropped` (after 1 rework, still ambiguous).
-10. **Convergence applies to BLOCKING findings only** - reviewer's `VERDICT:` emission rule (specified in `multi-model-review/procedure.md`'s `bug-investigation` prompt template): emit `VERDICT: READY_TO_IMPLEMENT` when no BLOCKING-severity findings remain; emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration. Non-blocking findings recorded as advisory; do NOT drive verdict. Model A's evaluation rule (unanimous READY + 0 unaddressed blocking) is unchanged.
+10. **Convergence applies to BLOCKING findings only** - reviewer's `VERDICT:` emission rule (specified in `multi-model-review/procedure.md`'s `bug-investigation` prompt template): emit `VERDICT: DESIGN_READY` when no BLOCKING-severity findings remain; emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration. Non-blocking findings recorded as advisory; do NOT drive verdict. Model A's evaluation rule (unanimous DESIGN_READY + 0 unaddressed blocking) is unchanged.
 
 **Post-report:**
 
