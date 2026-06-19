@@ -133,7 +133,7 @@ POST-CODE-CHANGE LEDGER
       # D3 middle node, co-presence check (REQUIRED iff DESIGN panel ran); Test-LedgerImplementationCheckpoint; design_ready_ref lives on phase-state; `<...>` fails closed.
       status: complete
       design_ready: yes
-      diff_matches_design: <yes | diverged: "<one-line what+why>">
+      diff_matches_design: <yes | diverged:"<one-line what+why>">
     post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
       # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
