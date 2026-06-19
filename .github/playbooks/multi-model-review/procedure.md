@@ -21,7 +21,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 
    **Format for findings**: bullet list, max ~10-15 bullets. Each: one-line summary + severity (blocking | major | minor) + where (file / section / line) if applicable + proposed mitigation.
 
-   **REQUIRED: end your output with this single line**: `VERDICT: <DESIGN_READY | NEEDS_ANOTHER_ROUND>`
+   **REQUIRED: end your output with this single line**: `VERDICT: <success verdict | NEEDS_ANOTHER_ROUND>` - the success verdict is `DESIGN_READY` for a `plan`/`design`/`spec` target and `CODE_REVIEW_READY` for a `diff` target (match the target type stated above)
 
    **Tooling discipline**:
    - **Read-only inspection allowed**: `view`, `grep`, `glob`, and `powershell` for read-only git commands (`git --no-pager diff`, `git --no-pager show`, `git --no-pager log`, `git --no-pager status`) - reviewers reviewing a `diff` target MUST be able to inspect the diff independently.
@@ -107,8 +107,8 @@ Return findings + VERDICT line only.
 ## Convergence check
 
 10. **Apply chosen convergence model** per `convergence-models.md`:
-    - `unanimous` - all reviewers `DESIGN_READY` AND 0 unaddressed blocking → CONVERGED.
-    - `threshold` - ≥75% `DESIGN_READY` AND 0 unaddressed blocking → CONVERGED.
+    - `unanimous` - all reviewers emit their success verdict AND 0 unaddressed blocking → CONVERGED.
+    - `threshold` - ≥75% emit their success verdict AND 0 unaddressed blocking → CONVERGED.
     - `confidence-weighted` - avg confidence ≥80% AND 0 unaddressed blocking → CONVERGED.
 
 ## C2 routing (ALWAYS - converged rounds may still have non-blocking findings)

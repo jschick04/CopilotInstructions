@@ -629,7 +629,7 @@ Assert-Equal 0 (Get-SweepCount 'CODE_REVIEW_READY_TO_IMPLEMENT') 'sweep: 0 doubl
 Assert-Equal 0 (Get-SweepCount 'DESIGN_CODE_REVIEW_READY') 'sweep: 0 double-rename DESIGN_CODE_REVIEW_READY (bare-READY-after-long order)'
 Assert-Equal 0 (Get-SweepCount 'DESIGN_DESIGN_READY') 'sweep: 0 double-rename DESIGN_DESIGN_READY'
 Assert-Equal 0 (Get-SweepCount 'CODE_REVIEW_CODE_REVIEW_READY') 'sweep: 0 double-rename CODE_REVIEW_CODE_REVIEW_READY'
-Assert-Equal 0 (Get-SweepCount 'verdict:READY\b') 'sweep: 0 stale verdict:READY (all renamed to verdict:CODE_REVIEW_READY)'
+Assert-Equal 0 (Get-SweepCount 'verdict:READY([^_]|$)') 'sweep: 0 stale verdict:READY (ERE-safe boundary; all renamed to verdict:CODE_REVIEW_READY)'
 $pcTotal = Get-SweepCount 'PANEL CONVERGED'
 $pcPrefixed = Get-SweepCount '(DESIGN|CODE-REVIEW) PANEL CONVERGED'
 Assert-Equal $pcTotal $pcPrefixed "sweep: every PANEL CONVERGED is phase-prefixed (total=$pcTotal prefixed=$pcPrefixed; 0 bare)"

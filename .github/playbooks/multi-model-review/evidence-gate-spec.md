@@ -8,7 +8,7 @@ Emit this structured chat output AFTER the round's synthesis, convergence check,
 
 ```
 Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence_model=<unanimous|threshold|confidence-weighted>, max_loops=<M>.
-- <reviewer slot>: VERDICT=<DESIGN_READY|NEEDS_ANOTHER_ROUND>, confidence=<X%> (when applicable), findings=<count> (blocking=<B>, major=<M>, minor=<N>).
+- <reviewer slot>: VERDICT=<success verdict|NEEDS_ANOTHER_ROUND>, confidence=<X%> (when applicable), findings=<count> (blocking=<B>, major=<M>, minor=<N>).
 - ... (one bullet per reviewer)
 - Dedup'd findings (by theme): <T> themes, <F> total.
 - Agreement counts: <theme>: <K of N reviewers flagged>
@@ -43,7 +43,7 @@ Chat emits each round in this compressed grammar; the structured template above 
 
 ```
 round=<N> reviewers=<count> convergence=<unanimous|threshold|confidence-weighted> max_loops=<M>
-- slot=<slot> model=<id> verdict=<DESIGN_READY|NEEDS> conf=<X%|na> find=<B>/<M>/<N>
+- slot=<slot> model=<id> verdict=<success verdict|NEEDS> conf=<X%|na> find=<B>/<M>/<N>
 - ... (one line per reviewer)
 themes=[<slug-theme>:<K/N>, ...]   # dedup'd by root cause; K of N reviewers flagged
 convergence=<yes | no:dissent-from-<slot>:"<finding>"> c2=<Fx>fx/<Rn>rn/<Rd>rd/<Dg>dg subagent_ask_user_calls=0
