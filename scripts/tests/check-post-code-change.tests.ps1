@@ -618,11 +618,18 @@ $sweepRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $sweepPaths = @('AGENTS.md', 'README.md', 'scripts', '.github', 'profiles', ':!scripts/tests/check-post-code-change.tests.ps1')
 function Get-SweepCount {
     param([Parameter(Mandatory)][string] $Pattern)
+    $stderrFile = [System.IO.Path]::GetTempFileName()
     Push-Location $sweepRoot
     try {
-        $hits = & git grep -I -o -h -E $Pattern -- @sweepPaths 2>$null
+        $hits = & git grep -I -o -h -E $Pattern -- @sweepPaths 2>$stderrFile
+        if ($LASTEXITCODE -gt 1) {
+            throw "Get-SweepCount: git grep failed (exit $LASTEXITCODE) for pattern '$Pattern': $((Get-Content -LiteralPath $stderrFile -Raw))"
+        }
         return @($hits | Where-Object { $_ }).Count
-    } finally { Pop-Location }
+    } finally {
+        Pop-Location
+        Remove-Item -LiteralPath $stderrFile -Force -ErrorAction SilentlyContinue
+    }
 }
 Assert-Equal 0 (Get-SweepCount 'READY_TO_IMPLEMENT') 'sweep: 0 stale READY_TO_IMPLEMENT (all renamed to DESIGN_READY)'
 Assert-Equal 0 (Get-SweepCount 'CODE_REVIEW_READY_TO_IMPLEMENT') 'sweep: 0 double-rename CODE_REVIEW_READY_TO_IMPLEMENT (bare-READY-before-long order)'
