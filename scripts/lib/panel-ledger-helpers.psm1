@@ -358,9 +358,16 @@ function Test-LedgerImplementationCheckpoint {
     elseif ($designReady -cne 'yes') { $errs.Add("implementation-checkpoint 'design_ready' must be 'yes' (got '$designReady')") }
 
     $diffMatches = if ($map.Contains('diff_matches_design')) { [string]$map['diff_matches_design'] } else { $null }
-    if ($null -eq $diffMatches) { $errs.Add("implementation-checkpoint missing 'diff_matches_design'") }
-    elseif ($diffMatches -cmatch '<[^>]*>') { $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'diff_matches_design'") }
-    elseif (-not (($diffMatches -cmatch '^yes$') -or ($diffMatches -cmatch '^diverged:\s*"[^"\s][^"]*"\s*$'))) {
+    if ($null -eq $diffMatches) {
+        $errs.Add("implementation-checkpoint missing 'diff_matches_design'")
+    } elseif ($diffMatches -cmatch '^<.*>$') {
+        $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'diff_matches_design'")
+    } elseif ($diffMatches -cmatch '^diverged:\s*"([^"]*)"\s*$') {
+        $note = $matches[1]
+        if ([string]::IsNullOrWhiteSpace($note) -or ($note -cmatch '^\s*<[^>]*>\s*$')) {
+            $errs.Add("implementation-checkpoint 'diff_matches_design' diverged note must be a non-empty real note, not a '<...>' placeholder (got '$diffMatches')")
+        }
+    } elseif ($diffMatches -cne 'yes') {
         $errs.Add("implementation-checkpoint 'diff_matches_design' must be 'yes' or a diverged disclosure ('diverged:`"<one-line note>`"') (got '$diffMatches')")
     }
 
