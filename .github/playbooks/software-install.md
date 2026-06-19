@@ -21,7 +21,7 @@ Install, upgrade, or uninstall software on the user's machine using the platform
 
 - **Package manager confirmed installed** before any install / upgrade / uninstall command runs (`winget --version` / `brew --version` / `which apt`).
 - **Exact-ID match confirmed in the package manager** before invoking install (`winget search --id <Vendor.Product> --exact`, `brew info <name>`, `apt-cache show <name>`). If no exact match, surface to user; do NOT guess an ID.
-- **Version / edition matches what the user asked for** - re-read the package ID before invoking install (e.g. `Microsoft.VisualStudio.2026.Enterprise` vs `...Community`).
+- **Version / edition matches what the user asked for** - re-read the package ID before invoking install (e.g. `Microsoft.VisualStudio.2026.Enterprise` vs `Microsoft.VisualStudio.2026.Community`).
 - **Vendor-bootstrapper fallback path:** signature verified (`Get-AuthenticodeSignature` / `codesign -dv` / `gpg --verify`) AND magic bytes match (PE / ELF / Mach-O) AND **embedded version metadata read and confirmed to match the requested major version** (`(Get-Item <path>).VersionInfo.FileVersion` on Windows, etc.) - all THREE before launching the binary. A signed binary from a working URL can still be the wrong product version when shortlinks rot or query parameters silently fall back to a default. **Raw single-file binary exception:** when the binary genuinely has no embedded version metadata to read (common for `kubectl` / `terraform` / `helm`-style ELF or Mach-O CLIs), the *Raw single-file binary fallback* documented below substitutes provenance + versioned URL + signed-checksum verification + post-install `--version` check for the embedded-metadata read - that path satisfies the hard gate via the documented fallback, not by violating it.
 - **Never execute a downloaded bootstrapper "to see what happens"** if any of the above checks fails or cannot be confirmed.
 
@@ -55,7 +55,7 @@ Bundle these in one prompt:
    - `brew info <name>`
    - `apt-cache show <name>`
    If the search hangs or returns no exact match, do not guess - surface the result to the user and decide together whether to (a) try a different ID, (b) fall back to the vendor bootstrapper, or (c) abort.
-3. **Confirm the version / edition matches what the user asked for.** Package-manager IDs sometimes pin to a specific edition (`Microsoft.VisualStudio.2026.Enterprise` vs `...Community`) - re-read the ID before invoking install.
+3. **Confirm the version / edition matches what the user asked for.** Package-manager IDs sometimes pin to a specific edition (`Microsoft.VisualStudio.2026.Enterprise` vs `Microsoft.VisualStudio.2026.Community`) - re-read the ID before invoking install.
 
 ### When to fall back to the vendor's bootstrapper / installer
 
