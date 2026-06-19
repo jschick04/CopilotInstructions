@@ -67,10 +67,22 @@ function Get-ValidPreTranscript {
     )
 }
 
+function Get-ValidImplementationCheckpoint {
+    return @(
+        '    implementation-checkpoint:',
+        '      status: complete',
+        '      design_ready: yes',
+        '      diff_matches_design: yes'
+    )
+}
+
 function Get-ValidPreRows {
-    param([string] $PrePanel = 'ran, unanimous', [string] $G5 = 'not-applicable')
+    param([string] $PrePanel = 'ran, unanimous', [string] $G5 = 'not-applicable', [switch] $OmitImplementationCheckpoint)
     $rows = @("    pre-code-change-panel: $PrePanel")
-    if ($PrePanel -cmatch '^ran,\s*unanimous\s*$') { $rows += (Get-ValidPreTranscript) }
+    if ($PrePanel -cmatch '^ran,\s*unanimous\s*$') {
+        $rows += (Get-ValidPreTranscript)
+        if (-not $OmitImplementationCheckpoint) { $rows += (Get-ValidImplementationCheckpoint) }
+    }
     return $rows + @(
         '    diagnosis-repro-ref: reproduction-locked: tests/Repro.cs',
         '    approach-selection-G3: fix-cause',

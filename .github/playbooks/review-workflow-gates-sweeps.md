@@ -129,6 +129,11 @@ POST-CODE-CHANGE LEDGER
     approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
     safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
       # disclosure, not truth: only the path-detectable subset is forced (tier 2). Required when tier>=1.
+    implementation-checkpoint:
+      # D3 middle node, co-presence check (REQUIRED iff DESIGN panel ran); Test-LedgerImplementationCheckpoint; design_ready_ref lives on phase-state; `<...>` fails closed.
+      status: complete
+      design_ready: yes
+      diff_matches_design: <yes | diverged: "<one-line what+why>">
     post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
       # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
@@ -156,10 +161,7 @@ POST-CODE-CHANGE LEDGER
                                              #   verifiable from the cited file OR (b) repo invariant
         branch_new_files_verified: yes: merge-base <SHA8>
     pre-impl-trigger-detections:
-      # Cycle-3 (`pre-implementation.md` G6). Mirrors G6 chat-visible `trigger-detected-<playbook>:`
-      # lines into the LEDGER. Each cycle-3-scope playbook gets one line; this is the audit anchor
-      # for OFFERED-class rules 6/7/8/10/11 (silent-downgrade-to-`not-applicable` bypass closure).
-      # Updated by G6 re-entry per `pre-implementation.md` if scope changes mid-implementation.
+      # Cycle-3 G6 (`pre-implementation.md`): mirrors the chat-visible `trigger-detected-<playbook>:` lines; audit anchor for OFFERED rules 6/7/8/10/11; updated on G6 re-entry if scope changes.
       implementation-planning: <yes | no>
       library-restructure: <yes | no>
       design-exploration: <yes | no>
@@ -168,7 +170,7 @@ POST-CODE-CHANGE LEDGER
       system-framing: <yes | no>
       project-vocabulary: <yes | no>
     pre-impl-playbook-decisions:
-      # Cycle-3 G6 (`pre-implementation.md`). Mechanically enforced by Test-LedgerG6 (+ catalog rules 2-13 for semantic truth). REQUIRED class (implementation-planning, library-restructure): invoked | required-but-skipped:"..." | not-required-trigger-not-detected (offered-and-declined / not-applicable INVALID). OFFERED class: trigger=yes -> invoked | offered-and-declined:"..." | required-but-skipped:"..."; trigger=no -> not-applicable.
+      # Cycle-3 G6 (`pre-implementation.md`), enforced by Test-LedgerG6 + catalog rules 2-13. REQUIRED class (implementation-planning, library-restructure) rejects not-applicable/offered-and-declined; OFFERED class per the `<...>` values below.
       implementation-planning: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>    # REQUIRED class
       library-restructure: <invoked | required-but-skipped: "<re-confirmation>" | not-required-trigger-not-detected>        # REQUIRED class
       design-exploration: <invoked | offered-and-declined: "<quote>" | not-applicable | required-but-skipped: "<reason>">
@@ -198,7 +200,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
-gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 
 **Rules:**

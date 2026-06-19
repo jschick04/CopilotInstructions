@@ -129,6 +129,16 @@ The INSERT captures intake-time state (booleans + sweep-input SHAs); the UPDATE 
 
 Before declaring any variant of *"ready to commit / push / open PR"*, read the recorded state back and confirm every required phase has either run (per its hard gates) OR been explicitly skipped (per User-skip policy). Do not infer state from memory.
 
+## Phase-chain predecessor links (skip-resistance)
+
+Three phase-state records form a chain; each later record CITES its predecessor by id so a resumed / post-compaction session can RECONSTRUCT the chain instead of inferring from a dropped summary:
+
+- `phase-state-pre-implementation-<ts>` - the DESIGN node (chain root; the pre-implementation phase where the design panel converges `DESIGN_READY`). No predecessor ref.
+- `phase-state-implementation-<ts>` - the IMPLEMENTATION node, written at the `IMPLEMENTATION CHECKPOINT` (`post-code-change.md` §2.8). Carries `design_ready_ref: phase-state-pre-implementation-<ts>` plus `status: complete` and `diff_matches_design: <yes | diverged:"...">`.
+- `phase-state-post-code-change-<ts>` - the CODE-REVIEW node (the post-code-change phase where the panel converges `CODE_REVIEW_READY`). Carries `implementation_ready_ref: phase-state-implementation-<ts>`.
+
+**Reader contract (predecessor read-back):** before emitting a later phase token (`IMPLEMENTATION_READY`, then `CODE_REVIEW_READY`), READ BACK the predecessor record by its `*_ref` id and confirm it is `done`; do NOT infer from memory. A summary-only checkpoint is NOT inherited - reconstruct from the durable record or re-run the missing gate. **Honest ceiling:** records are agent-authored, so this ENABLES reconstruction and raises forge cost; it does NOT mechanically prove temporal order. The committed `implementation-checkpoint:` LEDGER sub-block (`review-workflow-gates-sweeps.md` §2B) is the commit-time CO-PRESENCE backstop (a lossy summary - it carries the `design_ready` boolean, not this `_ref`).
+
 ## Output-write ordering for documentation playbooks
 
 For playbooks that produce a document (`design-spec.md`, `ado-task-planning.md`):

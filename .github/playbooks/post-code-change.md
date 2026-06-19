@@ -54,9 +54,9 @@ Skip when the diff has no visibility/export/mutability surface delta. Record exp
 
 ### 2.5 Touched-file review-recurring-pattern sweep - MANDATORY, no silent skip
 
-Run on touched files only - fast greps catching patterns that historically appear in PR reviews but are not covered by language-native analyzers or the least-privilege audit. Each item is a single `rg`/grep query; if it returns matches, fix before showing the diff.
+Run on touched files only - fast greps for patterns that recur in PR reviews but aren't caught by language analyzers or the least-privilege audit. Each item is one `rg`/grep query; on matches, fix before showing the diff.
 
-**MANDATORY OUTPUT REQUIREMENT.** This step MUST run on every commit-bound change, no matter how small. The agent MUST report findings explicitly:
+**MANDATORY OUTPUT.** Runs on every commit-bound change, no matter how small; report findings explicitly:
 
 ```
 Step 2.5 sweep: ran, <N> findings.
@@ -70,7 +70,7 @@ Step 2.5 sweep: ran, <N> findings.
   - Stale-symbol-in-comment-after-rename: <N> matches - N/A: no rename detected
 ```
 
-`N/A` is allowed ONLY when the pattern's trigger condition definitionally cannot apply (e.g., no test files in diff). Do NOT mark N/A because "I don't think it applies" or "the diff is small" - every check is a grep that takes milliseconds. Silent skip is the failure mode this rule exists to prevent.
+`N/A` is allowed ONLY when the pattern's trigger definitionally cannot apply (e.g., no test files in diff), NOT because "I don't think it applies" or "the diff is small" - every check is a millisecond grep. Silent skip is the failure mode this rule prevents.
 
 ---
 
@@ -119,9 +119,9 @@ Step 2.5 sweep: ran, <N> findings.
 
 ### 2.6 §3.1 Comment audit evidence gate
 
-Run the §3.1 comment-audit evidence gate before the multi-model panel (step 3). The audit happens BEFORE the diff is shown, matching §3.1's "Mandatory self-review pass before showing diff" rule. Procedural detail of WHEN/HOW comments may be added lives in `comment-protocol.md`; this step records the OUTCOME.
+Run the §3.1 comment-audit evidence gate before the panel (step 3), BEFORE the diff is shown (per §3.1's self-review-before-diff rule). WHEN/HOW comments may be added lives in `comment-protocol.md`; this step records the OUTCOME.
 
-**Note on scope**: this evidence gate is chat audit output - NOT §3.1-governed source-code comments. §3.1's hygiene rules apply to comments IN source code; this audit produces a structured report ABOUT those comments. The two never collide.
+**Note on scope**: this gate is chat audit output ABOUT comments, NOT the §3.1-governed source-code comments themselves; the two never collide.
 
 **MANDATORY OUTPUT REQUIREMENT.** Same discipline as step 2.5: no silent skip. Emit before showing the diff:
 
@@ -138,17 +138,17 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 - Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD` filtered for added comment syntax (`//`, `#`, `/*`, `<!--`, `--`, `<#`, `;`, `///`, `"""`) by file extension (per `comment-protocol.md` §Scope)" (or equivalent language-specific pattern).
 ```
 
-**Fail-closed semantics.** Every bullet MUST have a valid `approval_turn:` value - one of: **(i)** a real `ask_user` turn/message ref with paired `allowed-case`, **(ii)** `n/a - exempt: <category>` where `<category>` is from `comment-protocol.md`'s canonical 6, **(iii)** `n/a - degraded-mode-drop`, **(iv)** `n/a - no-response-drop`, or **(v)** `deleted (per protocol step-3 rejection or rename-first resolution)`. Any bullet failing this - missing `approval_turn:`, citing an exempt category not in the canonical 6, or citing an unknown `n/a - <reason>` - fails the gate and forbids the commit per `review-workflow-gates-sweeps.md` §2B (the `comment-audit-§3.1` ledger row emits `failed - <site list>`). The `parent_sha:` and `commit_subject:` header lines are REQUIRED - the local `pre-push` note gate uses `parent_sha:` (and the note's `audited_tree:`) to detect a stale record (audit written for commit X but commit Y was actually made).
+**Fail-closed semantics.** Every bullet MUST match one of the 5 forms shown above - a valid `approval_turn:`, OR the `deleted (...)` form (no `approval_turn:`). Any non-deleted bullet failing this - missing `approval_turn:`, an exempt category not in the canonical 6, or an unknown `n/a - <reason>` - fails the gate and forbids the commit per `review-workflow-gates-sweeps.md` §2B (the `comment-audit-§3.1` row emits `failed - <site list>`). The `parent_sha:` + `commit_subject:` headers are REQUIRED - the local `pre-push` note gate uses `parent_sha:` (and the note's `audited_tree:`) to detect a stale record (audit written for commit X but commit Y actually made).
 
-**Persisted audit record (HARD GATE in this instructions repo; INLINE on consuming repos).** The §2.6 audit block is authored to a GITIGNORED receipt at `.github/pr-quality-gate/audits/last.md` ONLY in this instructions repo, where the audit machinery + hooks live (see `comment-protocol.md` §Persisted audit record). The agent NEVER stages it (`git add` refuses the gitignored receipt); the `post-commit` hook flushes it into the commit's git note and deletes it. The receipt MUST be authored for every commit including no-comment / meta-change commits (use the zero-count template); a missing receipt = failure of this step (the `pre-push` note gate blocks the push). On **consuming repos**: DO NOT create the receipt; tracking happens inline via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (per `pre-commit.md`).
+**Persisted audit record (HARD GATE here; INLINE on consuming repos).** In this instructions repo the §2.6 block is authored to a GITIGNORED receipt at `.github/pr-quality-gate/audits/last.md` (where the audit machinery + hooks live; see `comment-protocol.md` §Persisted audit record). The agent NEVER stages it (`git add` refuses the gitignored receipt); the `post-commit` hook flushes it into the commit's git note and deletes it. Author it for EVERY commit including no-comment / meta-change commits (zero-count template); a missing receipt = failure of this step (the `pre-push` note gate blocks the push). Consuming repos: DO NOT create the receipt - track inline via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (`pre-commit.md`).
 
 **Throwaway-marker exception** (per `design-exploration.md` / `performance-comparison.md`): canonical `THROWAWAY: <prototype-name>` header on a comment-capable file under `prototypes/<name>/` -> record as `approval_turn: n/a - exempt: THROWAWAY-header`.
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 
-Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE proceeding to step 3 (panel) or staging gate artifacts / `git commit` (under the inverted model the user stages code; the agent never auto-stages it). This is the post-code-change equivalent of the pre-commit `core_rules_acknowledged` requirement. **Schema and verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - that section defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.).
+Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE step 3 (panel) or staging gate artifacts / `git commit` (the user stages code; the agent never auto-stages it). **Schema + verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - it defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.).
 
-**Chat emission**: use the compressed KV v1 form per `review-workflow-gates-sweeps.md` §2B "Chat-emission form". The `pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, and `playbook-invocations` sub-blocks stay in their existing structured form below the KV line (catalog rules parse their dot-paths). The `delta-g-sweeps` sites appendix and `comment-audit` per-site appendix are emitted in chat only when their count>0 (in this instructions repo the receipt holds the full detail). Canonical/full form (below) is written to the gitignored receipt (flushed to a git note by `post-commit`):
+**Chat emission**: the compressed KV v1 form per `review-workflow-gates-sweeps.md` §2B "Chat-emission form". The `pre-impl-trigger-detections` / `pre-impl-playbook-decisions` / `playbook-invocations` sub-blocks stay structured below the KV line (catalog rules parse their dot-paths). `delta-g-sweeps` + `comment-audit` appendices emit in chat only when count>0 (the receipt holds full detail). Canonical/full form (below) goes to the gitignored receipt (flushed to a git note by `post-commit`):
 
 ```
 POST-CODE-CHANGE LEDGER
@@ -186,7 +186,7 @@ POST-CODE-CHANGE LEDGER
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|commit="Guard against null tag list in filter dropdown"|files=2(+31/-6)
-gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
 appendix=none
 ```
 
@@ -210,6 +210,17 @@ The DRY chat/gate emission grammar for `core_rules_acknowledged`, referenced by 
 - **keep_reason** REQUIRED iff `disp:keep`; MUST add information beyond the comment text. **na_reason** REQUIRED for `status:na`; 3-30 words, >=1 repo/code-specific token, NOT in {na,n/a,skip,none,unknown,false-positive,not-applicable} (anti-tautology; mirrors the canonical `rationale`).
 - **divergence_acknowledged:"<reason>"** REQUIRED iff C<N (fewer cited sites than the rg battery found); <=50 words citing a specific external factor per the canonical divergence meta-rule; logged to `panel-misses.csv.divergence_override_history`. A multi-disposition slug emits ONE line per disposition group (all `status:applied`, the SAME N on each); when SUM(lineC across the slug's lines) < N the `divergence_acknowledged` is appended to the LAST disposition-group line for that slug.
 - **rename/extract/restore** detail diffs (`rename_diff`/`extract_diff`/`restore_diff`) live in the canonical/audit-file form only; the caveman form cites the site + disposition (recoverable per the P5 model).
+
+### 2.8 IMPLEMENTATION_READY self-checkpoint - emit BEFORE the panel
+
+When implementation is complete (hygiene + audits above done), BEFORE the panel emit:
+
+```
+IMPLEMENTATION CHECKPOINT
+status=complete | design_ready=yes | design_ready_ref=phase-state-pre-implementation-<ts> | diff_matches_design=<yes | diverged:"<what+why>"> | build=<passed|N/A:reason> | tests=<passed,N/total|N/A:reason> | next_action=run-code-review-panel
+```
+
+SELF-attested. `design_ready` affirms the DESIGN panel converged before code; `design_ready_ref` cites the design phase-state (`phase-state-convention.md`). `diff_matches_design` is a DISCLOSURE carried into the panel. Summary-only NOT inherited; task/scope approval is NOT phase-gate approval. Git-time backstop: the `implementation-checkpoint:` LEDGER sub-block (§2B), validated iff the design panel ran - a CO-PRESENCE check (skip-resistant, not skip-proof); also record `phase-state-implementation-<ts>`.
 
 ### 3. Multi-model reviewer panel (via `multi-model-review.md`)
 
