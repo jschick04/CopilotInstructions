@@ -87,7 +87,7 @@ Never write to a file before the user has approved the content.
 
 | Tier | Behavior |
 | --- | --- |
-| **Strong trigger** (user requests a durable artifact - *"design spec for…"*, *"draft an ADO task for…"*) | Agent immediately offers the playbook via `ask_user`: *"this looks like a design-spec ask - want me to run that playbook?"*. If declined, do not re-offer in the same thread unless the ask materially changes. |
+| **Strong trigger** (user requests a durable artifact - *"design spec for..."*, *"draft an ADO task for..."*) | Agent immediately offers the playbook via `ask_user`: *"this looks like a design-spec ask - want me to run that playbook?"*. If declined, do not re-offer in the same thread unless the ask materially changes. |
 | **Weak trigger** (exploratory factual question - *"how does X work?"*, *"what do we have in prod for X?"* asked casually) | Agent does NOT block. Optionally adds a single non-blocking sentence: *"I can answer directly, or run the design-spec playbook for a more formal write-up - which do you prefer?"*. |
 | **Phase trigger** (workflow-state-driven, e.g. user just approved a diff) | Agent enters the phase, fetches the playbook, runs intake. **Fail-closed on fetch failure** (per `AGENTS.md` *Fail-closed rule for on-demand playbook fetch*): retry the fetch once for transient errors; if it still fails, ask the user via `ask_user` how to proceed; record an explicit user skip per the User-skip policy ONLY if the user explicitly authorizes one. Do NOT retry more than once without user input. The abbreviated hard-gate checklist in `AGENTS.md` confirms the gate; it does NOT substitute for the playbook procedure. |
 

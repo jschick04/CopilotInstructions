@@ -1,4 +1,4 @@
-# smart-punctuation-allowlist: files permitted to still contain em-dash (U+2014) / en-dash (U+2013).
+# smart-punctuation-allowlist: files permitted to still contain banned smart punctuation (the AGENTS.md 3.14 set: em/en-dash, horizontal bar, curly quotes, ellipsis).
 # Enforced by scripts/check-no-smart-punctuation.ps1. The AGENTS.md 3.14 ban is enforced repo-wide;
 # this allowlist is normally EMPTY. Add a path ONLY as a justified temporary exception (e.g. a vendored
 # file); the gate FAILS if a listed file is already CLEAN, so de-list a file in the same change that purges it.

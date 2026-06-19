@@ -22,12 +22,12 @@ Generate Azure DevOps work-item content at planning time - both a structured mar
 
 Triggered when the user is asking to **draft a NEW work item or its content** - phrases like:
 
-- *"I need to write an ADO task for…"*
-- *"create the deliverables for…"*
-- *"draft / propose / write acceptance criteria for…"* (note: purely factual questions about EXISTING acceptance criteria - e.g. *"what acceptance criteria does the parent feature use?"* / *"what's our team's definition of done?"* - are NOT strong; phrasings using *"should be"* are drafting requests and ARE strong)
-- *"draft an ADO work item for…"*
-- *"plan out an ADO task / story / feature for…"*
-- *"write up an ADO bug for…"*
+- *"I need to write an ADO task for..."*
+- *"create the deliverables for..."*
+- *"draft / propose / write acceptance criteria for..."* (note: purely factual questions about EXISTING acceptance criteria - e.g. *"what acceptance criteria does the parent feature use?"* / *"what's our team's definition of done?"* - are NOT strong; phrasings using *"should be"* are drafting requests and ARE strong)
+- *"draft an ADO work item for..."*
+- *"plan out an ADO task / story / feature for..."*
+- *"write up an ADO bug for..."*
 
 The semantic discriminator (artifact-requested vs exploratory-question, including the bare-*"review"*/*"audit"* and ambiguous-artifact-adjacent rules) is canonical per `AGENTS.md` *Trigger detection - strong vs weak*. The phrases above are illustrative - they help readers recognize the shape of an ADO drafting ask but are not exhaustive and do not override the discriminator.
 

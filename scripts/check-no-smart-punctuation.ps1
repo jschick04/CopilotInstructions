@@ -1,5 +1,5 @@
 <#
-  check-no-smart-punctuation.ps1 - enforce the AGENTS.md 3.14 ban on em-dash (U+2014) / en-dash (U+2013) in repo text.
+  check-no-smart-punctuation.ps1 - enforce the AGENTS.md 3.14 ban on smart punctuation (em/en-dash, horizontal bar, curly single/double quotes, ellipsis) in repo text.
 
   An exception allowlist (.github/pr-quality-gate/data/smart-punctuation-allowlist.txt) lists files permitted to
   retain a banned char; it is normally EMPTY (the ban is enforced repo-wide). Fail-closed in BOTH
@@ -28,8 +28,8 @@ $script:ExitOk = 0
 $script:ExitViolation = 1
 $script:ExitInvocation = 2
 
-# Banned set (AGENTS.md 3.14 dashes): em-dash U+2014, en-dash U+2013. Expressed as escapes so this file stays ASCII.
-$bannedPattern = "[\u2014\u2013]"
+# Banned set (AGENTS.md 3.14 smart punctuation): em/en-dash U+2013-2014, horizontal bar U+2015, curly single/double quotes U+2018-2019 / U+201C-201D, ellipsis U+2026. Expressed as escapes so this file stays ASCII.
+$bannedPattern = "[\u2013\u2014\u2015\u2018\u2019\u201C\u201D\u2026]"
 $allowlistPath = Join-Path $RepoRoot '.github/pr-quality-gate/data/smart-punctuation-allowlist.txt'
 
 if (-not (Test-Path -LiteralPath $allowlistPath)) {
@@ -64,7 +64,7 @@ foreach ($rel in $tracked) {
 
     if ($hasBanned -and -not $inAllow) {
         $count = ([regex]::Matches($content, $bannedPattern)).Count
-        $violations.Add("${rel}: $count em/en-dash character(s) - banned by AGENTS.md 3.14 (use ASCII '-', or a Unicode escape / [char]0x2014 in code that must match the literal)")
+        $violations.Add("${rel}: $count smart-punctuation character(s) - banned by AGENTS.md 3.14 (use the ASCII equivalent: '-', straight quotes, or '...'; or a Unicode escape / [char]0xXXXX in code that must match the literal)")
     }
     elseif ((-not $hasBanned) -and $inAllow) {
         $stale.Add("${rel}: allowlisted but already CLEAN - remove this line from smart-punctuation-allowlist.txt (allowlist hygiene: de-list cleaned files)")
@@ -79,7 +79,7 @@ foreach ($entry in $allow) {
 }
 
 if ($violations.Count -gt 0) {
-    Write-Host "check-no-smart-punctuation: $($violations.Count) file(s) with banned em/en-dashes OUTSIDE the allowlist:" -ForegroundColor Red
+    Write-Host "check-no-smart-punctuation: $($violations.Count) file(s) with banned smart punctuation OUTSIDE the allowlist:" -ForegroundColor Red
     $violations | ForEach-Object { Write-Host "  ::error::$_" }
 }
 if ($stale.Count -gt 0) {
@@ -89,5 +89,5 @@ if ($stale.Count -gt 0) {
 
 if (($violations.Count + $stale.Count) -gt 0) { exit $script:ExitViolation }
 
-Write-Host "check-no-smart-punctuation: PASS - no em/en-dashes outside the allowlist ($($allow.Count) exception path(s))." -ForegroundColor Green
+Write-Host "check-no-smart-punctuation: PASS - no banned smart punctuation outside the allowlist ($($allow.Count) exception path(s))." -ForegroundColor Green
 exit $script:ExitOk

@@ -81,7 +81,7 @@ Examples of rename-first wins:
 - *"This method does X for Y reason"* → method name describes X-for-Y.
 - *"This flag is true when Z"* → flag named `IsZ` / `HasZ`.
 - A multi-line comment narrating a code block → extract block into a named helper; let the helper name carry the intent.
-- *"We're about to clear the buffer because…"* → if the *because* is the load-bearing fact, the next line probably needs a better name or a small refactor; the comment is the symptom.
+- *"We're about to clear the buffer because..."* → if the *because* is the load-bearing fact, the next line probably needs a better name or a small refactor; the comment is the symptom.
 
 Do this pass on **every** new comment, not just borderline ones.
 

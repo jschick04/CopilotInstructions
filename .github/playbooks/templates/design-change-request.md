@@ -140,7 +140,7 @@ Affected teams, services, downstream consumers, perf, cost, security, compliance
 
 ### 10. Acceptance Criteria
 
-Bullet list of "done means…" - testable conditions.
+Bullet list of "done means..." - testable conditions.
 
 - `<testable criterion 1>`
 - `<testable criterion 2>`
