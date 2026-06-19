@@ -48,8 +48,8 @@ Floor is verified from the slate enumeration. Mid-launch substitutions are allow
 
 | convergence_model | rule | use |
 |---|---|---|
-| `unanimous` (DEFAULT for `full`) | all reviewers must return `CODE_REVIEW_READY` (or all `NEEDS_REWORK`) | strict - no findings ship without all-reviewer agreement |
-| `threshold-N%` (waive floor) | ≥ N% of reviewers must converge on verdict; floor `N=75` | acceptable when ≥75% agree on CODE_REVIEW_READY |
+| `unanimous` (DEFAULT for `full`) | all reviewers must return the success verdict (`DESIGN_READY` pre-implementation / `CODE_REVIEW_READY` pre-PR) (or all `NEEDS_REWORK`) | strict - no findings ship without all-reviewer agreement |
+| `threshold-N%` (waive floor) | ≥ N% of reviewers must converge on verdict; floor `N=75` | acceptable when ≥75% agree on the success verdict |
 | `confidence-weighted-N%` (waive floor) | ≥ N% confidence-weighted sum; floor `N=80` | accounts for reviewer confidence per finding |
 | `single-reviewer` (MANDATORY for `triage`) | single reviewer's verdict is the panel verdict | distinguishes from `unanimous` in audit trail (Slot 1 NB-V2 / Slot 4 D) |
 
@@ -92,11 +92,11 @@ For EACH external-reviewer finding on a PR with a converged pre-PR panel:
 
 ## Iteration discipline (panel re-convergence) - MANDATORY
 
-When a panel returns any verdict other than `unanimous CODE_REVIEW_READY`, the agent MUST iterate:
+When a panel returns any verdict other than its unanimous success verdict, the agent MUST iterate:
 
 1. **Revise the plan / code** addressing every finding (or explicitly document why a finding is set aside with rationale).
 2. **Re-launch the SAME panel slate** (same composition; substitutions allowed per the floor rules) on the revised work.
-3. **Repeat until `unanimous CODE_REVIEW_READY`** (or until the `fix_iteration_count` cap is reached - see below).
+3. **Repeat until the panel reaches its unanimous success verdict** (or until the `fix_iteration_count` cap is reached - see below).
 
 The agent MUST NOT:
 

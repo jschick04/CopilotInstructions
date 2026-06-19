@@ -189,7 +189,7 @@ POST-CODE-CHANGE LEDGER
     commit-message-approved: <PENDING | yes (ask_user turn ...)>
 ```
 
-Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `DESIGN PANEL CONVERGED` copies.
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `CODE-REVIEW PANEL CONVERGED` copies.
 
 ### Chat-emission form (compressed KV v1)
 
