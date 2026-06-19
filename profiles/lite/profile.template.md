@@ -12,4 +12,4 @@ Parameterizes the review workflow for reduced token usage (personal / paid-token
 - Output: minimal (most compact KV forms; suppress optional narration). High-risk gate blocks use their caveman chat-emission forms (structure collapsed, all forcing functions intact).
 - Safety-critical and governance/instruction artifacts: full slate always; never any fast-path (same on both profiles).
 - A mode below this profile's floor (`triage`, `lint-only`) requires that mode's ask_user receipt; `lite` mode at floor needs none (the install-time `-Profile lite` is the standing choice).
-- Emit `profile=lite` in the POST-CODE-CHANGE LEDGER, PRE-COMMIT GATE PASSED, and PANEL CONVERGED blocks.
+- Emit `profile=lite` in the POST-CODE-CHANGE LEDGER, PRE-COMMIT GATE PASSED, and CODE-REVIEW PANEL CONVERGED blocks.

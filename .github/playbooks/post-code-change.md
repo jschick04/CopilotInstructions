@@ -158,9 +158,9 @@ POST-CODE-CHANGE LEDGER
   tests_run: <result summary or n/a>
   # ... plus every gate row from review-workflow-gates-sweeps.md §2B, including:
   pre-code-change-panel: ran, unanimous          # OR user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>. tier>=1: N/A rejected; tier 2 (safety-critical path): ran ONLY.
-  # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict READY_TO_IMPLEMENT. Header bare; exactly-1 `- findings:` line; <...> fail closed.
+  # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict DESIGN_READY. Header bare; exactly-1 `- findings:` line; <...> fail closed.
   pre-panel-transcript:
-    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
     - findings: <one-line pre-panel summary of what the panel caught and how it was resolved>
   diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>   # author-asserted; shape-checked only
   approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
@@ -168,9 +168,9 @@ POST-CODE-CHANGE LEDGER
   post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>; tier 2 (safety-critical): ran ONLY
   # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare. Exactly-1 `- findings:` line (whole-value <...> fails closed).
   panel-transcript:
-    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n>
     - findings: <one-line post-panel summary of what the panel caught and how it was resolved>
-    # one line per reviewer; full-slate floor (always, in this instructions repo): >= 4 distinct slots, >= 1 claude, >= 2 gpt, >= 1 gemini, >= 1 rubber-duck, >= 2 code-review, >= 1 heavy; every verdict READY; rounds >= 1. See review-workflow-gates-sweeps.md §2B.
+    # one line per reviewer; full-slate floor (always, in this instructions repo): >= 4 distinct slots, >= 1 claude, >= 2 gpt, >= 1 gemini, >= 1 rubber-duck, >= 2 code-review, >= 1 heavy; every verdict CODE_REVIEW_READY; rounds >= 1. See review-workflow-gates-sweeps.md §2B.
   core_rules_acknowledged:
     - slug: <string>
       status: <applied | not-applicable>
@@ -198,7 +198,7 @@ The pre-commit gate (step 4 in `pre-commit.md`) consumes `core_rules_acknowledge
 
 ### core_rules_acknowledged - chat-emission form (caveman)
 
-The DRY chat/gate emission grammar for `core_rules_acknowledged`, referenced by `pre-commit.md` (PRE-COMMIT GATE PASSED), `panel-policy.md` §Per-rule acknowledgement (PANEL CONVERGED + every panel verdict), and this LEDGER. The canonical YAML in `panel-policy.md` §Per-rule acknowledgement is the audit-file form; chat emits this compressed one-line-per-(slug x disposition-group) form. Every forcing function of the canonical schema (per-site enumeration, the rg-count cross-check, the keep/na anti-tautology) is preserved - only the YAML structure is collapsed.
+The DRY chat/gate emission grammar for `core_rules_acknowledged`, referenced by `pre-commit.md` (PRE-COMMIT GATE PASSED), `panel-policy.md` §Per-rule acknowledgement (CODE-REVIEW PANEL CONVERGED + every panel verdict), and this LEDGER. The canonical YAML in `panel-policy.md` §Per-rule acknowledgement is the audit-file form; chat emits this compressed one-line-per-(slug x disposition-group) form. Every forcing function of the canonical schema (per-site enumeration, the rg-count cross-check, the keep/na anti-tautology) is preserved - only the YAML structure is collapsed.
 
 ```
 - slug:<slug> status:applied sites:<site[,site,...]> metric:rg=<C/N> disp:<rename|extract|remove|restore|keep> [keep_reason:"<rationale>"] [divergence_acknowledged:"<reason>"]

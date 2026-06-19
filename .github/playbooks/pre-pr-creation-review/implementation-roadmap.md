@@ -9,7 +9,7 @@ Deferred features (ranked by priority):
 3. **Branch-level fix-iteration cap**: ship trigger: branch >= 3 fix-iterations, OR manual escalation bypassed.
 4. **Compaction format with citation preservation**: ship trigger: heavy panel re-raises disposed theme (dedup loss), OR per-commit-panel output > 50K tokens.
 5. **Forge-agnostic state field**: ship trigger: §2D invoked on non-GitHub forge AND inline commands fail, OR inline forge enumeration >= 5 entries.
-6. **Slate-floor automated re-check**: ship trigger: slate-floor break detected at synthesis, OR READY emitted with uncaught violation.
+6. **Slate-floor automated re-check**: ship trigger: slate-floor break detected at synthesis, OR CODE_REVIEW_READY emitted with uncaught violation.
 7. **Same-state re-check infrastructure**: ship trigger: READY-re-emitted but actual branch state differs from `panelHeadSha`, OR Step 9 same-state check false-negative.
 
 Ship triggers are not exhaustive; maintainer prioritization can promote any item.
@@ -153,7 +153,7 @@ Categories (summary): 1. Bugs/logic errors, 2. Security, 3. Argument/input valid
 
 **Tooling discipline**: read-only inspection only. No `ask_user`, no file modifications, no sub-agents.
 
-**REQUIRED final line**: `VERDICT: <READY_TO_IMPLEMENT | NEEDS_ANOTHER_ROUND>`
+**REQUIRED final line**: `VERDICT: <DESIGN_READY | NEEDS_ANOTHER_ROUND>`
 
 ## Procedure
 

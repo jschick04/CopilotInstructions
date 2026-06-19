@@ -68,7 +68,7 @@ A panel only satisfies a gate for the **exact artifact it reviewed**. When the a
 Before any implementation tool call that follows a panel, the agent MUST emit a literal certification block in the conversation. The certification block has this exact shape:
 
 ```
-PANEL CONVERGED
+DESIGN PANEL CONVERGED
   artifact: <path or description, e.g. plan.md>
   artifact-hash: <SHA256 of artifact content, first 8 chars>
   artifact-bytes: <byte count>
@@ -83,7 +83,7 @@ The certification block:
 2. Is invalid if the artifact changes after emission - agent must re-panel on the changed artifact and emit a new certification.
 3. Sub-decision panels (single library placement, single naming choice, etc.) do NOT satisfy a plan-level gate. They certify ONLY the sub-decision; the plan-level gate is separate and requires its own certification.
 
-**Lite trivial fast-path cert.** When the lite profile's trivial fast-path applies (§1 Profile-aware fast-path), the single `triage` reviewer's result IS the artifact-binding certification: emit the `PANEL CONVERGED` block with `convergence_model: single-reviewer` and `unanimous: yes` (1 of 1 reviewer SOUND is structurally unanimous), bound to the artifact hash + base/head SHA, citing the `triage-acknowledged` receipt. It satisfies §1A/§1B for THAT change only, and never for safety-critical or governance/instruction artifacts (those always take the full slate on both profiles).
+**Lite trivial fast-path cert.** When the lite profile's trivial fast-path applies (§1 Profile-aware fast-path), the single `triage` reviewer's result IS the artifact-binding certification: emit the `DESIGN PANEL CONVERGED` block with `convergence_model: single-reviewer` and `unanimous: yes` (1 of 1 reviewer SOUND is structurally unanimous), bound to the artifact hash + base/head SHA, citing the `triage-acknowledged` receipt. It satisfies §1A/§1B for THAT change only, and never for safety-critical or governance/instruction artifacts (those always take the full slate on both profiles).
 
 ### Sub-decision vs full-plan distinction
 
@@ -132,7 +132,7 @@ A general rule like "no implementation until panel ran" leaves room for the agen
 
 The most common silent-skip path: the agent emits an `exit_plan_mode` plan summary, the user approves it (or the runtime returns "Plan approved! Proceed with implementing the plan"), and the agent treats that as satisfying §1A. **This is wrong.**
 
-`exit_plan_mode` is a runtime convenience for user-facing plan presentation. It is NOT a panel run. The user's approval of the summary is approval of scope, not approval of design. Per §1A, only a multi-model panel that reviewed the exact artifact AND emitted the `PANEL CONVERGED` block in the current turn satisfies the gate.
+`exit_plan_mode` is a runtime convenience for user-facing plan presentation. It is NOT a panel run. The user's approval of the summary is approval of scope, not approval of design. Per §1A, only a multi-model panel that reviewed the exact artifact AND emitted the `DESIGN PANEL CONVERGED` block in the current turn satisfies the gate.
 
 If the agent has:
 
@@ -141,13 +141,13 @@ If the agent has:
 - received a "proceed with implementation" directive from the runtime, OR
 - had its `exit_plan_mode` accepted with `autopilot` / `autopilot_fleet`
 
-...but has NOT run the panel and emitted `PANEL CONVERGED` in the current turn, implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
+...but has NOT run the panel and emitted `DESIGN PANEL CONVERGED` in the current turn, implementation tools remain forbidden per §1B. User scope-approval is a necessary but not sufficient condition; the panel pass is the other necessary condition. The two conditions are independent and BOTH must be satisfied before §1B tools may run.
 
 The skip-escalation in §1 (the "user explicitly directed immediate implementation" justification) requires both (a) an explicit `ask_user` whose body contains the phrase "skip the panel" or equivalent unambiguous skip-the-review directive, AND (b) recording the skip in the session state per the §1 skip-escalation rule. A generic "approved" / "proceed" / "exit plan mode" response is NOT a panel-skip directive - it's scope approval.
 
 ### Instruction-repo edits are §1B tool calls (no exemption for "meta-work")
 
-Editing files in the instruction repository - `.github/playbooks/**/*.md`, `.github/instructions/**/*.instructions.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/playbooks/manifest.yaml`, or any other governance / instruction artifact in this repo or downstream repos that consume it - is **explicitly a §1B tool call** subject to the same `PANEL CONVERGED` certification as code-repo edits. The §1B enumeration above already says "any file edit, including instruction files and configuration" - this subsection exists to defeat the rationalization that instruction edits are "meta-work" or "small tweaks" or "plan-level work" exempt from the gate.
+Editing files in the instruction repository - `.github/playbooks/**/*.md`, `.github/instructions/**/*.instructions.md`, `AGENTS.md`, `.github/copilot-instructions.md`, `.github/playbooks/manifest.yaml`, or any other governance / instruction artifact in this repo or downstream repos that consume it - is **explicitly a §1B tool call** subject to the same `DESIGN PANEL CONVERGED` certification as code-repo edits. The §1B enumeration above already says "any file edit, including instruction files and configuration" - this subsection exists to defeat the rationalization that instruction edits are "meta-work" or "small tweaks" or "plan-level work" exempt from the gate.
 
 Meta-changes to the instruction set carry **higher** long-term risk than code changes: bad code is reverted in one commit; bad instructions corrupt future agent behavior across many sessions until someone notices and reverts. The required certification scrutiny is the same or higher for instruction edits, not lower.
 
@@ -171,7 +171,7 @@ Editing the session plan file (`plan.md` in the session-state folder) BEFORE the
 
 ### Project (non-instruction) repos: the user reviews by STAGING (HARD GATE)
 
-After a `PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But the agent does NOT stage project code.** Under the inverted staging model (`AGENTS.md` §0 + `pre-commit.md`), the USER reviews by STAGING each file; staged content is the user's reviewed scope, and the agent commits only what the user staged.
+After a `DESIGN PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But the agent does NOT stage project code.** Under the inverted staging model (`AGENTS.md` §0 + `pre-commit.md`), the USER reviews by STAGING each file; staged content is the user's reviewed scope, and the agent commits only what the user staged.
 
 This gate is asymmetric between repo types, but ONLY for the working-tree review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA working-tree review (the panel already reviewed the change); it does NOT waive §0.
 

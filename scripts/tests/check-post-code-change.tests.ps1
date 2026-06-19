@@ -188,11 +188,11 @@ function Test-TranscriptValid {
     return (Test-PanelLedger -LedgerLines (New-LedgerWithTranscript $Transcript) -ExpectedParentSha $tParent -GovernanceTier 1).Valid
 }
 $HDR = '    panel-transcript:'
-$duckC = '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:READY rounds:2'
-$crC   = '      - slot:crc model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:READY rounds:2'
-$crG1  = '      - slot:crg1 model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:READY rounds:2'
-$crG2  = '      - slot:crg2 model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:READY rounds:2'
-$crGem = '      - slot:crgem model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:READY rounds:2'
+$duckC = '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:CODE_REVIEW_READY rounds:2'
+$crC   = '      - slot:crc model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2'
+$crG1  = '      - slot:crg1 model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2'
+$crG2  = '      - slot:crg2 model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2'
+$crGem = '      - slot:crgem model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2'
 $find  = '      - findings: closed a fail-open and tightened a regex'
 
 Assert-True  (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find)) 'valid full slate (2 DISTINCT GPT models) + findings -> valid (distinct-by-slot does not false-reject the happy path)'
@@ -201,9 +201,9 @@ Assert-False (Test-TranscriptValid @($HDR, $find)) 'panel-transcript header + fi
 Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $find)) 'transcript missing the Gemini family -> INVALID'
 Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crGem, $find)) 'transcript with only 1 GPT reviewer -> INVALID (full floor needs >= 2 GPT)'
 Assert-False (Test-TranscriptValid @($HDR, $duckC, $crG1, $crGem, $find)) 'transcript with only 1 code-review (and 3 reviewers) -> INVALID'
-$dup = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find, ($crG2 -replace 'verdict:READY', 'verdict:NEEDS_REWORK'))
+$dup = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find, ($crG2 -replace 'verdict:CODE_REVIEW_READY', 'verdict:NEEDS_REWORK'))
 Assert-False (Test-TranscriptValid $dup) 'duplicate reviewer slot (a dup carrying NEEDS_REWORK cannot be masked) -> INVALID'
-$rework = @($HDR, $duckC, $crC, $crG1, $crG2, ($crGem -replace 'verdict:READY', 'verdict:NEEDS_REWORK'), $find)
+$rework = @($HDR, $duckC, $crC, $crG1, $crG2, ($crGem -replace 'verdict:CODE_REVIEW_READY', 'verdict:NEEDS_REWORK'), $find)
 Assert-False (Test-TranscriptValid $rework) 'a NEEDS_REWORK verdict (floor path, not grammar) -> INVALID (panel not converged)'
 $rounds0 = @($HDR, ($duckC -replace 'rounds:2', 'rounds:0'), $crC, $crG1, $crG2, $crGem, $find)
 Assert-False (Test-TranscriptValid $rounds0) 'rounds:0 -> INVALID (>= 1 required, distinct from malformed)'
@@ -211,7 +211,7 @@ $bigRounds = @($HDR, ($duckC -replace 'rounds:2', 'rounds:1000'), $crC, $crG1, $
 Assert-False (Test-TranscriptValid $bigRounds) 'rounds:1000 (4 digits) -> INVALID (malformed; bounded so no [int] overflow)'
 $allLight = @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find) -replace 'tier:heavy', 'tier:light'
 Assert-False (Test-TranscriptValid $allLight) 'all light-tier slate -> INVALID (full floor needs >= 1 heavy)'
-$malformed = @($HDR, $duckC, $crC, $crG1, $crG2, $find, '      - slot:x family:gpt role:code-review verdict:READY')
+$malformed = @($HDR, $duckC, $crC, $crG1, $crG2, $find, '      - slot:x family:gpt role:code-review verdict:CODE_REVIEW_READY')
 Assert-False (Test-TranscriptValid $malformed) 'a malformed reviewer line (missing fields) -> INVALID'
 Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem)) 'full slate but NO findings line -> INVALID (exactly-1 findings required)'
 Assert-False (Test-TranscriptValid @($HDR, $duckC, $crC, $crG1, $crG2, $crGem, $find, ($find -replace 'closed', 'also'))) 'TWO findings lines -> INVALID (exactly-1)'
@@ -331,8 +331,8 @@ Assert-False (Drop 'approach-selection-G3' 1) 'approach-selection-G3 missing @ t
 Assert-False (Drop 'pre-code-change-panel' 1) 'pre-code-change-panel missing @ tier1 -> INVALID'
 Assert-True  (Drop 'diagnosis-repro-ref' 0) 'diagnosis-repro-ref missing @ tier0 -> ok (not required)'
 Assert-False (Test-PanelLedger -LedgerLines (@(New-Ledger -PrePanel $WV) | Where-Object { $_ -notmatch '^\s*safety-critical-eval-G5:' }) -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'G5 required even when pre-panel is waived -> INVALID'
-$preWrongVerdict = @(New-Ledger) | ForEach-Object { $_ -replace 'READY_TO_IMPLEMENT', 'READY' }
-Assert-False (Test-PanelLedger -LedgerLines $preWrongVerdict -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'pre-transcript with READY (not READY_TO_IMPLEMENT) -> INVALID'
+$preWrongVerdict = @(New-Ledger) | ForEach-Object { $_ -replace 'DESIGN_READY', 'CODE_REVIEW_READY' }
+Assert-False (Test-PanelLedger -LedgerLines $preWrongVerdict -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1).Valid 'pre-transcript with CODE_REVIEW_READY (not DESIGN_READY) -> INVALID'
 
 Write-Host ""
 Write-Host "=== G6 sub-line validation (MF7: both trigger directions) ===" -ForegroundColor Cyan
@@ -611,6 +611,28 @@ finally {
     Set-Location $PSScriptRoot
     Remove-Item -LiteralPath $tmp7 -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+Write-Host ""
+Write-Host "=== D2 structural sweep: panel-tag rename completeness (stale + double-rename guard) ===" -ForegroundColor Cyan
+$sweepRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$sweepPaths = @('AGENTS.md', 'README.md', 'scripts', '.github', 'profiles', ':!scripts/tests/check-post-code-change.tests.ps1')
+function Get-SweepCount {
+    param([Parameter(Mandatory)][string] $Pattern)
+    Push-Location $sweepRoot
+    try {
+        $hits = & git grep -I -o -h -E $Pattern -- @sweepPaths 2>$null
+        return @($hits | Where-Object { $_ }).Count
+    } finally { Pop-Location }
+}
+Assert-Equal 0 (Get-SweepCount 'READY_TO_IMPLEMENT') 'sweep: 0 stale READY_TO_IMPLEMENT (all renamed to DESIGN_READY)'
+Assert-Equal 0 (Get-SweepCount 'CODE_REVIEW_READY_TO_IMPLEMENT') 'sweep: 0 double-rename CODE_REVIEW_READY_TO_IMPLEMENT (bare-READY-before-long order)'
+Assert-Equal 0 (Get-SweepCount 'DESIGN_CODE_REVIEW_READY') 'sweep: 0 double-rename DESIGN_CODE_REVIEW_READY (bare-READY-after-long order)'
+Assert-Equal 0 (Get-SweepCount 'DESIGN_DESIGN_READY') 'sweep: 0 double-rename DESIGN_DESIGN_READY'
+Assert-Equal 0 (Get-SweepCount 'CODE_REVIEW_CODE_REVIEW_READY') 'sweep: 0 double-rename CODE_REVIEW_CODE_REVIEW_READY'
+Assert-Equal 0 (Get-SweepCount 'verdict:READY\b') 'sweep: 0 stale verdict:READY (all renamed to verdict:CODE_REVIEW_READY)'
+$pcTotal = Get-SweepCount 'PANEL CONVERGED'
+$pcPrefixed = Get-SweepCount '(DESIGN|CODE-REVIEW) PANEL CONVERGED'
+Assert-Equal $pcTotal $pcPrefixed "sweep: every PANEL CONVERGED is phase-prefixed (total=$pcTotal prefixed=$pcPrefixed; 0 bare)"
 
 Write-Host ""
 Write-Host "===================================" -ForegroundColor Cyan

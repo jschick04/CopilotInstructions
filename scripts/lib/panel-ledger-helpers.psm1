@@ -138,8 +138,8 @@ function Test-Transcript {
         [hashtable] $Floor,
         [string] $ErrorPrefix
     )
-    if (@('READY', 'READY_TO_IMPLEMENT') -notcontains $ReadyVerdict) {
-        throw "Test-Transcript: -ReadyVerdict must be READY or READY_TO_IMPLEMENT (got '$ReadyVerdict')"
+    if (@('CODE_REVIEW_READY', 'DESIGN_READY') -notcontains $ReadyVerdict) {
+        throw "Test-Transcript: -ReadyVerdict must be CODE_REVIEW_READY or DESIGN_READY (got '$ReadyVerdict')"
     }
     if (-not $Floor) { $Floor = $script:PanelSlateFloor }
     if (-not $ErrorPrefix) { $ErrorPrefix = $HeaderName }
@@ -231,13 +231,13 @@ function Test-Transcript {
 function Test-PanelTranscript {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines)
-    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'panel-transcript' -ReadyVerdict 'READY' -ErrorPrefix "post-code-change-panel is 'ran, unanimous'"
+    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'panel-transcript' -ReadyVerdict 'CODE_REVIEW_READY' -ErrorPrefix "post-code-change-panel is 'ran, unanimous'"
 }
 
 function Test-PrePanelTranscript {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines)
-    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'pre-panel-transcript' -ReadyVerdict 'READY_TO_IMPLEMENT' -ErrorPrefix "pre-code-change-panel is 'ran, unanimous'"
+    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'pre-panel-transcript' -ReadyVerdict 'DESIGN_READY' -ErrorPrefix "pre-code-change-panel is 'ran, unanimous'"
 }
 
 function Test-LedgerDisclosureRow {

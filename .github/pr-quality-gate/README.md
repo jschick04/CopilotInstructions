@@ -9,7 +9,7 @@ Reduce the ~1500-line playbook/catalog/FP/schema/Step 2.5/Deltas surface to ~400
 ## What's preserved (hard requirements)
 
 - **§1B forbidden-tools gate** (PR-creation, draft-state mutation) - still gated by a block in current turn
-- **§1A artifact-binding** - `PANEL CONVERGED` block format preserved; slate-mode carve-out added
+- **§1A artifact-binding** - `DESIGN PANEL CONVERGED` block format preserved; slate-mode carve-out added
 - **`PRE-COMMIT GATE PASSED` block** - commit-message + staged-set commit-approval; amended to include preferences compliance check
 - **User commit-approval on the staged set** for project repos - §1B explicitly enforces `commit_approval: present` (the user stages reviewed code; the agent never auto-stages)
 - **Multi-reviewer panel** - auto-invoked for `full` mode (default); `triage` and `lint-only` are user-acknowledged exceptions
@@ -399,7 +399,7 @@ Gate-runner is fast (seconds); panel re-invocation via `invoke-panel.ps1` with f
 
 1. Run `gate-runner.ps1` against a known-noisy PR's HEAD from your own project (first record that PR's baseline historical-finding + false-positive counts so you have something to compare against)
 2. Compare to v4 catalog recall (~89%); v5 rg-battery alone should match or exceed
-3. Run `invoke-panel.ps1 -Mode full` against the same diff; verify multi-panel reviews emit `PANEL CONVERGED` block correctly
+3. Run `invoke-panel.ps1 -Mode full` against the same diff; verify multi-panel reviews emit `CODE-REVIEW PANEL CONVERGED` block correctly
 4. Run `invoke-panel.ps1 -Mode triage`; verify single-reviewer record format
 5. Run `invoke-panel.ps1 -Mode lint-only` (skips panel); verify QUALITY GATE block accepts the slate carve-out
 6. Stress-test file locking: 2 concurrent gate-runner sessions; verify no row corruption
@@ -433,4 +433,4 @@ This README is the design spec; before building the other files, the 4-reviewer 
 - File locking semantics correct
 - Cross-platform portability adequate
 
-Verdict required: 4/4 READY before implementation proceeds.
+Verdict required: 4/4 DESIGN_READY before implementation proceeds.

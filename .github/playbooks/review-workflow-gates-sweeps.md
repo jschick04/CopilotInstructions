@@ -89,9 +89,9 @@ Fetching review comments for 10 PRs is ~20 API calls. Use `gh api --paginate` on
 
 ### The problem
 
-The pre-implementation phase has a single named certification block (`PANEL CONVERGED` per §1A) whose presence is enforced by §1B  -  implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped  -  and the user has no easy way to detect it after the fact.
+The pre-implementation phase has a single named certification block (`DESIGN PANEL CONVERGED` per §1A) whose presence is enforced by §1B  -  implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped  -  and the user has no easy way to detect it after the fact.
 
-This is the failure mode that landed on this branch: `PANEL CONVERGED` was emitted once for the plan; subsequent implementation commits proceeded with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running. The user had previously waived the diff-approval `ask_user` step on an earlier commit; that single-step waiver was implicitly carried forward and treated as a blanket post-code-change waiver on later commits.
+This is the failure mode that landed on this branch: `DESIGN PANEL CONVERGED` was emitted once for the plan; subsequent implementation commits proceeded with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running. The user had previously waived the diff-approval `ask_user` step on an earlier commit; that single-step waiver was implicitly carried forward and treated as a blanket post-code-change waiver on later commits.
 
 ### Rule
 
@@ -121,8 +121,8 @@ POST-CODE-CHANGE LEDGER
     pre-code-change-panel: <ran, unanimous | user-waived: "panel-waive-acknowledged" ref:<call-ref> | N/A: reason>
       # tier>=1: ran|user-waived (N/A rejected). tier 2 (safety-critical path): ran ONLY. N/A only when not panel-required. `<...>` fails closed.
     pre-panel-transcript:
-      # verdict READY_TO_IMPLEMENT; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel. Exactly-1 `- findings:`.
-      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY_TO_IMPLEMENT|NEEDS_REWORK> rounds:<n>
+      # verdict DESIGN_READY; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel. Exactly-1 `- findings:`.
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
       - findings: <one-line pre-panel summary; what was caught + how resolved>
     diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>
       # author-asserted repro REFERENCE; shape-checked only (not a verified lock). Required when tier>=1.
@@ -133,7 +133,7 @@ POST-CODE-CHANGE LEDGER
       # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
       # REQUIRED iff `ran, unanimous`; Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed. Exactly-1 `- findings:`.
-      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<READY|NEEDS_REWORK> rounds:<n>
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n>
       - findings: <one-line post-panel summary; what was caught + how resolved>
     intent-driven-testing-audit: <ran: prospective | ran: retrospective | N/A: <reason>>
       # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
@@ -189,7 +189,7 @@ POST-CODE-CHANGE LEDGER
     commit-message-approved: <PENDING | yes (ask_user turn ...)>
 ```
 
-Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `PANEL CONVERGED` copies.
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `DESIGN PANEL CONVERGED` copies.
 
 ### Chat-emission form (compressed KV v1)
 
@@ -267,7 +267,7 @@ A gate row may be `N/A: <reason>` when:
 
 ### Why this exists
 
-The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git commit` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
+The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `DESIGN PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git commit` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
 
 The ledger is also the audit trail: when a future review (post-merge, retrospective, or PR review on the open PR) discovers that a gate slipped, the ledger explicitly records *which* gate was skipped and *why*. No more reconstructing intent from chat history.
 

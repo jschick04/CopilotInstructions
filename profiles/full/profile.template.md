@@ -12,4 +12,4 @@ Parameterizes the review workflow. The active profile is whichever profile templ
 - Hard-gate convergence: unanimous.
 - Output: compressed (low-risk records in KV per `review-workflow-gates-sweeps.md` §2B; high-risk gate blocks use their caveman chat-emission forms - structure collapsed, every enumeration/metric/key-presence forcing function intact).
 - Safety-critical and governance/instruction artifacts: full slate always; never any fast-path (same on both profiles).
-- Emit `profile=full` in the POST-CODE-CHANGE LEDGER, PRE-COMMIT GATE PASSED, and PANEL CONVERGED blocks.
+- Emit `profile=full` in the POST-CODE-CHANGE LEDGER, PRE-COMMIT GATE PASSED, and CODE-REVIEW PANEL CONVERGED blocks.
