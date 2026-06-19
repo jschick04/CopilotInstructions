@@ -1,6 +1,6 @@
 # Registry of on-demand instruction files eligible for a read-receipt citation (documentation-only;
 # scripts/check-read-receipts.ps1 derives its gated set from applyTo-structure, NOT this file).
-# The 13 code-topic files below (.github/instructions/* with a non-**/* applyTo) are MECHANICALLY gated
+# The 16 code-topic files below (.github/instructions/* with a non-**/* applyTo) are MECHANICALLY gated
 # at commit + push time; the playbooks are convention-only (not yet mechanized).
 file
 .github/instructions/coding-standards-code.instructions.md
@@ -14,8 +14,11 @@ file
 .github/instructions/html.instructions.md
 .github/instructions/css.instructions.md
 .github/instructions/javascript-typescript.instructions.md
+.github/instructions/typescript-smells.instructions.md
 .github/instructions/cpp.instructions.md
 .github/instructions/msbuild.instructions.md
+.github/instructions/bicep.instructions.md
+.github/instructions/azure-pipelines.instructions.md
 .github/playbooks/phase-state-convention.md
 .github/playbooks/workflow-conventions.md
 .github/playbooks/pre-commit.md

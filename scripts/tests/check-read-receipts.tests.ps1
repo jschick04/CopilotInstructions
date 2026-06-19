@@ -160,10 +160,10 @@ Remove-Item -LiteralPath (Join-Path $instr9 'fake-cs.instructions.md')
 Set-Content (Join-Path $repo9 'Foo.cs') 'class F{}'; git -C $repo9 add 'Foo.cs' 2>$null
 Assert-True ((Invoke-Checker $repo9) -eq 1) 'instruction file deleted in the worktree but the delete is unstaged -> still in the index -> staged Foo.cs is gated -> exit 1 (worktree-delete cannot silently un-gate)'
 
-Write-Host "=== meta: the REAL repo gated set is exactly 13, all tokened (drift/tokenless guard) ==="
+Write-Host "=== meta: the REAL repo gated set is exactly 16, all tokened (drift/tokenless guard) ==="
 $realRepo = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $realGated = @(Get-WorktreeGatedTopicFiles -RepoRoot $realRepo)
-Assert-True ($realGated.Count -eq 13) "real gated set = 13 (got $($realGated.Count))"
+Assert-True ($realGated.Count -eq 16) "real gated set = 16 (got $($realGated.Count))"
 Assert-True (@($realGated | Where-Object { -not $_.Token }).Count -eq 0) 'every real gated topic file carries a valid token'
 
 Remove-TestTempDirectories
