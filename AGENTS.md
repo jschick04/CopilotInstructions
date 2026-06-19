@@ -272,7 +272,7 @@ General coding standards live in two auto-loaded files: `coding-standards.instru
 
 ### 3.14 No em-dashes or smart punctuation (HARD BAN)
 
-**Never emit em/en-dash, horizontal bar, curly single/double quotes, or ellipsis (U+2013 / 2014 / 2015 / 2018 / 2019 / 201C / 201D / 2026) anywhere** - code, comments, docs, strings, Markdown, commits, PR text, chat prose; use ASCII equivalents. Fail-closed repo-wide by `check-no-smart-punctuation` (CI + pre-push via run-local-ci; recorded as the `emdash-scan` ledger row). The only exemption is the (normally empty) allowlist, for vendored / generated / third-party files the change does not author.
+**Never emit em/en-dash, horizontal bar, curly single/double quotes, or ellipsis (U+2013 / U+2014 / U+2015 / U+2018 / U+2019 / U+201C / U+201D / U+2026) anywhere** - code, comments, docs, strings, Markdown, commits, PR text, chat prose; use ASCII equivalents. Fail-closed repo-wide by `check-no-smart-punctuation` (CI + pre-push via run-local-ci; recorded as the `emdash-scan` ledger row). The only exemption is the (normally empty) allowlist, for vendored / generated / third-party files the change does not author.
 
 ---
 
