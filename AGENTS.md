@@ -239,7 +239,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 
 ## 2. Commit Messages
 
-- **Single line only.** No body, no footers, no trailers (genuine `git revert` bodies excepted). Enforced by `check-commit-message`.
+- **Single line only.** No body, no footers, no trailers. Enforced by `check-commit-message` (genuine `git revert` commits fully exempt).
 - **Suppress `Co-authored-by: Copilot` trailer.** Use `-m "<message>"` only.
 - **Describe the change**, not which plan item. No `A2`, plan numbers, or Conventional-Commit prefixes.
 - **Imperative mood, no trailing period.**
