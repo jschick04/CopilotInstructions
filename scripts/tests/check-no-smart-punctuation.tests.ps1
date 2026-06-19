@@ -79,18 +79,18 @@ $d = New-Repo -Files @{ 'a.md' = "range 1${en}2" } -Allowlist @('# header')
 $r = Invoke-Checker $d
 Assert-True ($r.ExitCode -eq 1) 'en-dash is also caught'
 
-$expandedCases = @(
-    @('horizontal-bar', [char]0x2015),
-    @('left-single-quote', [char]0x2018),
-    @('right-single-quote', [char]0x2019),
-    @('left-double-quote', [char]0x201C),
-    @('right-double-quote', [char]0x201D),
-    @('ellipsis', [char]0x2026)
+$smartPunctCases = @(
+    [PSCustomObject]@{ Name = 'horizontal-bar';     Char = [char]0x2015 },
+    [PSCustomObject]@{ Name = 'left-single-quote';  Char = [char]0x2018 },
+    [PSCustomObject]@{ Name = 'right-single-quote'; Char = [char]0x2019 },
+    [PSCustomObject]@{ Name = 'left-double-quote';  Char = [char]0x201C },
+    [PSCustomObject]@{ Name = 'right-double-quote'; Char = [char]0x201D },
+    [PSCustomObject]@{ Name = 'ellipsis';           Char = [char]0x2026 }
 )
-foreach ($case in $expandedCases) {
-    $d = New-Repo -Files @{ 'a.md' = "smart $($case[1]) punct" } -Allowlist @('# header')
+foreach ($smartPunctCase in $smartPunctCases) {
+    $d = New-Repo -Files @{ 'a.md' = "smart $($smartPunctCase.Char) punct" } -Allowlist @('# header')
     $r = Invoke-Checker $d
-    Assert-True ($r.ExitCode -eq 1) "$($case[0]) (smart punctuation) is caught"
+    Assert-True ($r.ExitCode -eq 1) "$($smartPunctCase.Name) (smart punctuation) is caught"
 }
 
 # '#'-comment + blank lines in allowlist are ignored
