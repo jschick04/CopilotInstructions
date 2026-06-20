@@ -129,16 +129,11 @@ Run the §3.1 comment-audit evidence gate before the panel (step 3), BEFORE the 
 parent_sha: <git rev-parse HEAD>
 commit_subject: <proposed commit subject>
 Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment lines in diff, <J> approved, <E> exempt, <DG> degraded-mode-drop, <NR> no-response-drop, <D> deleted.
-- <file:line>: approval_turn: <ask_user turn/message ref> | allowed-case: <non-obvious invariant | external constraint | trade-off> | justification: <one-line text>
-- <file:line>: approval_turn: n/a - exempt: <category from comment-protocol.md canonical 6 (typo | deletion | stale-comment-fix-per-§3.9/§3.10 | generated | vendored | THROWAWAY-header)>
-- <file:line>: approval_turn: n/a - degraded-mode-drop
-- <file:line>: approval_turn: n/a - no-response-drop
-- <file:line>: deleted (per protocol step-3 rejection or rename-first resolution)
-- (one bullet per NEW or substantively-rewritten comment line in the diff)
+- one bullet per NEW or substantively-rewritten comment line, in the canonical bullet forms defined in `comment-protocol.md` §"Recording - post-code-change ledger interaction": the approved form (carries `comment_sha`), `n/a - exempt: <canonical-6>`, `n/a - degraded-mode-drop`, `n/a - no-response-drop`, and `deleted (...)`
 - Zero-count justification: "scope <files> has 0 new comments per `git diff --unified=0 <base>..HEAD` filtered for added comment syntax (`//`, `#`, `/*`, `<!--`, `--`, `<#`, `;`, `///`, `"""`) by file extension (per `comment-protocol.md` §Scope)" (or equivalent language-specific pattern).
 ```
 
-**Fail-closed semantics.** Every bullet MUST match one of the 5 forms shown above - a valid `approval_turn:`, OR the `deleted (...)` form (no `approval_turn:`). Any non-deleted bullet failing this - missing `approval_turn:`, an exempt category not in the canonical 6, or an unknown `n/a - <reason>` - fails the gate and forbids the commit per `review-workflow-gates-sweeps.md` §2B (the `comment-audit-§3.1` row emits `failed - <site list>`). The `parent_sha:` + `commit_subject:` headers are REQUIRED - the local `pre-push` note gate uses `parent_sha:` (and the note's `audited_tree:`) to detect a stale record (audit written for commit X but commit Y actually made).
+**Fail-closed semantics.** Every bullet MUST match one of the canonical forms in `comment-protocol.md` §"Recording - post-code-change ledger interaction" - a valid `approval_turn:`, OR the `deleted (...)` form (no `approval_turn:`). Any non-deleted bullet failing this - missing `approval_turn:`, an exempt category not in the canonical 6, or an unknown `n/a - <reason>` - fails the gate and forbids the commit per `review-workflow-gates-sweeps.md` §2B (the `comment-audit-§3.1` row emits `failed - <site list>`). The `parent_sha:` + `commit_subject:` headers are REQUIRED - the local `pre-push` note gate uses `parent_sha:` (and the note's `audited_tree:`) to detect a stale record (audit written for commit X but commit Y actually made).
 
 **Persisted audit record (HARD GATE here; INLINE on consuming repos).** In this instructions repo the §2.6 block is authored to a GITIGNORED receipt at `.github/pr-quality-gate/audits/last.md` (where the audit machinery + hooks live; see `comment-protocol.md` §Persisted audit record). The agent NEVER stages it (`git add` refuses the gitignored receipt); the `post-commit` hook flushes it into the commit's git note and deletes it. Author it for EVERY commit including no-comment / meta-change commits (zero-count template); a missing receipt = failure of this step (the `pre-push` note gate blocks the push). Consuming repos: DO NOT create the receipt - track inline via the `comment_audit` block in `PRE-COMMIT GATE PASSED` (`pre-commit.md`).
 
