@@ -6,6 +6,8 @@ applyTo: "azure-pipelines*.yml,azure-pipelines*.yaml,**/.azdo/**/*.yml,**/.azdo/
 
 <!-- read-receipt-token: 4deeb0f2 -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on Azure DevOps YAML pipelines (`azure-pipelines*.yml`, `.azdo/`, `.azuredevops/`). NOT GitHub Actions - those live under `.github/workflows/` and are out of this glob. Industry-standard ADO pipeline standards + recurring smells to audit during self-review and panel review - extend with project-specific conventions as they emerge. Advisory lens; no mechanical gate verifies these.
 
 ---

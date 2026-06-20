@@ -6,7 +6,9 @@ applyTo: "**/*.html,**/*.htm,**/*.razor,**/*.cshtml"
 
 <!-- read-receipt-token: 633aab2b -->
 
-> **Scope:** loaded automatically when the working set contains HTML/Razor markup files. Extends the always-loaded `AGENTS.md` core. (Razor/cshtml codebehind C# is covered by the C# instructions file.)
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** loaded automatically when the working set contains HTML/Razor markup files. Extends the `AGENTS.md` core. (Razor/cshtml codebehind C# is covered by the C# instructions file.)
 
 ---
 

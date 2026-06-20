@@ -6,6 +6,8 @@ applyTo: "**/*.csproj,**/*.targets,**/*.props,**/*.vcxproj,**/*.vcxproj.filters,
 
 <!-- read-receipt-token: 5e460897 -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded automatically when the working set contains MSBuild project files (`*.csproj`, `*.vcxproj`), targets files, props files, or `Directory.Build.*` / `Directory.Packages.props` infrastructure files. Language-agnostic; complements `csharp.instructions.md` (C# / .NET-specific csproj patterns) and `cpp.instructions.md` (vcxproj toolset / SDK pinning rules).
 
 ---

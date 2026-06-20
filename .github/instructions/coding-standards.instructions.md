@@ -6,7 +6,9 @@ applyTo: "**/*"
 
 <!-- read-receipt-token: 947ffd0e -->
 
-> **Scope:** auto-loaded on every edit. Contains universal standards (naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text) that apply to docs, config, prose, and code alike. Code-specific standards (tests, perf, state predicates, deferred mutations, recurring smells, project structure) live in `coding-standards-code.instructions.md`, auto-loaded on code edits only. Section 3.1 (Comments) and section 3.14 (No em-dashes) remain in the always-loaded core (`AGENTS.md`).
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** auto-loaded on every edit. Contains universal standards (naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text) that apply to docs, config, prose, and code alike. Code-specific standards (tests, perf, state predicates, deferred mutations, recurring smells, project structure) live in `coding-standards-code.instructions.md`, auto-loaded on code edits only. Section 3.1 (Comments) and section 3.14 (No em-dashes) remain in `AGENTS.md`.
 
 ---
 

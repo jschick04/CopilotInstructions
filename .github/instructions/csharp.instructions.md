@@ -6,6 +6,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 <!-- read-receipt-token: a57437fd -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on C# / Razor / project files. Extends `AGENTS.md` core. Siblings: `csharp-style.instructions.md`, `csharp-runtime.instructions.md`, `csharp-smells.instructions.md`.
 
 ---
@@ -38,8 +40,6 @@ The universal comment rules in `AGENTS.md` (three-step comment protocol - clarit
   ```
   **Anti-pattern phrasings to grep for and rewrite:** "callers may rely on ...", "guaranteed to be live", "exists at the moment of activation", "always accessible", "verified to be present at use time". Each of these claims a freshness invariant the runtime cannot hold across a process boundary, a thread hop, or even a few microseconds of GC pause. The Copilot reviewer reliably flags these claims as misleading. **Self-check** when documenting a record / DTO / value type whose fields name external mutable state: read the doc aloud while imagining a 30-second pause between producer return and consumer use. If anything in the doc would be wrong after the pause, the doc is wrong now.
 
-> Universal `//` comment failure-mode examples (e.g., the "Same best-effort contract as `CopySelectedEvent`" case) live in [Core / Comments](../../AGENTS.md#31-comments) under "Common failure modes flagged in past reviews" - not duplicated here.
-
 ---
 
 ## Project and solution structure (extends [Core / Project and library structure](coding-standards-code.instructions.md#311-project-and-library-structure))
@@ -53,7 +53,7 @@ The .NET ecosystem standard is `src/` for production projects and `tests/` for t
 
 ---
 
-> **Test rules moved**: all C# test-infrastructure rules (test-project layout, per-project + shared <Solution>.<Domain>.TestUtils escape hatch, naming patterns, test-purpose / gap audit, mocking guidance, test-name intent, test synchronization, Testcontainers, alternatives surface) live in csharp-testing.instructions.md (loads only when test files are in the working set, narrower `applyTo` glob - see the AGENTS.md topic-file routing table).
+> **Test rules moved**: all C# test-infrastructure rules live in `csharp-testing.instructions.md` (loads on test files only; see the AGENTS.md topic-file routing table).
 
 ## Access modifiers - least-permissive that still compiles
 

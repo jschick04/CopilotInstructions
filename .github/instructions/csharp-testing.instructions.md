@@ -6,7 +6,9 @@ applyTo: "**/*Tests*/**/*.cs,**/*Tests.cs,**/tests/**/*.cs,**/*Test/**/*.cs,**/*
 
 <!-- read-receipt-token: 9668b682 -->
 
-> **Scope:** loaded automatically when the working set contains C# test files or test-project files. Extends the always-loaded `AGENTS.md` core AND the C# topic file `csharp.instructions.md` (which loads for any `.cs` / `.csproj`). The rules below apply specifically to test code - production C# rules live in `csharp.instructions.md`.
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** loaded automatically when the working set contains C# test files or test-project files. Extends the `AGENTS.md` core AND the C# topic file `csharp.instructions.md` (which loads for any `.cs` / `.csproj`). The rules below apply specifically to test code - production C# rules live in `csharp.instructions.md`.
 
 > **xUnit version note:** examples use **xUnit v3** syntax (the current shipping major). On v3, `IAsyncLifetime` inherits `IAsyncDisposable` and lifecycle hooks return `ValueTask`; `TestContext.Current` flows the cancellation token across `await` resumption points. xUnit v2 projects substitute `Task` for `ValueTask` and don't have `TestContext.Current` (pass `CancellationToken.None` or a per-test `CancellationTokenSource` instead).
 
