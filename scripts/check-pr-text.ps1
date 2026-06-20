@@ -44,7 +44,7 @@ $script:ExitInvocation = 2
 $script:Tier1Patterns = @(
     # (i) workspace / session-state artifacts (path-shaped, near-0 FP)
     [pscustomobject]@{ Name = 'session-state-path'; Regex = '(?i)(?:\.copilot[\\/])?session-state[\\/]' }
-    [pscustomobject]@{ Name = 'session-files-ref';  Regex = '(?i)\bfiles/[A-Za-z0-9._-]+\.(?:md|txt)\b' }
+    [pscustomobject]@{ Name = 'session-files-ref';  Regex = '(?i)\bfiles[\\/][A-Za-z0-9._-]+\.(?:md|txt)\b' }
     [pscustomobject]@{ Name = 'session-plan-file';  Regex = '(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[\\/]plan\.md\b' }
     # (ii) compound plan-IDs (specific shapes: FX-3, F16e-2)
     [pscustomobject]@{ Name = 'compound-plan-id';   Regex = '(?i)(?<![A-Za-z0-9_-])(?:FX-\d+|F\d+[A-Za-z]*-\d+)(?![A-Za-z0-9_-])' }
@@ -97,12 +97,15 @@ if ($MyInvocation.InvocationName -eq '.') { return }
 $paramMode = $PSBoundParameters.ContainsKey('Title')
 $envTitle = $env:PR_TITLE
 $envMode = -not [string]::IsNullOrEmpty($envTitle)
+# Body-aware vacuity (distinct from title-only $envMode): an empty title with a present body must still scan,
+# but folding body into $envMode would false-trip the param+env ambiguity check below.
+$envHasText = -not ([string]::IsNullOrEmpty($env:PR_TITLE) -and [string]::IsNullOrEmpty($env:PR_BODY))
 
 if ($paramMode -and $envMode) {
     Write-Host "::error::INVOCATION_FAILED: both -Title and `$env:PR_TITLE supplied - ambiguous input source"
     exit $script:ExitInvocation
 }
-if (-not $paramMode -and -not $envMode) {
+if (-not $paramMode -and -not $envHasText) {
     Write-Host "check-pr-text: no PR text supplied (local-CI mirror; the PR title/body is not a local artifact). CI is the authoritative gate. OK."
     exit $script:ExitOk
 }
@@ -110,6 +113,10 @@ if (-not $paramMode -and -not $envMode) {
 if ($paramMode) {
     if ($BodyFile -and $PSBoundParameters.ContainsKey('Body')) {
         Write-Host "::error::INVOCATION_FAILED: supply at most one of -BodyFile / -Body"
+        exit $script:ExitInvocation
+    }
+    if ([string]::IsNullOrWhiteSpace($Title)) {
+        Write-Host "::error::INVOCATION_FAILED: -Title is empty; param mode requires the actual (non-empty) PR title to scan"
         exit $script:ExitInvocation
     }
     $titleText = $Title
