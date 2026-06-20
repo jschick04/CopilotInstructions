@@ -6,7 +6,9 @@ applyTo: "**/*.{cs,csx,razor,cshtml,cpp,h,hpp,cc,cxx,c,ts,tsx,mts,cts,js,jsx,mjs
 
 <!-- read-receipt-token: bbcd8a15 -->
 
-> **Scope:** auto-loaded when the working set contains code files. Contains code-specific standards (tests, performance, state predicates, deferred mutations, recurring smells, project/library structure, folder topology, growth planning). Universal standards (naming, defaults, user-facing text) live in `coding-standards.instructions.md`, auto-loaded on every edit. Section 3.1 (Comments) and section 3.14 (No em-dashes) remain in the always-loaded core (`AGENTS.md`).
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** auto-loaded when the working set contains code files. Contains code-specific standards (tests, performance, state predicates, deferred mutations, recurring smells, project/library structure, folder topology, growth planning). Universal standards (naming, defaults, user-facing text) live in `coding-standards.instructions.md`, auto-loaded on every edit. Section 3.1 (Comments) and section 3.14 (No em-dashes) remain in `AGENTS.md`.
 
 ---
 

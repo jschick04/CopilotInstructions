@@ -6,6 +6,8 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 
 <!-- read-receipt-token: 14607638 -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on C# / Razor / project files. Contains naming conventions, formatting, member ordering, expression/block preferences, using directives, redundant qualifiers. Siblings: `csharp.instructions.md`, `csharp-runtime.instructions.md`, `csharp-smells.instructions.md`.
 
 ---

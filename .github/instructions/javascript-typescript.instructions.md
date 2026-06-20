@@ -6,7 +6,9 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 
 <!-- read-receipt-token: 9516a1db -->
 
-> **Scope:** loaded automatically when the working set contains JS/TS source files. Extends the always-loaded `AGENTS.md` core.
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** loaded automatically when the working set contains JS/TS source files. Extends the `AGENTS.md` core.
 
 ---
 
@@ -14,7 +16,7 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 
 ### Comments
 
-- **Default: no comments.** Code is the primary documentation; names carry intent. Per `AGENTS.md` §3.1 (always-loaded core), every NEW comment must pass the rename-first protocol: if a better variable / function / type name would carry the fact, rename and drop the comment. No restating-the-obvious, no panel-artifact references (`// the bot caught this`, `// Slot N`, `// Round N`), no future-tense forecasting. Catalog enforcement: `comment-necessity`.
+- **Default: no comments.** Code is the primary documentation; names carry intent. Per `AGENTS.md` §3.1, every NEW comment must pass the rename-first protocol: if a better variable / function / type name would carry the fact, rename and drop the comment. No restating-the-obvious, no panel-artifact references (`// the bot caught this`, `// Slot N`, `// Round N`), no future-tense forecasting. Catalog enforcement: `comment-necessity`.
 
 ### Naming Conventions
 

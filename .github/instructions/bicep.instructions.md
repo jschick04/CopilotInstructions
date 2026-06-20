@@ -6,6 +6,8 @@ applyTo: "**/*.bicep"
 
 <!-- read-receipt-token: 8240760e -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on `.bicep` files. Industry-standard Bicep standards + recurring smells to audit during self-review and panel review - extend with project-specific conventions as they emerge. Advisory lens; no mechanical gate verifies these.
 
 ---

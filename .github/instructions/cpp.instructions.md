@@ -6,7 +6,9 @@ applyTo: "**/*.cpp,**/*.h,**/*.hpp,**/*.cc,**/*.cxx,**/*.c"
 
 <!-- read-receipt-token: c37263b2 -->
 
-> **Scope:** loaded automatically when the working set contains C/C++ source or header files. Extends the always-loaded `AGENTS.md` core.
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
+> **Scope:** loaded automatically when the working set contains C/C++ source or header files. Extends the `AGENTS.md` core.
 
 ---
 

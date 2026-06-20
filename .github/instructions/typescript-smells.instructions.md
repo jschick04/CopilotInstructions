@@ -6,6 +6,8 @@ applyTo: "**/*.ts,**/*.tsx,**/*.mts,**/*.cts,**/*.js,**/*.jsx,**/*.mjs,**/*.cjs"
 
 <!-- read-receipt-token: 97382033 -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on TS / JS / React / Node files. Contains TS/JS-specific recurring code smells (React, async, Azure Functions, general TS) to audit during self-review and panel review. Naming / formatting / imports / style live in the sibling `javascript-typescript.instructions.md` (same `applyTo` glob). Industry-standard baselines - extend with project-specific conventions as they emerge.
 
 ---

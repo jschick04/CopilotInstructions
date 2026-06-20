@@ -6,6 +6,8 @@ applyTo: "**/*Tests*/**/*.cs,**/*Tests.cs,**/tests/**/*.cs,**/*Test/**/*.cs,**/*
 
 <!-- read-receipt-token: b67d19d1 -->
 
+> **Topic instruction file - not the whole ruleset.** The mandatory governed workflow (`AGENTS.md` §0 git-safety gates + §1 pre-implementation / post-code-change phase gates + the playbook router incl. `multi-model-review`) lives at the instruction-set repo root. If `AGENTS.md` is not already in your context this session, read it before editing.
+
 > **Scope:** loaded on C# test files. Contains alternative test-infrastructure patterns and test synchronization rules. Siblings: `csharp-testing.instructions.md` (layout, naming, constants), `csharp-testing-quality.instructions.md` (test purpose, audit).
 
 ---
