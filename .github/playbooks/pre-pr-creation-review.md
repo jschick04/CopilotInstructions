@@ -320,7 +320,8 @@ PRE-PR REVIEW COVERAGE
   dropped-reviewers: <[] or list>
   replacement-reviewers: <[] or list>
   prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
-  panel-coverage: <full-whole-branch | carry-forward-authorized: <ask_user ref> (commits <carried-range>)>
+  panel-coverage:
+    - mode: <full-whole-branch | carry-forward-authorized> scope: <baseSha>..<headSha> commits: <N> carry-forward-ref: <ask_user ref | n/a> carried: <range | n/a>
   findings: <total raw>, dedupe'd to <M themes>
   resolution (every finding has a status):
     - [<category 1-11>] <severity> [<reviewer>]: <finding>: <status>: <citation>

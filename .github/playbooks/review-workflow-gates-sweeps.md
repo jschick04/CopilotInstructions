@@ -340,7 +340,7 @@ If the same duplication pattern is detected in a subsequent commit (i.e., the us
 
 ### Rule
 
-Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), a multi-model heavy panel (≥4-reviewer slate floor per the `pre-pr-creation-review.md` waive matrix) MUST run on the FULL branch diff (`<base>..HEAD`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Step 2/7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions).
+Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), a multi-model heavy panel (≥4-reviewer slate floor per the `pre-pr-creation-review.md` waive matrix) MUST run on the FULL branch diff (`<base>..HEAD`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Steps 2 and 7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions).
 
 Strict mandatory  -  G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
 
