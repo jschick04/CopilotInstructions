@@ -163,7 +163,7 @@ if ($priorHeadSha -eq "none") {
 
 `re-run-triggers` is a LIST (can co-occur). `history-rewrite` covers force-push, amend, interactive rebase.
 
-**Carry-forward rule**: prior-commit-panel-dispositions carry forward IF AND ONLY IF `re-run-triggers == ["net-new-commits"]`. Any rewrite/squash/base-shift invalidates them.
+**Whole-branch panel coverage (default) + carry-forward exception**: the DEFAULT on every pre-PR op (create AND every review-response push) is a FULL re-read of the whole-branch diff `panelBaseSha..HEAD` by the panel - no prior dispositions carried. Carry-forward of prior-commit-panel-dispositions is an EXPLICIT, user-authorized cost exception, ELIGIBLE only when `re-run-triggers == ["net-new-commits"]` (any rewrite/squash/base-shift forces a full re-read and invalidates priors). When - and only when - the user authorizes carry-forward, it MUST be recorded as the cited `panel-coverage: carry-forward-authorized: <ask_user ref> (commits <carried-range>)` field in the COVERAGE block (Step 7); absent that explicit authorization the panel re-reads the whole branch in full and records `panel-coverage: full-whole-branch`. This default-full / audited-exception policy is process-descriptive (it bounds what was re-read this op), not a defect-free guarantee.
 
 Record `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `reRunTriggers` in phase-state.
 
@@ -320,6 +320,7 @@ PRE-PR REVIEW COVERAGE
   dropped-reviewers: <[] or list>
   replacement-reviewers: <[] or list>
   prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
+  panel-coverage: <full-whole-branch | carry-forward-authorized: <ask_user ref> (commits <carried-range>)>
   findings: <total raw>, dedupe'd to <M themes>
   resolution (every finding has a status):
     - [<category 1-11>] <severity> [<reviewer>]: <finding>: <status>: <citation>
@@ -340,12 +341,14 @@ The `catalog-revision`, `fp-registry-revision`, and `pattern-preflight-skip-stat
 
 #### Chat-emission form (caveman)
 
-Chat emits `PRE-PR REVIEW COVERAGE` with scalars collapsed to pipe-KV; the THREE enumerations - `slate` (proves the floor), `resolution` (per-finding status+citation), and `routed-deferred-with-tracker` (C2 deferral proof) - STAY enumerated (counts are fakeable). The block above is the canonical form; keys are the forcing function.
+Chat emits `PRE-PR REVIEW COVERAGE` with scalars collapsed to pipe-KV; the FOUR enumerations - `slate` (proves the floor), `resolution` (per-finding status+citation), `routed-deferred-with-tracker` (C2 deferral proof), and `panel-coverage` (cited `full-whole-branch` vs `carry-forward-authorized` + `ask_user` ref) - STAY enumerated (counts AND coverage-mode are fakeable as bare scalars). The block above is the canonical form; keys are the forcing function.
 
 ```
 PRE-PR REVIEW COVERAGE (caveman)
 meta|phase=<initial-pending-user-approval|ready-re-emitted-after-user-approval>|mode=<via-pre-pr-push-step-5|direct-invocation-dry-run-only>|triggers=[<trigger>,...]|base=<baseRef>@<baseSha>|head=<headSha>|commits=<N>|scope=<N files,+X/-Y>
 panel|convergence=<unanimous|threshold-N%|confidence-weighted-N%>|conv-waive=<no|"quote">|rounds=<K>|fixiter=<N>|fixiter-cap=<3|override>|dropped=[<slot>,...]|replaced=[<slot>,...]|subs=[]|slate-waive=<no|"quote">|prior-panel-disp=<none-<reason>|compacted-list>
+panel-coverage:
+  - mode=<full-whole-branch | carry-forward-authorized> scope=<baseSha>..<headSha> commits=<N> carry-forward-ref=<ask_user ref | n/a> carried=<range | n/a>
 slate:
   - slot 1: <model> <family> <role> [substituted from <requested>: <reason>]
   - ...
