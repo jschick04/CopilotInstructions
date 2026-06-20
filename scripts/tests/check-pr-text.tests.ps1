@@ -92,6 +92,16 @@ Assert-True ((Invoke-Checker -Title 'Clean env title' -Body 'no markers here' -U
 Assert-True ((Invoke-Checker -Title '' -Body 'audit from files/f3-audit.md' -UseEnv) -eq 1) 'env-mode empty title + body leak -> exit 1 (body scanned despite empty title)'
 Assert-True ((Invoke-Checker -NoInput) -eq 0) 'no input source (local mirror) -> exit 0'
 Assert-True ((Invoke-Checker -Title 'X' -Body 'y' -ExtraArgs @('-BodyFile', (Join-Path ([System.IO.Path]::GetTempPath()) 'nonexistent-xyz.md'))) -eq 2) 'both -Body and -BodyFile -> exit 2'
+Assert-True ((Invoke-Checker -Title 'X' -ExtraArgs @('-BodyFile', '')) -eq 2) 'empty -BodyFile (param mode) -> exit 2 (not a silent fall-back to -Body)'
+Assert-True ((Invoke-Checker -Title 'X' -ExtraArgs @('-BodyFile', '   ')) -eq 2) 'whitespace -BodyFile -> exit 2'
+Assert-True ((Invoke-Checker -Title 'X' -Body 'y' -ExtraArgs @('-BodyFile', '')) -eq 2) 'empty -BodyFile + -Body -> exit 2 (ambiguity caught via ContainsKey, not truthiness)'
+& $pwshExe -NoProfile -File $checkerPath -Body 'see files/f3-audit.md' *> $null
+Assert-True ($LASTEXITCODE -eq 2) '-Body without -Title -> exit 2 (a body source is not scanned without the title source)'
+$btFile = Join-Path ([System.IO.Path]::GetTempPath()) ('pbt-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.md')
+Set-Content -LiteralPath $btFile -Value 'see files/f3-audit.md' -NoNewline
+& $pwshExe -NoProfile -File $checkerPath -BodyFile $btFile *> $null
+Assert-True ($LASTEXITCODE -eq 2) '-BodyFile without -Title -> exit 2 (body source requires title source)'
+Remove-Item -LiteralPath $btFile -Force
 
 # ambiguous param+env: set PR_TITLE while also passing -Title
 $prevTitle = $env:PR_TITLE

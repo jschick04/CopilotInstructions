@@ -105,13 +105,18 @@ if ($paramMode -and $envMode) {
     Write-Host "::error::INVOCATION_FAILED: both -Title and `$env:PR_TITLE supplied - ambiguous input source"
     exit $script:ExitInvocation
 }
+if (-not $paramMode -and ($PSBoundParameters.ContainsKey('Body') -or $PSBoundParameters.ContainsKey('BodyFile'))) {
+    Write-Host "::error::INVOCATION_FAILED: -Body / -BodyFile supplied without -Title; a body source is not scanned without the title source"
+    exit $script:ExitInvocation
+}
 if (-not $paramMode -and -not $envHasText) {
     Write-Host "check-pr-text: no PR text supplied (local-CI mirror; the PR title/body is not a local artifact). CI is the authoritative gate. OK."
     exit $script:ExitOk
 }
 
 if ($paramMode) {
-    if ($BodyFile -and $PSBoundParameters.ContainsKey('Body')) {
+    $bodyFileBound = $PSBoundParameters.ContainsKey('BodyFile')
+    if ($bodyFileBound -and $PSBoundParameters.ContainsKey('Body')) {
         Write-Host "::error::INVOCATION_FAILED: supply at most one of -BodyFile / -Body"
         exit $script:ExitInvocation
     }
@@ -120,7 +125,11 @@ if ($paramMode) {
         exit $script:ExitInvocation
     }
     $titleText = $Title
-    if ($BodyFile) {
+    if ($bodyFileBound) {
+        if ([string]::IsNullOrWhiteSpace($BodyFile)) {
+            Write-Host "::error::INVOCATION_FAILED: -BodyFile is empty; supply the actual body-file path (an empty path is not a valid source)"
+            exit $script:ExitInvocation
+        }
         if (-not (Test-Path -LiteralPath $BodyFile)) {
             Write-Host "::error::INVOCATION_FAILED: -BodyFile '$BodyFile' does not exist"
             exit $script:ExitInvocation
