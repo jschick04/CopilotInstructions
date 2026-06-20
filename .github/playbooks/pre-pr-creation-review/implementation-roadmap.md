@@ -208,7 +208,7 @@ if ($priorHeadSha -eq "none") {
 
 Record `reRunTriggers: [...]` in LEDGER (list; triggers CAN co-occur).
 
-**Prior-commit-panel-dispositions carry-forward (demoted to user-authorized exception)**: the DEFAULT every op is a FULL whole-branch re-read (no carry-forward). Carry-forward is an EXPLICIT user-authorized exception, eligible only when the trigger set is exactly `["net-new-commits"]` (any rewrite/squash/base-shift forces full -> `"none - prior run invalidated by <trigger list>"`); when authorized it MUST be recorded as the cited `panel-coverage: carry-forward-authorized: <ask_user ref>` COVERAGE field. See `pre-pr-creation-review.md` Step 2 / Step 7.
+**Prior-commit-panel-dispositions carry-forward (demoted to user-authorized exception)**: the DEFAULT on every op is a FULL whole-branch re-read (no carry-forward). Carry-forward is an EXPLICIT user-authorized exception, eligible only when the trigger set is exactly `["net-new-commits"]` (any rewrite/squash/base-shift forces full -> `"none - prior run invalidated by <trigger list>"`); when authorized it MUST be recorded in the cited `panel-coverage` COVERAGE element with `mode: carry-forward-authorized` + `carry-forward-ref: <ask_user ref>` + `carried: <range>`. See `pre-pr-creation-review.md` Step 2 / Step 7.
 
 ### Step 3. Context-budget circuit breaker
 
