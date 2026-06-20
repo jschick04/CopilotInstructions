@@ -91,6 +91,14 @@ to it. Mnemonic: **"sweep your fixes with the lens that caught the bug."**
 Distinct from cross-file sweep (unfixed code) and per-finding verification
 (correctness of each fix) - catches fix-author re-instantiating the pattern.
 
+**Mirrored-representation parity (structural sweep)**: when the change edits a
+STRUCTURE (field, key, enum, schema block, rule, or signature) defined in 2+
+mirrored representations of the same concept (a canonical block + a
+compressed/alternate emission form + a roadmap/spec/doc copy; a DTO mirrored
+across languages; an enum in code + DB + docs), sweep EVERY representation for
+the same field-set/shape change; the full rule + bright-line live in the
+`mirrored-representation-parity` catalog slug (the source of truth).
+
 **Cumulative branch remediation sweep**: build a list of every *remediation
 pattern* applied anywhere in the branch diff against the base ref - not only
 patterns introduced in the current commit. Examples: SQLite-pool-clear before
