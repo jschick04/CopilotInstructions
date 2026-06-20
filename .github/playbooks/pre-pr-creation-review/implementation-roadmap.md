@@ -208,7 +208,7 @@ if ($priorHeadSha -eq "none") {
 
 Record `reRunTriggers: [...]` in LEDGER (list; triggers CAN co-occur).
 
-**Prior-commit-panel-dispositions carry-forward**: dispositions carry forward IF AND ONLY IF trigger set is exactly `["net-new-commits"]`. Any rewrite/squash/base-shift invalidates prior dispositions -> `"none - prior run invalidated by <trigger list>"`.
+**Prior-commit-panel-dispositions carry-forward (demoted to user-authorized exception)**: the DEFAULT every op is a FULL whole-branch re-read (no carry-forward). Carry-forward is an EXPLICIT user-authorized exception, eligible only when the trigger set is exactly `["net-new-commits"]` (any rewrite/squash/base-shift forces full -> `"none - prior run invalidated by <trigger list>"`); when authorized it MUST be recorded as the cited `panel-coverage: carry-forward-authorized: <ask_user ref>` COVERAGE field. See `pre-pr-creation-review.md` Step 2 / Step 7.
 
 ### Step 3. Context-budget circuit breaker
 
@@ -345,6 +345,7 @@ PRE-PR REVIEW COVERAGE
     compaction-artifact-path: <path or "n/a">
     mid-loop-rechecks: <[{round, trigger-pct}] - [default: []]>
   prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
+  panel-coverage: <full-whole-branch | carry-forward-authorized: <ask_user ref> (commits <carried-range>)>
   fix-iteration-count: <N - [default: 0]>
   fix-iteration-cap: <3 or user-authorized override>
   findings: <total raw>, dedupe'd to <M unique themes>

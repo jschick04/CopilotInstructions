@@ -81,11 +81,24 @@ For PR-review work specifically, instruct the panel to:
 - Check whether the bot findings being applied actually resolve the cited issue and don't introduce a regression.
 - Flag any new findings of their own that the bot missed.
 
+**Panel scope = the whole branch, re-invoked end-to-end on every review-response push.** The panel reviews the FULL whole-branch diff `panelBaseSha..HEAD` (per `pre-pr-creation-review.md` Step 2 default-full policy), NOT just the review-response fix diff. A review-response push is a pre-PR update op: re-invoke the §2D `pre-pr-creation-review.md` panel END-TO-END - including its Step 7 `PRE-PR REVIEW COVERAGE` emission with the `panel-coverage` field - so whole-branch coverage is provably re-attested for THIS push. The §6 `PR review audit` block below is findings-only (no base..head / coverage scope) and does NOT satisfy that §2D COVERAGE requirement. Carry-forward of prior dispositions is allowed only as the explicit user-authorized exception recorded in `panel-coverage` (default is a full re-read).
+
 ### 4. Propose an instructions-file delta after each fix
 
 Once a PR comment is resolved, briefly identify what could be added to the appropriate instructions file (the always-loaded `AGENTS.md` core, or the matching topic file under `.github/instructions/`) to catch the same class of issue earlier (in self-review or by the multi-model code-review pass).
 
 If something fits, propose the delta in your summary. Skip silently if the comment is genuinely one-off (typo, taste, etc.).
+
+### 4.5. RCA the miss + (opt-in) file a process-gap issue
+
+A bot/human finding that our OWN process should have caught is a panel/gate MISS, not just a code fix. For each such finding - status `fixed`, `routed-now`, OR `routed-deferred` (exclude ONLY `dismissed-source-grounded`, the bot-was-wrong case) - that is generalizable beyond this one site:
+
+1. **RCA (forcing function).** Name the SPECIFIC existing-or-derivable coverage that should have surfaced it - a `pattern-catalog` slug (and its `discovery_query`), a deterministic gate, or the §2D panel prompt - and WHY it slipped (slug gap, missing slug, panel anti-anchoring miss, scope-not-whole-branch, etc.). If NO such gate / slug / prompt can be named, the finding is a genuine one-off (typo / taste) and is EXEMPT - no RCA issue.
+2. **ask_user (opt-in-to-file).** Present the one-line RCA and propose filing a tracking issue in the instruction-set repo. The user approves or declines. On decline OR no response, do NOT file - log to `panel-misses.csv` only (per Step 2.5 / the anti-recidivism ledger). NEVER auto-file.
+3. **On approve.** `gh issue create --repo jschick04/CopilotInstructions --title "<generic miss-class>" --body "<RCA + proposed fix>"` with a GENERIC, no-project-specifics title / body per §5 (the same project-agnostic rule that governs instruction deltas) - describe the CLASS of miss and the shape of the gate / slug fix, never a real symbol / path / PR number. Suggested label: `panel-miss`.
+4. **Always** record the miss in `panel-misses.csv` regardless of the ask_user outcome - the CSV is the local anti-recidivism ledger; the issue (when filed) is the durable, actionable tracker.
+
+**Evidence-gate interaction (§6):** the process-gap issue is a DISTINCT meta-entry, NOT a change to the original finding's own disposition. A `fixed` finding stays `fixed`; the issue is logged as a separate `routed-deferred` meta-row citing the issue URL (which satisfies §6's "no deferral without an external record"). Do not downgrade the original finding's status because a process-gap issue was filed.
 
 ### 5. Instructions-file additions must stay project-agnostic
 
@@ -119,7 +132,11 @@ PR review audit: <N> findings total this iteration.
 
 ### 7. Apply pre-PR-push rules to the review-response push
 
-The review-response push is itself another push that may need pre-PR-push handling. Per `pre-pr-push/when-to-re-run-sweep.md`:
+The review-response push is itself another push that may need pre-PR-push handling.
+
+> **The when-to-re-run-sweep rules below govern the mechanical branch-wide SWEEP (rename / least-privilege / VSA) ONLY - NOT the §2D multi-model panel.** The multi-model panel's SCOPE is the WHOLE branch on every review-response push (default full re-read; carry-forward only as the §2D-authorized `panel-coverage` exception), independent of the sweep decision (per §3 above + `pre-pr-creation-review.md`); a "per-commit audit only" sweep outcome never bounds the panel's whole-branch scope.
+
+For the mechanical sweep, per `pre-pr-push/when-to-re-run-sweep.md`:
 
 - Ordinary review-response amends: per-commit audit only, no branch-wide sweep re-run.
 - Review-response amend that introduces a cross-boundary rename: widen the amend OR ask user.
