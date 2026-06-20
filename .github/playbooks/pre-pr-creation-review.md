@@ -335,10 +335,13 @@ PRE-PR REVIEW COVERAGE
   fp-registry-revision: <40-char SHA | not-yet-built>
   pattern-preflight-skip-status: <ran | catalog: not-yet-built | catalog: empty-battery | catalog: skipped-bootstrap | catalog: skipped-no-production-diff>
   pr-creation-status: <READY-pending-user-approval | READY-re-emitted-after-user-approval | DRY-RUN-INFO-ONLY | BLOCKED - <reason>>
+  pr-text-scan: <clean | tier1-fail: <surface:marker,...> | tier2-warn: <surface:marker,...>>
   subagent_ask_user_calls=0 (per AGENTS.md)
 ```
 
 The `catalog-revision`, `fp-registry-revision`, and `pattern-preflight-skip-status` fields are the state-echo for G6's PATTERN PREFLIGHT check - MUST be populated from phase-state on every emission. Use `not-yet-built` for SHA fields only when skip-status is `catalog: not-yet-built`; otherwise hold real SHAs.
+
+The `pr-text-scan` field records the result of running `scripts/check-pr-text.ps1` against the PROPOSED PR title + body BEFORE the G6 `gh pr create` tool (the pre-open agent catch); the CI `pull_request` job (`pr-text-check.yml`) is the merge-blocking backstop. `tier1-fail` BLOCKS PR creation until the markers are stripped (re-run + re-emit `clean`); `tier2-warn` is surfaced, not blocking. Honest ceiling: the gate catches MODELED markers only - an unmodeled phrasing escapes, so the field is a floor-raise, not a guarantee.
 
 #### Chat-emission form (caveman)
 
@@ -360,7 +363,7 @@ resolution:
 routed-deferred-with-tracker:
   - <finding> -> <tracker URL> (ask_user: <call ref>)
   - ... (default: [])
-state|bootstrap=<not-applicable|present-in-body|removed-revokes-exemption>|catalog=<SHA|not-yet-built>|fp-registry=<SHA|not-yet-built>|preflight=<ran|catalog:not-yet-built|catalog:empty-battery|catalog:skipped-bootstrap|catalog:skipped-no-production-diff>|status=<READY-pending-user-approval|READY-re-emitted-after-user-approval|DRY-RUN-INFO-ONLY|BLOCKED-<reason>> subagent_ask_user_calls=0
+state|bootstrap=<not-applicable|present-in-body|removed-revokes-exemption>|catalog=<SHA|not-yet-built>|fp-registry=<SHA|not-yet-built>|preflight=<ran|catalog:not-yet-built|catalog:empty-battery|catalog:skipped-bootstrap|catalog:skipped-no-production-diff>|status=<READY-pending-user-approval|READY-re-emitted-after-user-approval|DRY-RUN-INFO-ONLY|BLOCKED-<reason>>|pr-text-scan=<clean|tier1-fail:<surface:marker,...>|tier2-warn:<surface:marker,...>> subagent_ask_user_calls=0
 ```
 
 ### Step 8. AGENTS user-approval
@@ -394,7 +397,7 @@ Only after Step 9's re-emitted `PRE-PR REVIEW COVERAGE` + `PATTERN PREFLIGHT` bo
 
 Per `AGENTS.md` *Phase-state tracking convention*:
 
-`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`, `catalogRevision`, `fpRegistryRevision`, `patternPreflightSkipStatus`.
+`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`, `catalogRevision`, `fpRegistryRevision`, `patternPreflightSkipStatus`, `prTextScan`.
 
 Read from session todos when emitting blocks; never infer from memory.
 

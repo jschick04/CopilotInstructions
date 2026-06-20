@@ -5,14 +5,12 @@ Set-StrictMode -Version Latest
 # Standalone pwsh self-test for the checker-registry parity gate. Run: pwsh -File <this file>
 
 $parityScript = (Resolve-Path (Join-Path $PSScriptRoot '../check-checker-registry.ps1')).Path
-$pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+. (Join-Path $PSScriptRoot 'test-common.ps1')
+$pwshExe = Get-TestPwshExe
 $repoRoot = (& git -C $PSScriptRoot rev-parse --show-toplevel).Trim()
 
-$script:failures = 0
-$script:passes = 0
-function Assert-True { param([bool] $Condition, [string] $Description)
-    if ($Condition) { $script:passes++; Write-Host "  [PASS] $Description" } else { $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red }
-}
+$script:Fail = 0
+$script:Pass = 0
 function Invoke-Parity { param([string] $RegistryPath, [string] $Root = $repoRoot)
     $a = @('-NoProfile', '-File', $parityScript, '-RepoRoot', $Root)
     if ($RegistryPath) { $a += @('-RegistryPath', $RegistryPath) }
@@ -91,5 +89,5 @@ Assert-True ($rcid.ExitCode -eq 1) 'checker_id mismatch => exit 1'
 Remove-Item -Force $reg2; Remove-Item -Recurse -Force $tmpRoot2
 
 Write-Host ""
-if ($script:failures -eq 0) { Write-Host "ALL PASS ($script:passes assertions)" -ForegroundColor Green; exit 0 }
-else { Write-Host "$script:failures FAILED, $script:passes passed" -ForegroundColor Red; exit 1 }
+if ($script:Fail -eq 0) { Write-Host "ALL PASS ($script:Pass assertions)" -ForegroundColor Green; exit 0 }
+else { Write-Host "$script:Fail FAILED, $script:Pass passed" -ForegroundColor Red; exit 1 }

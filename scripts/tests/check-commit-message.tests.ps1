@@ -6,15 +6,11 @@ Set-StrictMode -Version Latest
 # Run: pwsh -File scripts/tests/check-commit-message.tests.ps1
 
 $checkerPath = (Resolve-Path (Join-Path $PSScriptRoot '../check-commit-message.ps1')).Path
-$pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+. (Join-Path $PSScriptRoot 'test-common.ps1')
+$pwshExe = Get-TestPwshExe
 
-$script:failures = 0
-$script:passes = 0
-function Assert-True {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    if ($Condition) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else { $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red }
-}
+$script:Fail = 0
+$script:Pass = 0
 
 # Temp repo: a `main` base + one --allow-empty feature commit per message, written --cleanup=verbatim so CRLF /
 # trailing-period / whitespace survive for the checker. $Merge adds a no-ff merge commit (to test --no-merges).
@@ -170,6 +166,6 @@ foreach ($f in $msgFiles) { if (Test-Path -LiteralPath $f) { Remove-Item -Force 
 foreach ($p in $repos) { if (Test-Path -LiteralPath $p) { Remove-Item -Recurse -Force -LiteralPath $p -ErrorAction SilentlyContinue } }
 
 Write-Host ""
-$summaryColor = if ($script:failures -eq 0) { 'Green' } else { 'Red' }
-Write-Host "check-commit-message.tests: $($script:passes) passed, $($script:failures) failed" -ForegroundColor $summaryColor
-exit ([int]($script:failures -gt 0))
+$summaryColor = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
+Write-Host "check-commit-message.tests: $($script:Pass) passed, $($script:Fail) failed" -ForegroundColor $summaryColor
+exit ([int]($script:Fail -gt 0))

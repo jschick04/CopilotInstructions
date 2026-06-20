@@ -21,6 +21,7 @@ e439bc1c376f5d04  checker bootstrap (StrictMode + module imports + Resolve-RepoR
 675e15163318ced7  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
 67edbacb095259e9  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
 bb2038a1bccf8cc2  checker bootstrap (StrictMode + module imports + Resolve-RepoRoot)
+6ffaf6941ba3224a  per-script exit-code constants idiom (check-pr-text.ps1 vs check-comment-audit.ps1; ExitOk/ExitViolation/ExitInvocation)
 52a6dcce9917f91d  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
 2b0e08ec095ecd59  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)
 76c64dc0e6ede321  checker bootstrap (check-lint.ps1 vs check-structural-conformance.ps1; both -RequireGitWorkTree)

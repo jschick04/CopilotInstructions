@@ -6,14 +6,10 @@ Set-StrictMode -Version Latest
 # Test-ScriptInvocation + Test-MirrorCoverage directly. Run: pwsh -File scripts/tests/run-local-ci.tests.ps1
 
 . (Resolve-Path (Join-Path $PSScriptRoot '../run-local-ci.ps1')).Path
+. (Join-Path $PSScriptRoot 'test-common.ps1')
 
-$script:failures = 0
-$script:passes = 0
-function Assert-True {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    if ($Condition) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else { $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red }
-}
+$script:Fail = 0
+$script:Pass = 0
 
 $scaffold = @('^actions/checkout@', '^actions/setup-[a-z0-9-]+@')
 
@@ -171,6 +167,6 @@ $r = Invoke-Coverage -Files @{ 'a.yml' = $goodWf } -Composite @{ '.github/action
 Assert-True (($r.Failures -join '|') -match 'non-script executable line') "composite action with inline check logic is scanned + rejected"
 
 Write-Host ""
-$summaryColor = if ($script:failures -eq 0) { 'Green' } else { 'Red' }
-Write-Host "run-local-ci.tests: $($script:passes) passed, $($script:failures) failed" -ForegroundColor $summaryColor
-exit ([int]($script:failures -gt 0))
+$summaryColor = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
+Write-Host "run-local-ci.tests: $($script:Pass) passed, $($script:Fail) failed" -ForegroundColor $summaryColor
+exit ([int]($script:Fail -gt 0))

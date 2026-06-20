@@ -4,17 +4,12 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+. (Join-Path $PSScriptRoot 'test-common.ps1')
+$pwshExe = Get-TestPwshExe
 $checker = Join-Path $PSScriptRoot '..' | Join-Path -ChildPath 'check-no-smart-punctuation.ps1'
-$script:passes = 0
-$script:failures = 0
+$script:Pass = 0
+$script:Fail = 0
 $repos = New-Object System.Collections.Generic.List[string]
-
-function Assert-True {
-    param([bool] $Condition, [string] $Message)
-    if ($Condition) { Write-Host "  [PASS] $Message" -ForegroundColor Green; $script:passes++ }
-    else { Write-Host "  [FAIL] $Message" -ForegroundColor Red; $script:failures++ }
-}
 
 $em = [char]0x2014   # em-dash, built at runtime so this test file stays ASCII (self-enforcing)
 $en = [char]0x2013   # en-dash
@@ -101,6 +96,6 @@ Assert-True ($r.ExitCode -eq 0) 'allowlist comment/blank lines are ignored; real
 foreach ($p in $repos) { if (Test-Path -LiteralPath $p) { Remove-Item -Recurse -Force -LiteralPath $p -ErrorAction SilentlyContinue } }
 
 Write-Host ""
-$summaryColor = if ($script:failures -eq 0) { 'Green' } else { 'Red' }
-Write-Host "check-no-smart-punctuation.tests: $($script:passes) passed, $($script:failures) failed" -ForegroundColor $summaryColor
-exit ([int]($script:failures -gt 0))
+$summaryColor = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
+Write-Host "check-no-smart-punctuation.tests: $($script:Pass) passed, $($script:Fail) failed" -ForegroundColor $summaryColor
+exit ([int]($script:Fail -gt 0))

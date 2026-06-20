@@ -5,37 +5,9 @@ Set-StrictMode -Version Latest
 $modulePath = Join-Path $PSScriptRoot '../lib/comment-audit-helpers.psm1'
 Import-Module $modulePath -Force
 
-$failures = 0
-$passes = 0
-
-function Assert-True {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    if ($Condition) {
-        $script:passes++
-        Write-Host "  [PASS] $Description"
-    } else {
-        $script:failures++
-        Write-Host "  [FAIL] $Description" -ForegroundColor Red
-    }
-}
-
-function Assert-False {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    Assert-True -Condition (-not $Condition) -Description $Description
-}
-
-function Assert-Equal {
-    param([Parameter(Mandatory)] $Expected, [Parameter(Mandatory)] $Actual, [Parameter(Mandatory)] [string] $Description)
-    if ($Expected -eq $Actual) {
-        $script:passes++
-        Write-Host "  [PASS] $Description"
-    } else {
-        $script:failures++
-        Write-Host "  [FAIL] $Description" -ForegroundColor Red
-        Write-Host "         Expected: $Expected"
-        Write-Host "         Actual:   $Actual"
-    }
-}
+. (Join-Path $PSScriptRoot 'test-common.ps1')
+$script:Fail = 0
+$script:Pass = 0
 
 Write-Host ""
 Write-Host "NOTE: this is a STANDALONE pwsh self-test (Assert-* helpers, NOT Pester). Run directly via `pwsh -File scripts/tests/check-comment-audit.tests.ps1`. `Invoke-Pester` will find 0 tests here." -ForegroundColor Yellow
@@ -484,10 +456,10 @@ finally {
 
 Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan
-Write-Host "Passes:   $passes" -ForegroundColor Green
-if ($failures -gt 0) {
-    Write-Host "Failures: $failures" -ForegroundColor Red
+Write-Host "Passes:   $script:Pass" -ForegroundColor Green
+if ($script:Fail -gt 0) {
+    Write-Host "Failures: $script:Fail" -ForegroundColor Red
     exit 1
 }
-Write-Host "Failures: $failures" -ForegroundColor Green
+Write-Host "Failures: $script:Fail" -ForegroundColor Green
 exit 0
