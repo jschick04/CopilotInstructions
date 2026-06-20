@@ -345,7 +345,8 @@ PRE-PR REVIEW COVERAGE
     compaction-artifact-path: <path or "n/a">
     mid-loop-rechecks: <[{round, trigger-pct}] - [default: []]>
   prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
-  panel-coverage: <full-whole-branch | carry-forward-authorized: <ask_user ref> (commits <carried-range>)>
+  panel-coverage:
+    - mode: <full-whole-branch | carry-forward-authorized> scope: <baseSha>..<headSha> commits: <N> carry-forward-ref: <ask_user ref | n/a> carried: <range | n/a>
   fix-iteration-count: <N - [default: 0]>
   fix-iteration-cap: <3 or user-authorized override>
   findings: <total raw>, dedupe'd to <M unique themes>
