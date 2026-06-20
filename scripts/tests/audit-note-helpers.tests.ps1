@@ -9,11 +9,6 @@ Import-Module (Join-Path $repoRoot 'scripts/lib/audit-note-helpers.psm1') -Force
 
 $script:Pass = 0
 $script:Fail = 0
-function Assert-Equal {
-    param($Expected, $Actual, [string] $Name)
-    if ($Expected -ceq $Actual) { Write-Host "  [PASS] $Name"; $script:Pass++ }
-    else { Write-Host "  [FAIL] $Name (expected '$Expected', got '$Actual')" -ForegroundColor Red; $script:Fail++ }
-}
 
 function New-TempRepo {
     param([switch] $WithIdentity)
@@ -62,8 +57,8 @@ try {
     $r = New-TempRepo
     $c0 = New-TestCommit -Directory $r -File 'a.txt' -Content 'one' -Message 'c0'
     $parent0 = Get-CommitParentSha -RepoRoot $r -CommitSha $c0
-    Assert-Equal (Get-PanelNoteRef) 'refs/notes/copilot-audit-panel' 'panel ref name'
-    Assert-Equal $GitEmptyTreeSha $parent0 'root commit parent -> empty-tree sentinel'
+    Assert-Equal (Get-PanelNoteRef) 'refs/notes/copilot-audit-panel' 'panel ref name' -CaseSensitive
+    Assert-Equal $GitEmptyTreeSha $parent0 'root commit parent -> empty-tree sentinel' -CaseSensitive
 
     Write-AuditNote -RepoRoot $r -NoteRef (Get-PanelNoteRef) -CommitSha $c0 -BodyLines (New-PanelBody $parent0)
     $note = Read-RawAuditNote -RepoRoot $r -NoteRef (Get-PanelNoteRef) -CommitSha $c0
@@ -157,10 +152,10 @@ try {
     Assert-True (-not (Test-AuditNoteFreshness -NoteLines $commentB1 -RepoRoot $r2 -CommitSha $b1).Fresh) 'carried comment note is STALE (whole-tree freshness; agent re-authors both receipts on amend)'
 
     Write-Host "`n=== Get-NormalizedRemoteIdentity + Test-IsInstructionsRepo ==="
-    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'https://github.com/jschick04/CopilotInstructions.git') 'https url normalized'
-    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'git@github.com:jschick04/CopilotInstructions.git') 'scp-style url normalized'
-    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'ssh://git@github.com/jschick04/CopilotInstructions') 'ssh url (no .git) normalized'
-    Assert-Equal 'github.com/other/repo' (Get-NormalizedRemoteIdentity 'https://github.com/other/repo.git') 'foreign url normalized (no false match)'
+    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'https://github.com/jschick04/CopilotInstructions.git') 'https url normalized' -CaseSensitive
+    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'git@github.com:jschick04/CopilotInstructions.git') 'scp-style url normalized' -CaseSensitive
+    Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'ssh://git@github.com/jschick04/CopilotInstructions') 'ssh url (no .git) normalized' -CaseSensitive
+    Assert-Equal 'github.com/other/repo' (Get-NormalizedRemoteIdentity 'https://github.com/other/repo.git') 'foreign url normalized (no false match)' -CaseSensitive
 
     $idRepo = New-TempRepo -WithIdentity
     [void](New-TestCommit -Directory $idRepo -File 'seed.txt' -Content 's' -Message 'seed')
@@ -206,7 +201,7 @@ try {
     Write-AuditNote -RepoRoot $ir -NoteRef (Get-PanelNoteRef) -CommitSha $ic -BodyLines $bodyWithTree
     $reflushed = Read-RawAuditNote -RepoRoot $ir -NoteRef (Get-PanelNoteRef) -CommitSha $ic
     $treeCount = (@($reflushed) | Where-Object { $_ -cmatch '^audited_tree:' }).Count
-    Assert-Equal 1 $treeCount 'exactly one audited_tree line after writing a body that already had one'
+    Assert-Equal 1 $treeCount 'exactly one audited_tree line after writing a body that already had one' -CaseSensitive
 }
 finally { Remove-TestTempDirectories }
 

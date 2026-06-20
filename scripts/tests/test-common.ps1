@@ -10,6 +10,32 @@ function Assert-True {
     else { Write-Host "  [FAIL] $Name" -ForegroundColor Red; $script:Fail++ }
 }
 
+function Assert-False {
+    param([bool] $Condition, [string] $Name)
+    Assert-True (-not $Condition) $Name
+}
+
+function Assert-Equal {
+    param($Expected, $Actual, [string] $Name, [switch] $CaseSensitive)
+    $equal = if ($CaseSensitive) { $Expected -ceq $Actual } else { $Expected -eq $Actual }
+    if ($equal) { Write-Host "  [PASS] $Name"; $script:Pass++ }
+    else { Write-Host "  [FAIL] $Name (expected '$Expected', got '$Actual')" -ForegroundColor Red; $script:Fail++ }
+}
+
+function Assert-ThrowsLike {
+    param([scriptblock] $Action, [string] $Pattern, [string] $Name)
+    try {
+        & $Action | Out-Null
+        Assert-True $false $Name
+    } catch {
+        Assert-True ($_.Exception.Message -match $Pattern) $Name
+    }
+}
+
+function Get-TestPwshExe {
+    if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+}
+
 function New-TestTempDirectory {
     param([string] $Prefix)
     $directory = Join-Path ([IO.Path]::GetTempPath()) ("$Prefix-" + [Guid]::NewGuid().ToString('N').Substring(0, 12))

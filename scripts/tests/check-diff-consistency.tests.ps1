@@ -5,20 +5,11 @@ Set-StrictMode -Version Latest
 # Standalone pwsh self-test (Assert-* helpers, not Pester). Run: pwsh -File <this file>
 
 $checkerPath = (Resolve-Path (Join-Path $PSScriptRoot '../check-diff-consistency.ps1')).Path
-$pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+. (Join-Path $PSScriptRoot 'test-common.ps1')
+$pwshExe = Get-TestPwshExe
 
-$script:failures = 0
-$script:passes = 0
-function Assert-True {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    if ($Condition) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else { $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red }
-}
-function Assert-Equal {
-    param([Parameter(Mandatory)] $Expected, $Actual, [Parameter(Mandatory)] [string] $Description)
-    if ($Expected -eq $Actual) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else { $script:failures++; Write-Host "  [FAIL] $Description (expected '$Expected', got '$Actual')" -ForegroundColor Red }
-}
+$script:Fail = 0
+$script:Pass = 0
 
 function New-FixtureRepo {
     param([hashtable] $Files)
@@ -159,5 +150,5 @@ Assert-Equal 0 $rrn.ExitCode 'rename receipt matches rename-blind count => exit 
 Remove-Item -Recurse -Force $ren
 
 Write-Host ""
-if ($script:failures -eq 0) { Write-Host "ALL PASS ($script:passes assertions)" -ForegroundColor Green; exit 0 }
-else { Write-Host "$script:failures FAILED, $script:passes passed" -ForegroundColor Red; exit 1 }
+if ($script:Fail -eq 0) { Write-Host "ALL PASS ($script:Pass assertions)" -ForegroundColor Green; exit 0 }
+else { Write-Host "$script:Fail FAILED, $script:Pass passed" -ForegroundColor Red; exit 1 }

@@ -9,26 +9,8 @@ Import-Module $modulePath -Force
 . (Join-Path $PSScriptRoot 'test-common.ps1')
 $checkerPath = Join-Path $PSScriptRoot '../check-post-code-change.ps1'
 
-$script:failures = 0
-$script:passes = 0
-
-function Assert-True {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    if ($Condition) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else { $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red }
-}
-function Assert-False {
-    param([Parameter(Mandatory)] [bool] $Condition, [Parameter(Mandatory)] [string] $Description)
-    Assert-True -Condition (-not $Condition) -Description $Description
-}
-function Assert-Equal {
-    param([Parameter(Mandatory)] $Expected, [Parameter(Mandatory)] $Actual, [Parameter(Mandatory)] [string] $Description)
-    if ($Expected -eq $Actual) { $script:passes++; Write-Host "  [PASS] $Description" }
-    else {
-        $script:failures++; Write-Host "  [FAIL] $Description" -ForegroundColor Red
-        Write-Host "         Expected: $Expected"; Write-Host "         Actual:   $Actual"
-    }
-}
+$script:Fail = 0
+$script:Pass = 0
 
 Write-Host ""
 Write-Host "=== Test-PathPanelRequired ===" -ForegroundColor Cyan
@@ -674,5 +656,5 @@ Assert-Equal $pcTotal $pcPrefixed "sweep: every PANEL CONVERGED is phase-prefixe
 
 Write-Host ""
 Write-Host "===================================" -ForegroundColor Cyan
-Write-Host "PASS: $script:passes   FAIL: $script:failures" -ForegroundColor $(if ($script:failures -gt 0) { 'Red' } else { 'Green' })
-if ($script:failures -gt 0) { exit 1 } else { exit 0 }
+Write-Host "PASS: $script:Pass   FAIL: $script:Fail" -ForegroundColor $(if ($script:Fail -gt 0) { 'Red' } else { 'Green' })
+if ($script:Fail -gt 0) { exit 1 } else { exit 0 }

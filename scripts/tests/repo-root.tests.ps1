@@ -6,18 +6,13 @@ $ErrorActionPreference = 'Stop'
 
 $modulePath = Join-Path (Split-Path -Parent $PSScriptRoot) 'lib/repo-root.psm1'
 Import-Module $modulePath -Force
+. (Join-Path $PSScriptRoot 'test-common.ps1')
 
-$script:passes = 0
-$script:failures = 0
+$script:Pass = 0
+$script:Fail = 0
 $script:repos = New-Object System.Collections.Generic.List[string]
 $script:worktrees = New-Object System.Collections.Generic.List[string]
 $utf8 = New-Object System.Text.UTF8Encoding($false)
-
-function Assert-True {
-    param([bool] $Condition, [string] $Message)
-    if ($Condition) { Write-Host "  [PASS] $Message" -ForegroundColor Green; $script:passes++ }
-    else { Write-Host "  [FAIL] $Message" -ForegroundColor Red; $script:failures++ }
-}
 
 function New-FixtureRoot {
     param([switch] $Git, [switch] $Anchor)
@@ -42,16 +37,6 @@ function New-FixtureRoot {
     }
     $script:repos.Add($dir)
     return $dir
-}
-
-function Assert-ThrowsLike {
-    param([scriptblock] $Action, [string] $Pattern, [string] $Message)
-    try {
-        & $Action | Out-Null
-        Assert-True $false $Message
-    } catch {
-        Assert-True ($_.Exception.Message -match $Pattern) $Message
-    }
 }
 
 Write-Host "=== repo-root resolver ===" -ForegroundColor Cyan
@@ -132,6 +117,6 @@ foreach ($repoPath in $script:repos) {
 }
 
 Write-Host ""
-$summaryColor = if ($script:failures -eq 0) { 'Green' } else { 'Red' }
-Write-Host "repo-root.tests: $($script:passes) passed, $($script:failures) failed" -ForegroundColor $summaryColor
-exit ([int]($script:failures -gt 0))
+$summaryColor = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
+Write-Host "repo-root.tests: $($script:Pass) passed, $($script:Fail) failed" -ForegroundColor $summaryColor
+exit ([int]($script:Fail -gt 0))

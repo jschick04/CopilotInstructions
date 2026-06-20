@@ -1,0 +1,32 @@
+name: pr-text-check
+
+# Separate from pr-gate-check.yml so the `edited` activity type (title/body edits, no new commit) re-runs ONLY this
+# PR-text scan, not the commit/diff-scoped jobs. Default pull_request types omit `edited`, which would let a leak
+# edited into the title/body after an initial green ride a stale-green required check - so `edited` is required here.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-text-leakage:
+    name: No internal plan markers in the PR title/body
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: ./scripts/check-pr-text.ps1
+
+  pr-text-tests:
+    name: pr-text checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-pr-text.tests.ps1

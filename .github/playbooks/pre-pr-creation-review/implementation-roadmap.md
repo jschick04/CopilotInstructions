@@ -359,6 +359,7 @@ PRE-PR REVIEW COVERAGE
  - ... - [default: []]
   bootstrap-token-status: <not-applicable | present-in-body | removed-revokes-exemption - [default: not-applicable]>
   pr-creation-status: <READY-pending-user-approval | BLOCKED - <N> must-fix unresolved | BLOCKED - slate-floor violated | BLOCKED - context-budget exceeded>
+  pr-text-scan: <clean | tier1-fail: <surface:marker,...> | tier2-warn: <surface:marker,...>>
   subagent_ask_user_calls=0 (orchestrator-only routing verified per AGENTS.md cross-cutting rule)
 ```
 
@@ -407,6 +408,7 @@ Per `AGENTS.md` *Phase-state tracking convention*:
 - `mustFixFindings` / `mustFixResolved` - must be equal for READY status.
 - `bootstrapTokenStatus` - `not-applicable | present-in-body | removed-revokes-exemption`.
 - `prCreationStatus` - `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-*`.
+- `prTextScan` - `clean | tier1-fail:<sites> | tier2-warn:<sites>` (the pre-create `check-pr-text.ps1` result; `tier1-fail` blocks PR creation until stripped).
 
 Read from session todos when emitting block; never infer from memory.
 
