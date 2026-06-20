@@ -68,6 +68,7 @@ foreach ($leak in $leakTitles) {
 
 Write-Host 'Get-PrTextFindings - body-surface leaks (workspace artifacts):'
 Assert-True ((Get-HardFailCount -Title 'Clean title' -Body 'Carries out the audit from files/f3-audit.md') -ge 1) 'body files/<x>.md -> hard-fail'
+Assert-True ((Get-HardFailCount -Title 'Clean title' -Body 'Carries out the audit from files\f3-audit.md') -ge 1) 'body files\<x>.md (Windows separator) -> hard-fail'
 Assert-True ((Get-HardFailCount -Title 'Clean title' -Body 'see .copilot/session-state/abcd1234/plan.md') -ge 1) 'body session-state path -> hard-fail'
 Assert-True ((Get-HardFailCount -Title 'Clean title' -Body 'per the 1aaddd3a-b2b8-4df2-87f5-bf1cbf12a685/plan.md notes') -ge 1) 'body <uuid>/plan.md -> hard-fail'
 
@@ -82,11 +83,13 @@ Assert-True ((Invoke-Checker -Title 'Add a clean feature') -eq 0) 'clean title -
 Assert-True ((Invoke-Checker -Title 'Refactor parser (T1)') -eq 1) 'leak title -> exit 1'
 Assert-True ((Invoke-Checker -Title 'Clean title' -Body 'audit from files/f3-audit.md') -eq 1) 'clean title + body leak -> exit 1'
 Assert-True ((Invoke-Checker -Title 'Finish task A2 migration' -Body '') -eq 1) 'title-only leak + EMPTY body -> exit 1 (body-empty does not short-circuit)'
+Assert-True ((Invoke-Checker -Title '') -eq 2) 'empty -Title (param mode) -> exit 2 (invocation error, not a silent skip)'
 Assert-True ((Invoke-Checker -Title 'T1 milestone shipped') -eq 0) 'tier-2-only (bare id) -> exit 0 (warn, not block)'
 
 Write-Host 'Subprocess exit codes (env mode + dispatch):'
 Assert-True ((Invoke-Checker -Title 'Finish task A2 migration' -Body '' -UseEnv) -eq 1) 'env-mode leak -> exit 1'
 Assert-True ((Invoke-Checker -Title 'Clean env title' -Body 'no markers here' -UseEnv) -eq 0) 'env-mode clean -> exit 0'
+Assert-True ((Invoke-Checker -Title '' -Body 'audit from files/f3-audit.md' -UseEnv) -eq 1) 'env-mode empty title + body leak -> exit 1 (body scanned despite empty title)'
 Assert-True ((Invoke-Checker -NoInput) -eq 0) 'no input source (local mirror) -> exit 0'
 Assert-True ((Invoke-Checker -Title 'X' -Body 'y' -ExtraArgs @('-BodyFile', (Join-Path ([System.IO.Path]::GetTempPath()) 'nonexistent-xyz.md'))) -eq 2) 'both -Body and -BodyFile -> exit 2'
 
