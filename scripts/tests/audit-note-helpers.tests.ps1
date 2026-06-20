@@ -57,7 +57,7 @@ try {
     $r = New-TempRepo
     $c0 = New-TestCommit -Directory $r -File 'a.txt' -Content 'one' -Message 'c0'
     $parent0 = Get-CommitParentSha -RepoRoot $r -CommitSha $c0
-    Assert-Equal (Get-PanelNoteRef) 'refs/notes/copilot-audit-panel' 'panel ref name' -CaseSensitive
+    Assert-Equal 'refs/notes/copilot-audit-panel' (Get-PanelNoteRef) 'panel ref name' -CaseSensitive
     Assert-Equal $GitEmptyTreeSha $parent0 'root commit parent -> empty-tree sentinel' -CaseSensitive
 
     Write-AuditNote -RepoRoot $r -NoteRef (Get-PanelNoteRef) -CommitSha $c0 -BodyLines (New-PanelBody $parent0)

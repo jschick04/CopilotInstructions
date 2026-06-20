@@ -115,7 +115,7 @@ Assert-False $r.Valid 'tests unknown value (skipped) -> INVALID (fail-closed all
 $r = Test-PanelLedger -LedgerLines (New-Ledger -Tests 'N/A: no test suite') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-True $r.Valid 'tests N/A: <reason> -> valid'
 
-Assert-Equal (Get-GitEmptyTreeSha) '4b825dc642cb6eb9a060e54bf8d69288fbee4904' 'Get-GitEmptyTreeSha returns the canonical empty-tree SHA (single source, no script duplicate)'
+Assert-Equal '4b825dc642cb6eb9a060e54bf8d69288fbee4904' (Get-GitEmptyTreeSha) 'Get-GitEmptyTreeSha returns the canonical empty-tree SHA (single source, no script duplicate)'
 
 $r = Test-PanelLedger -LedgerLines (New-Ledger -Panel 'user-waived: "skip it"') -ExpectedParentSha '1234567890abcdef1234567890abcdef12345678' -GovernanceTier 1
 Assert-False $r.Valid 'panel-required + OLD free-text user-waived -> INVALID (tightened: needs panel-waive-acknowledged token + ref)'
