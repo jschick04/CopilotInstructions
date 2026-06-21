@@ -17,6 +17,10 @@ function Assert-False {
 
 function Assert-Equal {
     param($Expected, $Actual, [string] $Name, [switch] $CaseSensitive)
+    if ((($Expected -is [System.Collections.IEnumerable]) -and ($Expected -isnot [string])) -or
+        (($Actual -is [System.Collections.IEnumerable]) -and ($Actual -isnot [string]))) {
+        throw "Assert-Equal does not support enumerable (array/collection) operands; use a dedicated sequence assertion or compare scalar projections. Test: $Name"
+    }
     $equal = if ($CaseSensitive) { $Expected -ceq $Actual } else { $Expected -eq $Actual }
     if ($equal) { Write-Host "  [PASS] $Name"; $script:Pass++ }
     else { Write-Host "  [FAIL] $Name (expected '$Expected', got '$Actual')" -ForegroundColor Red; $script:Fail++ }
