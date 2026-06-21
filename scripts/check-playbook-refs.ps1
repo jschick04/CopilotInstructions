@@ -55,6 +55,23 @@ foreach ($line in $pathRefs) {
     }
 }
 
+$wrongPrefixFindPattern = '(^|[^./a-zA-Z0-9_-])playbooks/[a-zA-Z0-9_./-]+\.md'
+$wrongPrefixExtractPattern = '(?<![./a-zA-Z0-9_-])playbooks/[a-zA-Z0-9_./-]+\.md'
+$truncatedRefs = & git -C $RepoRoot grep -nE "$wrongPrefixFindPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!scripts/tests/check-playbook-refs.tests.ps1' ':!.github/pr-quality-gate/data/*.csv' 2>$null
+if ($LASTEXITCODE -gt 1) {
+    Write-Invocation "git grep for wrong-prefix playbook citations failed (exit $LASTEXITCODE); cannot validate references. Failing closed."
+    exit $script:ExitInvocation
+}
+foreach ($line in $truncatedRefs) {
+    foreach ($match in [regex]::Matches($line, $wrongPrefixExtractPattern)) {
+        $cited = $match.Value
+        $canonical = ".github/$cited"
+        if ($existingSet[$canonical]) {
+            $violations += "$line  (wrong-prefix playbook ref '$cited' is missing the '.github/' root; use '$canonical')"
+        }
+    }
+}
+
 if ($violations) {
     foreach ($v in ($violations | Sort-Object -Unique)) { Write-Violation $v }
     exit $script:ExitViolation
