@@ -49,7 +49,7 @@ $script:Tier1Patterns = @(
     # (ii) compound plan-IDs (specific shapes: FX-3, F16e-2)
     [pscustomobject]@{ Name = 'compound-plan-id';   Regex = '(?i)(?<![A-Za-z0-9_-])(?:FX-\d+|F\d+[A-Za-z]*-\d+)(?![A-Za-z0-9_-])' }
     # (iii) context-anchored short plan-IDs: a plan-specific word IMMEDIATELY hugging the ID (only ws / [:#-] between)
-    [pscustomobject]@{ Name = 'anchored-short-id';  Regex = '(?i)\b(?:plan|task|follow[- ]?up|per|cascade)\s*[:#-]?\s*(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
+    [pscustomobject]@{ Name = 'anchored-short-id';  Regex = '(?i)\b(?:plan|task|follow[- ]?up|cascade)\s*[:#-]?\s*(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
     # (iii) trailing-paren plan-ID at end-of-line (multiline)
     [pscustomobject]@{ Name = 'trailing-paren-id';  Regex = '(?im)\((?:T\d+|A\d+|C\d+|D\d+|FX-\d+|F\d+[A-Za-z]*-\d+)\)\s*$' }
     # (iv) plan-SHAPED phase markers (keeps "Phase 5.5"/"step 7c"/"option B-"; drops bare "Phase 1"/"step 3")
@@ -61,6 +61,7 @@ $script:Tier1Patterns = @(
 # --- TIER 2 (warn-only) markers. -----------------------------------------------------------------------------------
 $script:Tier2Patterns = @(
     [pscustomobject]@{ Name = 'bare-short-id'; Regex = '(?<![A-Za-z0-9_-])(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
+    [pscustomobject]@{ Name = 'per-anchored-short-id'; Regex = '(?i)\bper\s*[:#-]?\s*(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
     [pscustomobject]@{ Name = 'context-sha';   Regex = '(?i)\b(?:upstream|already shipped|shipped|backported|cherry[- ]picked|rebased from|introduced in)\b.{0,40}\b[0-9a-f]{7,40}\b' }
 )
 
@@ -110,7 +111,11 @@ if (-not $paramMode -and ($PSBoundParameters.ContainsKey('Body') -or $PSBoundPar
     exit $script:ExitInvocation
 }
 if (-not $paramMode -and -not $envHasText) {
-    Write-Host "check-pr-text: no PR text supplied (local-CI mirror; the PR title/body is not a local artifact). CI is the authoritative gate. OK."
+    if ($Json) {
+        [pscustomobject]@{ hardFails = @(); warns = @() } | ConvertTo-Json -Depth 5
+    } else {
+        Write-Host "check-pr-text: no PR text supplied (local-CI mirror; the PR title/body is not a local artifact). CI is the authoritative gate. OK."
+    }
     exit $script:ExitOk
 }
 
@@ -155,6 +160,8 @@ $warns = @($findings | Where-Object { $_.Severity -eq 'warn' })
 
 if ($Json) {
     [pscustomobject]@{ hardFails = $hardFails; warns = $warns } | ConvertTo-Json -Depth 5
+    if ($hardFails.Count -gt 0) { exit $script:ExitViolation }
+    exit $script:ExitOk
 }
 
 foreach ($warn in $warns) {
