@@ -167,6 +167,32 @@ $r = Invoke-Coverage -Files @{ 'a.yml' = $goodWf } -Composite @{ '.github/action
 Assert-True (($r.Failures -join '|') -match 'non-script executable line') "composite action with inline check logic is scanned + rejected"
 
 Write-Host ""
+Write-Host "=== Assert-Equal enumerable-safety (test-common oracle self-test) ===" -ForegroundColor Cyan
+function Invoke-IsolatedAssert {
+    param([scriptblock] $Call)
+    $savedPass = $script:Pass; $savedFail = $script:Fail
+    $script:Pass = 0; $script:Fail = 0
+    $threw = $false
+    try {
+        & $Call *> $null
+    } catch {
+        $threw = $true
+    } finally {
+        $result = [pscustomobject]@{ Threw = $threw; Pass = $script:Pass; Fail = $script:Fail }
+        $script:Pass = $savedPass; $script:Fail = $savedFail
+    }
+    return $result
+}
+$o = Invoke-IsolatedAssert { Assert-Equal @($false, $false) $false 'inner' }
+Assert-True ($o.Threw) "Assert-Equal throws on enumerable Expected (no -eq array-filter false-pass)"
+$o = Invoke-IsolatedAssert { Assert-Equal 'x' @('x', 'y') 'inner' }
+Assert-True ($o.Threw) "Assert-Equal throws on enumerable Actual"
+$o = Invoke-IsolatedAssert { Assert-Equal 'ab' 'ac' 'inner' }
+Assert-True ((-not $o.Threw) -and ($o.Fail -eq 1) -and ($o.Pass -eq 0)) "Assert-Equal string mismatch -> 1 FAIL (string excluded from the enumerable throw)"
+$o = Invoke-IsolatedAssert { Assert-Equal 'ab' 'ab' 'inner' }
+Assert-True ((-not $o.Threw) -and ($o.Pass -eq 1) -and ($o.Fail -eq 0)) "Assert-Equal string match -> 1 PASS"
+
+Write-Host ""
 $summaryColor = if ($script:Fail -eq 0) { 'Green' } else { 'Red' }
 Write-Host "run-local-ci.tests: $($script:Pass) passed, $($script:Fail) failed" -ForegroundColor $summaryColor
 exit ([int]($script:Fail -gt 0))
