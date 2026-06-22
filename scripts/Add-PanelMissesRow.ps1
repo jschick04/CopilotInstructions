@@ -16,7 +16,7 @@ param(
     [Parameter(Mandatory)] [string] $CatalogRevision,
     [Parameter(Mandatory)] [string] $PrRef,
     [Parameter(Mandatory)] [string] $FindingBrief,
-    [Parameter(Mandatory)] [ValidateSet('panel-miss','process-violation','false-positive')] [string] $Classification,
+    [Parameter(Mandatory)] [ValidateSet('panel-miss','valid-deferred','rejected','process-violation','false-positive','process-confirmation','panel-execution-failure')] [string] $Classification,
     [Parameter(Mandatory)] [string] $ProposedCatalogSlug,
     [Parameter(Mandatory)] [string] $Status,
     [string] $PriorAcksPresent = '',

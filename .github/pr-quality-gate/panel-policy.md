@@ -74,19 +74,21 @@ External reviewer findings (e.g., GitHub Copilot pull request reviewer, PR human
 
 For EACH external-reviewer finding on a PR with a converged pre-PR panel:
 
-1. **Classify** the finding as one of:
-   - `panel-miss`: the pre-PR panel could/should have caught this with the existing rule slate (slate blind spot or catalog gap). → Append to `data/panel-misses.csv`. Propose a new `pattern-catalog.md` entry OR refinement to an existing one that would catch this class of issue in future PRs.
-   - `valid-deferred`: the pre-PR panel reasonably skipped this (out-of-scope by design, e.g., post-merge follow-up work, separate-PR scope, infrastructure change). → Document briefly in the PR conversation; no catalog change.
-   - `rejected`: agent disagrees with the finding; provides source-grounded rationale on the PR. → No catalog change; user may escalate.
+1. **Classify** the finding (values map to the `data/panel-misses.csv` classification enum in `data/README.md`; `process-confirmation`/`process-violation` are non-triage row types - the former per `data/README.md`, the latter per the process-violation detector below):
+   - `panel-miss`: should have caught it, but NO catalog rule covers it (rule absent). → Append a row (`pending`); propose a new `pattern-catalog.md` entry.
+   - `panel-execution-failure`: a catalog rule EXISTED but the panel didn't apply it (execution lapse, not a gap). → Append a row (`catalog-existing`); if the rule's wording or audit-method let the miss through, refine it → `catalog-strengthened`.
+   - `false-positive`: the reviewer's detection is wrong or spurious. → Append a row with source-grounded rationale; no catalog change.
+   - `valid-deferred`: reasonably skipped (out-of-scope by design - post-merge, separate-PR, or infra). → Note in the PR; no catalog change.
+   - `rejected`: the agent disputes the recommendation or severity (the issue may be arguable), with source-grounded rationale. → No catalog change; user may escalate.
 
 2. **Apply the fix** (amend or follow-up commit) AND update tracking in the SAME session:
-   - For each `panel-miss`: append a row to `data/panel-misses.csv`.
-   - For each new/refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies - no rule lands without convergence).
+   - For each `panel-miss`, `panel-execution-failure`, or `false-positive`: append a row to `data/panel-misses.csv` (status per `data/README.md`).
+   - For each new or refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies - no rule lands without convergence).
    - The agent MUST NOT close the PR loop without updating tracking. If tracking is deferred (e.g., user authorizes "fix-now-track-later"), the agent MUST surface it via same-turn `ask_user` with literal token `panel-miss-deferred`.
 
-3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum (`pending | catalog-updated | catalog-rejected | superseded | catalog-strengthened | catalog-new | catalog-ext | catalog-existing | catalog-validated`), classification enum (`panel-miss | valid-deferred | rejected | process-violation | false-positive | process-confirmation`), RFC 4180 quoting requirements, and append discipline. The schema formerly lived inline; single source of truth is now `data/README.md` to prevent drift.
+3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum, classification enum, RFC 4180 quoting requirements, and append discipline. The schema formerly lived inline; single source of truth is now `data/README.md` to prevent drift.
 
-**Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot - observed in practice (comment-rule, publication-barrier, and test-subscription-ordering gaps all started as panel-misses).
+**Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot.
 
 **How to detect a process violation**: if a PR has external-reviewer findings AND the agent has amended/follow-up-committed AND there is NO corresponding entry in `data/panel-misses.csv`, the loop was bypassed. The user can call this out at any point and the agent MUST classify + record before further work.
 
@@ -100,13 +102,13 @@ When a panel returns any verdict other than its unanimous success verdict, the a
 
 The agent MUST NOT:
 
-- **Substitute user approval for panel re-convergence.** If a panel returns `NEEDS_REWORK`, presenting a synthesized revised plan to the user as a "please approve so I can implement" step is a process violation. User approval is necessary but NOT sufficient - the panel is the independent-validation mechanism, and only the panel can clear its own findings. This is the most common regression vector observed in practice.
+- **Substitute user approval for panel re-convergence.** If a panel returns `NEEDS_REWORK`, presenting a synthesized revised plan to the user as a "please approve so I can implement" step is a process violation. User approval is necessary but NOT sufficient - the panel is the independent-validation mechanism, and only the panel can clear its own findings.
 - **Treat "I addressed the findings" as equivalent to "the panel cleared the findings".** The panel must see the revised work and re-verify.
 - **Silently skip iteration** by collapsing multiple rounds into "we'll fix it in implementation". Findings are the panel's word; only the panel can retract them.
 
 The agent MAY:
 
-- **Surface the iteration status to the user** between rounds (e.g., "Round 1 returned 4/4 NEEDS_REWORK with convergent findings X, Y, Z - applying fixes and re-launching panel"). This is informational, not approval-seeking.
+- **Surface the iteration status to the user** between rounds. This is informational, not approval-seeking.
 - **Request user override of the iteration requirement** via same-turn `ask_user` quote with literal token `iteration-waive-acknowledged` - rare cases where the user explicitly decides to bypass (e.g., panel-found findings are deferred to follow-up work tracked elsewhere). The waive MUST be recorded in the `CODE-REVIEW PANEL CONVERGED` block's `iteration_waive` field. Default is iterate.
 
 **How to detect a process violation in practice**: if the agent has emitted a synthesis of panel findings + a "approve this revised plan?" `ask_user` without a fresh panel slate launch between the two, the iteration discipline was bypassed. The user can call this out at any point and the agent MUST re-launch the panel before any further implementation work.
