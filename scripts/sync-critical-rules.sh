@@ -138,7 +138,10 @@ generate_output() {
         printf '%s\n' "$SLUGS_DATA" | while IFS=$'\t' read -r slug scope trigger; do
             printf '### `%s`\n' "$slug"
             printf '\n'
-            printf '%s.\n' "$trigger"
+            case "$trigger" in
+                *.) printf '%s\n' "$trigger" ;;
+                *)  printf '%s.\n' "$trigger" ;;
+            esac
             printf '\n'
             printf 'Canonical rule definition: see `pattern-catalog.md` row `%s`.\n' "$slug"
             printf '\n'

@@ -102,7 +102,7 @@ $sb = New-Object System.Text.StringBuilder
 foreach ($s in $highTierSlugs) {
     [void]$sb.Append("### ``$($s.Slug)```n")
     [void]$sb.Append("`n")
-    [void]$sb.Append($s.Trigger + ".`n")
+    [void]$sb.Append($s.Trigger + $(if ($s.Trigger.EndsWith('.')) { '' } else { '.' }) + "`n")
     [void]$sb.Append("`n")
     [void]$sb.Append("Canonical rule definition: see ``pattern-catalog.md`` row ``$($s.Slug)``.`n")
     [void]$sb.Append("`n")
