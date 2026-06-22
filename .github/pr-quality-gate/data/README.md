@@ -112,6 +112,15 @@ timestamp,catalog_revision,pr_ref,finding_brief,classification,proposed_catalog_
 | `rule_in_base_instructions` | enum `true \| false` | Whether the proposed rule was already present in `AGENTS.md` / `.github/instructions/*.instructions.md` at the time of the miss. Distinguishes load-failure (rule absent) from application-failure (rule loaded but ignored) |
 | `divergence_override_history` | text (RFC 4180 quoted) | If the gate's count-divergence WARN was overridden by the reviewer with `divergence_acknowledged: <reason>`, the reason text is logged here for audit |
 
+### Field mutability
+
+Every column is an **immutable finding-time record EXCEPT `status`**. A row captures what the pre-PR panel missed against the catalog slate pinned by `catalog_revision`; that snapshot must never be rewritten when the catalog later evolves.
+
+- **Immutable (finding-time):** `timestamp`, `catalog_revision`, `pr_ref`, `finding_brief`, `classification`, `proposed_catalog_slug`, `prior_acks_present`, `rule_in_base_instructions`, `divergence_override_history`. In particular `finding_brief` is co-pinned with `catalog_revision`: it describes the miss AS FOUND under that revision, NOT the rule's current scope. Do not rewrite a brief when its rule is later widened - that would back-date the broadened scope onto a pre-broadening pin.
+- **Revisable (remediation workflow):** `status` only. The "rule evolved in response to this miss" signal is carried here (e.g., `catalog-existing` to `catalog-strengthened`), so it is never duplicated into the immutable brief.
+
+A reader who wants a rule's CURRENT scope consults `pattern-catalog.md` (the source of truth); the ledger is finding-time evidence, not a mirror of the live catalog.
+
 ### RFC 4180 quoting (REQUIRED)
 
 All free-text fields (`finding_brief`, `prior_acks_present`, `divergence_override_history`) MUST be quoted per RFC 4180 when they contain commas, double-quotes, or embedded newlines. Embedded double-quotes are doubled (`""`). This file was migrated from a legacy 7-field unquoted format to the current 10-field RFC 4180 format via `scripts/migrate-panel-misses-csv.ps1`.
