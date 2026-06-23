@@ -54,15 +54,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $blocks = New-Object System.Collections.ArrayList   # each: @{ File; Start; Lines(normalized) }
-$curFile = $null; $curRun = $null
+$curFile = $null; $curRun = $null; $curExcluded = $false
 function Complete-Run {
     if ($curRun -and $curRun.Lines.Count -ge $MinLines) { [void]$blocks.Add($curRun) }
     $script:curRun = $null
 }
+function Test-GeneratedMirror { param([string] $Path) ($Path -replace '\\', '/') -cmatch '^\.github/pr-quality-gate/pattern-catalog\.md$' }
 foreach ($line in $diffLines) {
-    if ($line -cmatch '^\+\+\+\s+b/(.+)$') { Complete-Run; $curFile = $matches[1]; continue }
+    if ($line -cmatch '^\+\+\+\s+b/(.+)$') { Complete-Run; $curFile = $matches[1]; $curExcluded = (Test-GeneratedMirror $curFile); continue }
     if ($line -cmatch '^(---|diff |index |@@|\\ )' ) { Complete-Run; continue }
     if ($line.StartsWith('+')) {
+        if ($curExcluded) { continue }
         $norm = Get-Normalized $line.Substring(1)
         if (-not $curRun) { $script:curRun = [PSCustomObject]@{ File = $curFile; Lines = (New-Object System.Collections.ArrayList) } }
         [void]$curRun.Lines.Add($norm)
@@ -103,6 +105,7 @@ $headBlobs = @($lsTree | ForEach-Object {
     }
 } | Where-Object { $_ })
 foreach ($hb in $headBlobs) {
+    if (Test-GeneratedMirror $hb.Path) { continue }
     $content = @(& git -C $RepoRoot cat-file -p $hb.Sha 2>$null)
     if ($LASTEXITCODE -ne 0) {
         Write-Host "check-duplication: 'git cat-file -p $($hb.Sha)' ($($hb.Path)) failed (exit $LASTEXITCODE); cannot index a baseline blob. Failing closed."

@@ -89,6 +89,42 @@ try {
     Set-Content (Join-Path $d6 'seed.ps1') @('# seed'); git -C $d6 add -A 2>$null; git -C $d6 commit -q -m base
     $o6 = (& pwsh -NoProfile -File $checker -RepoRoot $d6 -MinLines 6 -BaseRef 'no-such-ref-xyz' 2>&1 | Out-String); $c6 = $LASTEXITCODE
     Assert-True ($c6 -ne 0 -and $o6 -match 'Failing closed') 'git diff failure (bad -BaseRef) -> non-zero exit (fail closed, not skip)'
+
+    Write-Host "`n=== generated pattern-catalog.md is excluded (source<->generated mirror not flagged) ==="
+    $d7 = New-Repo
+    $gateDir = Join-Path $d7 '.github/pr-quality-gate/pattern-catalog.sources'
+    New-Item -ItemType Directory -Force -Path $gateDir | Out-Null
+    $genCatalog = Join-Path $d7 '.github/pr-quality-gate/pattern-catalog.md'
+    $srcCatalog = Join-Path $d7 '.github/pr-quality-gate/pattern-catalog.sources/00-catalog.md'
+    Set-Content $genCatalog @('# seed'); Set-Content $srcCatalog @('# seed')
+    git -C $d7 add -A 2>$null; git -C $d7 commit -q -m base
+    Set-Content $srcCatalog (@('# seed') + $BLOCK)
+    Set-Content $genCatalog (@('# seed') + $BLOCK)
+    git -C $d7 add -A 2>$null
+    $r = Run $d7
+    Assert-True ($r.ExitCode -eq 0) 'block mirrored in source + generated pattern-catalog.md -> exit 0 (generated mirror path-excluded; source block is unique)'
+
+    Write-Host "`n=== source 00-catalog.md is still scanned (only the generated mirror is excluded) ==="
+    $d8 = New-Repo
+    $srcDir8 = Join-Path $d8 '.github/pr-quality-gate/pattern-catalog.sources'
+    New-Item -ItemType Directory -Force -Path $srcDir8 | Out-Null
+    $srcCatalog8 = Join-Path $d8 '.github/pr-quality-gate/pattern-catalog.sources/00-catalog.md'
+    Set-Content $srcCatalog8 @('# seed'); git -C $d8 add -A 2>$null; git -C $d8 commit -q -m base
+    Set-Content $srcCatalog8 (@('# seed') + $BLOCK)
+    Set-Content (Join-Path $d8 'other.ps1') ($BLOCK)
+    git -C $d8 add -A 2>$null
+    $r = Run $d8
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'duplicates within this changeset') 'block in source 00-catalog.md + another file -> still flagged (source not excluded)'
+
+    Write-Host "`n=== near-miss path is NOT excluded (anchor is exact repo-root-relative) ==="
+    $d9 = New-Repo
+    New-Item -ItemType Directory -Force -Path (Join-Path $d9 'docs') | Out-Null
+    Set-Content (Join-Path $d9 'seed.ps1') @('# seed'); git -C $d9 add -A 2>$null; git -C $d9 commit -q -m base
+    Set-Content (Join-Path $d9 'docs/pattern-catalog.md') ($BLOCK)
+    Set-Content (Join-Path $d9 'other.ps1') ($BLOCK)
+    git -C $d9 add -A 2>$null
+    $r = Run $d9
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'duplicates within this changeset') 'decoy docs/pattern-catalog.md (same basename, different dir) is NOT excluded -> still flagged'
 }
 finally {
     Remove-TestTempDirectories
