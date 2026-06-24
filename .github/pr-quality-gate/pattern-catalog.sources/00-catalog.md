@@ -18,12 +18,11 @@ Tier controls cost optimization in lighter panel modes AND `HIGH-TIER-SLUGS.md` 
 - **MEDIUM** (rg-rules + review-pass-only): run in full/triage only; SKIP in lint-only.
 - **LOW** (rg-rules + review-pass-only): run in full only; SKIP in triage and lint-only.
 
-Tier auto-derivation by `scripts/sync-critical-rules.ps1`:
-- rg-detectable rules (`scope_mode: diff-scoped|tree-scoped|hybrid`): tier from rg-corpus hit count
-- review-pass-only rules: tier from `panel-misses.csv` hit count (unique `pr_ref` count, not raw row count)
-- Thresholds: ≥5 hits = HIGH, 3-4 = MEDIUM, 0-2 = LOW
-- Manual override: row's `tier` column set to explicit value overrides auto-derivation
-- **Catalog-first inclusion (zero-repeats):** EVERY generalizable review finding is cataloged immediately (1-hit), NOT gated by a frequency threshold; see `.github/playbooks/instruction-set-maintenance.md`. Frequency drives only TIER/PRIORITY (above) and the section grouping below (the seed-corpus frequency labels are historical). New entries are placed by role (rg-detectable -> battery section; judgment -> review-pass-only) and tiered by the auto-derivation above.
+Tier assignment (manual, heuristic-guided; `scripts/sync-critical-rules.ps1` consumes it verbatim):
+- The `tier` column is set by the agent at catalog time, applying a frequency heuristic as a GUIDELINE - for rg-detectable rules (`scope_mode: diff-scoped|tree-scoped|hybrid`) the rg-corpus hit count; for review-pass-only rules the `panel-misses.csv` unique `pr_ref` count (not raw row count).
+- Guideline bands: >=5 = HIGH, 3-4 = MEDIUM, 0-2 = LOW. Impact/breadth is a sanctioned MEDIUM-over-LOW override - tier is a triage-inclusion judgment (which slugs run in lighter panel modes), not a blind count.
+- Script role: `sync-critical-rules.ps1` reads the `tier` column VERBATIM and filters HIGH into `HIGH-TIER-SLUGS.md`; it reads no `panel-misses.csv` and derives no tier (the heuristic is an authoring guideline, not a script step).
+- **Catalog-first inclusion (zero-repeats):** EVERY generalizable review finding is cataloged immediately (1-hit), NOT gated by a frequency threshold; see `.github/playbooks/instruction-set-maintenance.md`. Frequency only INFORMS tier/priority (a guideline, above) and the section grouping below (the seed-corpus frequency labels are historical). New entries are placed by role (rg-detectable -> battery section; judgment -> review-pass-only) and tiered by the manual, heuristic-guided assignment above.
 
 ## Patterns (high-frequency battery, ≥5 hits in seed corpus - frequency label historical; inclusion is catalog-first per Tier semantics above)
 
