@@ -60,3 +60,20 @@ bb2038a1bccf8cc2  checker bootstrap (StrictMode + module imports + Resolve-RepoR
 4633aee39592e3cd  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
 efad131936ee9af6  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
 ee566c7d0f352280  parallel staged-gate logic (check-comment-audit vs check-post-code-change)
+
+# fu5 R2 machine-path gate (scripts/check-no-machine-paths.ps1 + machine-path-check.yml + its tests): shares
+# the modern-gate scaffold with check-pr-text.ps1 (param tail + dot-source guard + StrictMode + exit-code
+# constants), the checker bootstrap with check-no-panel-artifacts.ps1 (RepoRoot param + Resolve-RepoRoot),
+# the pull_request workflow boilerplate with pr-gate-check.yml, and the test-harness preamble with
+# check-commit-message.tests.ps1. Each is a per-file idiom that cannot be DRY-ed (StrictMode/exit constants
+# must live in each script's own scope; CI steps must be inline for the coverage gate).
+7b3e0924cb1ff799  pull_request workflow boilerplate (machine-path-check.yml vs pr-gate-check.yml)
+2ea359910d9b7a46  pull_request workflow boilerplate (machine-path-check.yml vs pr-gate-check.yml)
+1029b3b7d1366581  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+ee156ddc769f9847  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+3252302cfea3e586  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+b46ba1e1a27a2eca  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+141f3004a982ee06  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+2a28b3d3f888bed3  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
+d506aa39b06e628e  checker bootstrap (check-no-machine-paths.ps1 vs check-no-panel-artifacts.ps1; RepoRoot param + Resolve-RepoRoot)
+077606b1f9541a68  test-harness preamble (check-no-machine-paths.tests.ps1 vs check-commit-message.tests.ps1; Requires + StrictMode + test-common)
