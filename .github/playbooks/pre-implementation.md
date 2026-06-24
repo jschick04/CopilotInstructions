@@ -172,6 +172,16 @@ Run the multi-model reviewer panel via `multi-model-review.md` with target-type 
 
 The panel must reach **unanimous convergence** (all reviewers verdict `DESIGN_READY`) before implementation proceeds. Address findings or explicitly justify dismissal per C2 routing. Adopt findings that clearly prevent bugs or test failures; set aside findings that significantly complicate the implementation without clear benefit.
 
+**What "unanimous `DESIGN_READY`" actually requires (the gate exit condition).** Only an UNCONDITIONAL `DESIGN_READY` with zero open changes clears the gate. A verdict that is conditional or carries unresolved / enumerated changes - "approve with changes", "looks good but fix X", "`DESIGN_READY` pending Y" (or any conditional shape a non-native panel emits, e.g. "GO-WITH-CHANGES") - is structurally a `NEEDS_REWORK`, NOT convergence: a positive-sounding verdict is not a terminal one. Incorporate the changes, then re-run the changed-scope + dissenting reviewers until they return an explicit, unconditional `DESIGN_READY` before the FIRST production edit.
+
+**Reviewer-disagreed forks are a HARD BLOCK - the "set aside findings" allowance above does NOT cover them.** Setting a finding aside is for findings the panel AGREES are dismissible (per C2 routing); it is never a license to resolve a fork on which reviewers explicitly DISAGREE (eager vs lazy, split vs combined commit, key-value choice, matcher scoping). On a disagreed fork the agent MUST either (a) re-converge the panel on that specific fork, or (b) escalate that specific fork to the user via `ask_user` with the trade-offs - never pick a side on its own authority.
+
+**The agent's own design notes are not approval (anti-self-ratification).** Notes the agent writes to its OWN state (plan.md, phase-state / task DB, checkpoints, session files) are working memory. Re-reading one's own thorough notes does NOT convert them into a panel `DESIGN_READY` or a user sign-off, and recording a fork choice does NOT resolve the fork. The agent must not cite its own recorded design as the basis for clearing the gate.
+
+**Directional approval is not concrete-design approval (a distinct, additional sign-off).** When the concrete implementation design OVERRIDES the authoritative spec OR contains forks the panel did not unanimously close, the agent MUST obtain explicit user approval of THAT concrete design via `ask_user` before implementation - separate from, and not covered by, any earlier directional / build-vs-defer / scope approval.
+
+(Discipline aids, not mechanical teeth - no script reads a verdict's conditionality, a fork's disagreement, a note's provenance, or a spec override at edit time; the real backstop is `Test-PanelLedger` at commit/push, which proves a converged transcript exists, not that these judgments were actually made before the code. The `committed-gate-skipped-or-unilaterally-carved-out` slug is the commit-time detective backstop for the gate-skip / unilateral-carve-out / scope-shift shapes; the reviewer-disagreed-fork and scratch-as-approval shapes above layer on top of it, they do not restate it.)
+
 ### Step 3 - Record state and proceed
 
 After the multi-model panel:
