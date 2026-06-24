@@ -27,10 +27,10 @@ function Test-Line {
 
 # Run the gate as a subprocess against a fixture repo; returns the exit code.
 function Invoke-Gate {
-    param([string] $Repo, [switch] $Staged, [string] $Base, [switch] $NoMode)
+    param([string] $Repo, [switch] $Staged, [string] $BaseRef)
     $callArgs = @('-NoProfile', '-File', $checkerPath, '-RepoRoot', $Repo)
     if ($Staged) { $callArgs += '-Staged' }
-    if ($PSBoundParameters.ContainsKey('Base')) { $callArgs += @('-Base', $Base) }
+    if ($PSBoundParameters.ContainsKey('BaseRef')) { $callArgs += @('-BaseRef', $BaseRef) }
     & $pwshExe @callArgs *> $null
     return $LASTEXITCODE
 }
@@ -112,7 +112,7 @@ Add-RepoFile -Repo $selfRepo -File 'scripts/tests/check-no-machine-paths.tests.p
 Assert-Equal 0 (Invoke-Gate -Repo $selfRepo -Staged) 'staged: concrete paths only in the 2 self-excluded files -> exit 0'
 git -C $selfRepo checkout -q -b feature
 git -C $selfRepo commit -q -m 'add gate fixtures' 2>$null
-Assert-Equal 0 (Invoke-Gate -Repo $selfRepo -Base 'main') 'range: concrete paths only in the 2 self-excluded files -> exit 0'
+Assert-Equal 0 (Invoke-Gate -Repo $selfRepo -BaseRef 'main') 'range: concrete paths only in the 2 self-excluded files -> exit 0'
 
 # (regression for the header-vs-content ambiguity: a naive StartsWith('+++') drops such a line; the
 #  hunk-aware walk treats it as content because it is inside a @@ hunk, not in the file preamble.)
@@ -127,16 +127,16 @@ $rangeRepo = New-TestGitRepository -Prefix 'machpath-range'
 New-TestCommit -Directory $rangeRepo -File 'README.md' -Content 'seed' -Message 'seed' | Out-Null
 git -C $rangeRepo checkout -q -b feature
 New-TestCommit -Directory $rangeRepo -File 'src/clean.cs' -Content 'var p = Path.Combine(home, "x");' -Message 'clean change' | Out-Null
-Assert-Equal 0 (Invoke-Gate -Repo $rangeRepo -Base 'main') 'range: clean branch diff -> exit 0'
+Assert-Equal 0 (Invoke-Gate -Repo $rangeRepo -BaseRef 'main') 'range: clean branch diff -> exit 0'
 New-TestCommit -Directory $rangeRepo -File 'src/leak.cs' -Content 'home = "/home/dave/proj/secret"' -Message 'leak change' | Out-Null
-Assert-Equal 1 (Invoke-Gate -Repo $rangeRepo -Base 'main') 'range: branch adds a machine path -> exit 1'
+Assert-Equal 1 (Invoke-Gate -Repo $rangeRepo -BaseRef 'main') 'range: branch adds a machine path -> exit 1'
 
 Write-Host 'Invocation + fail-closed:'
 $modeRepo = New-TestGitRepository -Prefix 'machpath-mode'
 New-TestCommit -Directory $modeRepo -File 'README.md' -Content 'seed' -Message 'seed' | Out-Null
-Assert-Equal 2 (Invoke-Gate -Repo $modeRepo) 'no mode (-Staged/-Base absent) -> exit 2'
-Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -Staged -Base 'main') 'both -Staged and -Base -> exit 2'
-Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -Base 'no-such-ref-xyz') 'unresolvable -Base ref -> exit 2 (fail-closed)'
+Assert-Equal 2 (Invoke-Gate -Repo $modeRepo) 'no mode (-Staged/-BaseRef absent) -> exit 2'
+Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -Staged -BaseRef 'main') 'both -Staged and -BaseRef -> exit 2'
+Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -BaseRef 'no-such-ref-xyz') 'unresolvable -BaseRef ref -> exit 2 (fail-closed)'
 
 Remove-TestTempDirectories
 Write-Host ''

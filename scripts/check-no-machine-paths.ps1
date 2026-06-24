@@ -15,7 +15,7 @@
 
   TWO GIT MODES (one scan path):
     -Staged          pre-commit: scans `git diff --cached` added lines.
-    -Base <ref>      CI + run-local-ci: scans `git diff <ref>...HEAD` added lines (the whole branch diff).
+    -BaseRef <ref>      CI + run-local-ci: scans `git diff <ref>...HEAD` added lines (the whole branch diff).
   Both modes self-exclude THIS script + its test file (they embed concrete fixtures by necessity), so the
   gate's own introducing change does not self-trip. An empty diff is clean (empty input = clean, exit 0) -
   not a deferral.
@@ -25,7 +25,7 @@
 [CmdletBinding()]
 param(
     [switch] $Staged,
-    [string] $Base,
+    [string] $BaseRef,
     [string] $RepoRoot = '',
     [switch] $Json
 )
@@ -40,10 +40,10 @@ $script:ExitViolation = 1
 $script:ExitInvocation = 2
 
 # The two self-excluded files (they embed concrete machine-path fixtures by necessity). Applied IDENTICALLY in
-# both -Staged and -Base mode so the gate's own introducing change never self-trips.
+# both -Staged and -BaseRef mode so the gate's own introducing change never self-trips.
 $script:SelfExcludePathspecs = @(
-    ':(exclude)scripts/check-no-machine-paths.ps1'
-    ':(exclude)scripts/tests/check-no-machine-paths.tests.ps1'
+    ':!scripts/check-no-machine-paths.ps1'
+    ':!scripts/tests/check-no-machine-paths.tests.ps1'
 )
 
 # Excluded first-segment tokens: doc placeholders + Windows/macOS shared homes + CI-runner canonical homes.
@@ -106,13 +106,13 @@ if ($RepoRoot) {
     }
 }
 $stagedMode = $Staged.IsPresent
-$baseMode = -not [string]::IsNullOrWhiteSpace($Base)
+$baseMode = -not [string]::IsNullOrWhiteSpace($BaseRef)
 if ($stagedMode -and $baseMode) {
-    Write-Host "::error::INVOCATION_FAILED: supply at most one of -Staged / -Base, not both"
+    Write-Host "::error::INVOCATION_FAILED: supply at most one of -Staged / -BaseRef, not both"
     exit $script:ExitInvocation
 }
 if (-not $stagedMode -and -not $baseMode) {
-    Write-Host "::error::INVOCATION_FAILED: supply -Staged (pre-commit) or -Base <ref> (CI / branch diff)"
+    Write-Host "::error::INVOCATION_FAILED: supply -Staged (pre-commit) or -BaseRef <ref> (CI / branch diff)"
     exit $script:ExitInvocation
 }
 
@@ -120,8 +120,8 @@ if ($stagedMode) {
     $rangeLabel = 'staged diff'
     $diffArgs = @('-C', $repoRoot, 'diff', '--cached', '--no-color', '-U0', '--', '.') + $script:SelfExcludePathspecs
 } else {
-    $rangeLabel = "$Base...HEAD range"
-    $diffArgs = @('-C', $repoRoot, 'diff', '--no-color', '-U0', "$Base...HEAD", '--', '.') + $script:SelfExcludePathspecs
+    $rangeLabel = "$BaseRef...HEAD range"
+    $diffArgs = @('-C', $repoRoot, 'diff', '--no-color', '-U0', "$BaseRef...HEAD", '--', '.') + $script:SelfExcludePathspecs
 }
 
 $diffOutput = & git @diffArgs 2>$null

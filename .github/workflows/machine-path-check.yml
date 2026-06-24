@@ -21,7 +21,7 @@ jobs:
       - shell: pwsh
         env:
           BASE_REF: origin/${{ github.base_ref || 'main' }}
-        run: ./scripts/check-no-machine-paths.ps1 -Base "$env:BASE_REF"
+        run: ./scripts/check-no-machine-paths.ps1 -BaseRef "$env:BASE_REF"
 
   machine-path-tests:
     name: machine-path checker unit tests
