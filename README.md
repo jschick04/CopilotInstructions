@@ -81,7 +81,7 @@ CopilotInstructions/
 │   ├── invoke-panel.ps1                                # panel launcher with mode-receipt validation
 │   └── data/                                           # findings + panel-miss telemetry (project-deidentified)
 ├── scripts/
-│   ├── sync-critical-rules.ps1 / .sh                   # regen HIGH-TIER-SLUGS.md from pattern-catalog.md (byte-identical twins)
+│   ├── sync-critical-rules.ps1 / .sh                   # regen HIGH-TIER-SLUGS.md from pattern-catalog.md (byte-identical output)
 │   ├── Add-PanelMissesRow.ps1                          # RFC 4180-compliant CSV appender
 │   └── migrate-panel-misses-csv.ps1
 ├── .githooks/
