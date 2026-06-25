@@ -110,3 +110,8 @@ b858d5fbd58681df  checker bootstrap (check-no-automation-identity.ps1 vs check-c
 7e8c74e6c4539059  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)
 581e65fcb5027fda  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)
 91b930c5e42576fc  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)
+46162049bec9d8cb  gate-runner -Verify guard wraps the existing findings.csv append logic (intentional conditional skip; block matches the pre-Verify version it guards)
+02f54eb74012f296  gate-runner -Verify guard wraps the existing findings.csv append logic (intentional conditional skip)
+0a4d178766eb2b83  gate-runner -Verify guard wraps the existing findings.csv append logic (intentional conditional skip)
+5214170777f3060c  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
+3961d16ce29875af  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
