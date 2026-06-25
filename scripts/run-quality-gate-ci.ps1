@@ -16,21 +16,22 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+function Write-WrapErr { param([string] $Msg) if ($CiMode) { Write-Host "::error::$Msg" } else { Write-Host $Msg -ForegroundColor Red } }
 try {
     $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('scripts/run-quality-gate-ci.ps1') -RequireGitWorkTree
 } catch {
-    Write-Host "::error::$($_.Exception.Message)"
+    Write-WrapErr $_.Exception.Message
     exit 2
 }
 
-$base = (& git -C $RepoRoot rev-parse $BaseRef 2>$null)
+$base = (& git -C $RepoRoot merge-base $BaseRef HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $base) {
-    Write-Host "::error::run-quality-gate-ci: cannot resolve base SHA from '$BaseRef' - refusing to run fail-open"
+    Write-WrapErr "run-quality-gate-ci: cannot resolve the merge-base of '$BaseRef' and HEAD (gate-runner's base_sha contract) - refusing to run fail-open"
     exit 2
 }
 $head = (& git -C $RepoRoot rev-parse HEAD 2>$null)
 if ($LASTEXITCODE -ne 0 -or -not $head) {
-    Write-Host "::error::run-quality-gate-ci: cannot resolve HEAD SHA - refusing to run fail-open"
+    Write-WrapErr "run-quality-gate-ci: cannot resolve HEAD SHA - refusing to run fail-open"
     exit 2
 }
 $base = $base.Trim()
