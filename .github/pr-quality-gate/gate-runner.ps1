@@ -127,11 +127,11 @@ function Invoke-RgPattern { param([string[]] $Files, [string] $Pattern, [string[
         if ($matched.Count -eq 0) { return @() }
         # Convert to full paths so rg can find them regardless of $PWD.
         $matched = $matched | ForEach-Object { Join-Path $TreeRoot $_ }
-        return Get-RgHits -RgArgs (@('--line-number', '--no-heading', '--color', 'never', '--', $Pattern) + @($matched)) -Pattern $Pattern
+        return Get-RgHits -RgArgs (@('--line-number', '--no-heading', '--color', 'never', '--regexp', $Pattern, '--') + @($matched)) -Pattern $Pattern
     }
     $rgArgs = @('--line-number', '--no-heading', '--color', 'never')
     foreach ($g in $Globs) { $rgArgs += @('--glob', $g) }
-    $rgArgs += @('--', $Pattern, $TreeRoot)
+    $rgArgs += @('--regexp', $Pattern, '--', $TreeRoot)
     return Get-RgHits -RgArgs $rgArgs -Pattern $Pattern
 }
 

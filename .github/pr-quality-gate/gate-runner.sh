@@ -182,10 +182,10 @@ run_rg() {  # args: pattern, globs-json-array, file-list-or-empty (newline-separ
             done
         done <<< "$file_list"
         [[ ${#matched[@]} -eq 0 ]] && return 0
-        rg "${rg_args[@]}" -- "$pat" "${matched[@]}" 2>/dev/null || [[ $? -eq 1 ]]
+        rg "${rg_args[@]}" --regexp "$pat" -- "${matched[@]}" 2>/dev/null || [[ $? -eq 1 ]]
     else
         while IFS= read -r g; do rg_args+=(--glob "$g"); done < <(echo "$globs_json" | jq -r '.[]')
-        rg_args+=(-- "$pat" "$PROJECT_ROOT")
+        rg_args+=(--regexp "$pat" -- "$PROJECT_ROOT")
         rg "${rg_args[@]}" 2>/dev/null || [[ $? -eq 1 ]]
     fi
 }
