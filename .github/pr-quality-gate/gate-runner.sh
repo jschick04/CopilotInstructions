@@ -255,12 +255,12 @@ acquire_lock() {
 }
 
 DATA_DIR="$CLONE/.github/pr-quality-gate/data"
-mkdir -p "$DATA_DIR"
 CSV="$DATA_DIR/findings.csv"
 LOCK="$CSV.lock"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [[ $VERIFY -eq 0 && $TOTAL_REAL_FINDINGS -gt 0 ]]; then
+    mkdir -p "$DATA_DIR"
     acquire_lock "$LOCK" || die 4 "Could not acquire findings.csv lock within ${LOCK_TIMEOUT_SECONDS}s"
     trap 'rm -f "$LOCK"' EXIT
     [[ ! -f "$CSV" ]] && printf 'timestamp,revision,pattern_slug,classification,finding_brief,slate_mode,finding_type\n' > "$CSV"
