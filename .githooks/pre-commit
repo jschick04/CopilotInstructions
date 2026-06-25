@@ -99,6 +99,33 @@ if git cat-file -e HEAD:scripts/check-no-machine-paths.ps1 2>/dev/null || [ -f s
     fi
 fi
 
+# === Commit author/committer identity gate =========================================
+# Adoption-gated on the checker script. Blocks a commit whose resolved author OR committer is a disallowed automation
+# identity (Copilot / *[bot] / github-actions / the Copilot noreply / empty). `git commit` exports the resolved
+# GIT_AUTHOR_* (including a --author override or the --amend-preserved author) into this hook env, so plain `git var`
+# catches new commits + --amend + --author. cherry-pick/rebase/am do not run the pre-commit hook -> caught by range
+# mode at pre-push (run-local-ci) + CI. On a non-adopted repo this no-ops. The CI automation-identity job is the
+# merge-blocking remote backstop (this hook is --no-verify-bypassable).
+if git cat-file -e HEAD:scripts/check-no-automation-identity.ps1 2>/dev/null || [ -f scripts/check-no-automation-identity.ps1 ]; then
+    if [ ! -f scripts/check-no-automation-identity.ps1 ]; then
+        echo "ERROR: scripts/check-no-automation-identity.ps1 is committed (automation-identity gate adopted) but absent from the working tree." >&2
+        echo "       Refusing to commit removal/disable of the enforcement without verification (fail-closed)." >&2
+        exit 1
+    fi
+    if command -v pwsh >/dev/null 2>&1; then
+        if ! pwsh -NoProfile -File scripts/check-no-automation-identity.ps1; then
+            echo "" >&2
+            echo "ERROR: this commit's author or committer is a disallowed automation identity." >&2
+            echo "       Set a real human identity (git config user.name / user.email); never commit as Copilot or a [bot] account." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: pwsh not available; cannot verify the commit author/committer identity." >&2
+        echo "       Install PowerShell 7+ (pwsh); the CI automation-identity job is the only backstop." >&2
+        exit 1
+    fi
+fi
+
 # === Read-receipt gate (code-topic instruction files) =============================
 # A staged edit to a code file (matching a .github/instructions topic file's applyTo glob) must carry a
 # fresh reads=<file>@<token> citation in the gitignored read-receipts-last.md. Adoption-gated on script
