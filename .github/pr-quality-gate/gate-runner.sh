@@ -172,7 +172,9 @@ FILE_COUNT="$(echo "$DIFF_FILES" | grep -c '^' || true)"
 _rg_capture() {  # args: pattern-for-diagnostic, then the full rg argv
     local pat="$1"; shift
     local errf out rc=0
-    errf="$(mktemp)"
+    if ! errf="$(mktemp "${TMPDIR:-/tmp}/gate-runner-rg.XXXXXX")"; then
+        die 4 "could not create a temp file for rg stderr capture (mktemp failed)"
+    fi
     out="$(rg "$@" 2>"$errf")" || rc=$?
     if [[ $rc -gt 1 ]]; then
         local err; err="$(cat "$errf" 2>/dev/null || true)"; rm -f "$errf"
