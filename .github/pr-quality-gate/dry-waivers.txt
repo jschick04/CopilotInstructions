@@ -115,3 +115,4 @@ b858d5fbd58681df  checker bootstrap (check-no-automation-identity.ps1 vs check-c
 0a4d178766eb2b83  gate-runner -Verify guard wraps the existing findings.csv append logic (intentional conditional skip)
 5214170777f3060c  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
 3961d16ce29875af  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
+404a92dea49772ab  gate-runner -Verify append block (mkdir moved inside rows>0 guard; heuristic flags the modified block as duplicating its pre-edit version - a modify, not a copy-paste)
