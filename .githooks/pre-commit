@@ -113,10 +113,16 @@ if git cat-file -e HEAD:scripts/check-no-automation-identity.ps1 2>/dev/null || 
         exit 1
     fi
     if command -v pwsh >/dev/null 2>&1; then
-        if ! pwsh -NoProfile -File scripts/check-no-automation-identity.ps1; then
+        identity_rc=0
+        pwsh -NoProfile -File scripts/check-no-automation-identity.ps1 || identity_rc=$?
+        if [ "$identity_rc" -eq 1 ]; then
             echo "" >&2
             echo "ERROR: this commit's author or committer is a disallowed automation identity." >&2
             echo "       Set a real human identity (git config user.name / user.email); never commit as Copilot or a [bot] account." >&2
+            exit 1
+        elif [ "$identity_rc" -ne 0 ]; then
+            echo "" >&2
+            echo "ERROR: could not verify the commit author/committer identity (git or invocation error, exit $identity_rc)." >&2
             exit 1
         fi
     else
