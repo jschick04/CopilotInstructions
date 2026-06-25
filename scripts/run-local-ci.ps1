@@ -67,6 +67,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'machine-path unit tests';     Script = 'scripts/tests/check-no-machine-paths.tests.ps1'; LocalArgs = @();                    EnvSkippable = $false }
     [pscustomobject]@{ Name = 'automation-identity scan';    Script = 'scripts/check-no-automation-identity.ps1';       LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'automation-identity unit tests'; Script = 'scripts/tests/check-no-automation-identity.tests.ps1'; LocalArgs = @();            EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'PR quality gate rg-battery';   Script = 'scripts/run-quality-gate-ci.ps1';                LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
 )
 # The harness invokes itself in the coverage CI job; it is not a check to mirror.
 $harnessSelf = 'scripts/run-local-ci.ps1'

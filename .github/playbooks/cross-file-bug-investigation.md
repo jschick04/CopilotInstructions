@@ -306,7 +306,7 @@ DOMAIN playbook (strong-trigger; user-invoked). Not a phase playbook.
 
 - **Pre-implementation phase**: when investigation produces a fix-transition (step 12 → step 15), that fix enters pre-impl normally. G3 approach-selection / G5 safety-critical-skip / G6 playbook-offer evaluation all apply. The investigation report's "Suggested fix class" is ONE candidate approach for G3 - the user / pre-impl panel may choose differently.
 - **Post-code-change phase**: not directly triggered by investigation (investigation is read-only). When the fix-transition lands code edits, post-code-change runs normally including the multi-model panel hard gate.
-- **Pre-PR-creation review**: not directly triggered by investigation. When the fix-transition's PR is opened, §2D heavy panel runs normally.
+- **Pre-PR-creation review**: not directly triggered by investigation. When the fix-transition's PR is opened, the §2D publish gate runs normally.
 - **POST-CODE-CHANGE LEDGER**: investigation does NOT add to ledger sub-blocks (it's a domain playbook fired on user trigger; the orchestrator hard gates above are runtime-enforced, NOT panel-time review-pass checks at commit time).
 - **Decline-then-no-retry + session suppression**: per AGENTS rule, decline of the strong-trigger offer doesn't re-offer in the same thread. Q9 (`session_suppression`) extends this with `until-explicit-invoke` (suppress for whole session; user must explicitly name the playbook) and `always-offer` (re-offer every session). Documented in intake; recorded on domain-state record.
 

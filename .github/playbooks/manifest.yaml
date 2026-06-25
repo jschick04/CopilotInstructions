@@ -61,7 +61,7 @@ playbooks:
     description: >-
       Run before pushing for review or opening PR: §4.2 push-credential verification,
       per-commit comment audit, branch-wide rename-first sweep, branch-wide
-      least-privilege audit (when applicable), §2D pre-PR-creation multi-model review
+      least-privilege audit (when applicable), §2D publish gate (Quality Gate & panel)
       (via `pre-pr-creation-review.md`), 11-field state predicate read-back (12-line block).
       INDEX - dispatches to sub-files under `pre-pr-push/`.
     triggers: []
@@ -71,14 +71,15 @@ playbooks:
     path: .github/playbooks/pre-pr-creation-review.md
     classification: phase
     description: >-
-      §2D heavy multi-model panel on the FULL branch diff (`<base>..HEAD`) before any
-      PR-creation or review-visibility transition. Mirrors GitHub Copilot's PR-review
-      categories (11-category prompt at `multi-model-review/pr-creation-mirror-prompt.md`).
-      Strict mandatory: G1 panel-must-run, G2 must-fix=0, G3 same-turn block emission,
-      G6 forbidden-tool list. Convergence model + slate composition user-waivable within
-      floors. Bootstrap exemption (G7) narrow-scope. Deferred features captured in
-      `pre-pr-creation-review/implementation-roadmap.md`. Invoked from `pre-pr-push.md`
-      Step 5 (single source of truth for when §2D fires).
+      §2D publish gate: gate-runner full-mode mechanical floor + a heavy multi-model panel on the
+      FULL branch diff (`<base>..HEAD`) before any PR-creation or review-visibility transition.
+      Mirrors GitHub Copilot's PR-review categories (11-category prompt at
+      `multi-model-review/pr-creation-mirror-prompt.md`). Emits the composite `QUALITY GATE` block
+      (canonical schema: `pr-quality-gate/quality-gate-block.md`). Strict mandatory: G1 panel-must-run,
+      G2 must-fix=0, G3 same-turn block emission, G6 forbidden-tool list. Convergence model + slate
+      composition user-waivable within floors. Bootstrap exemption (G7) narrow-scope. Deferred features
+      captured in `pre-pr-creation-review/implementation-roadmap.md`. Invoked from `pre-pr-push.md`
+      Step 5 (single source of truth for when the publish gate fires).
     triggers: []
     status: active
 

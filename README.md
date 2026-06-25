@@ -59,16 +59,13 @@ CopilotInstructions/
 │       ├── design-exploration.md                       # throwaway prototype (design alternatives / UI variations)
 │       ├── performance-comparison.md                   # throwaway benchmark prototype + mandatory software-install.md handoff
 │       ├── multi-model-review.md                       # panel-of-reviewers convergence (index) - domain trigger + utility-called by post-code-change
-│       ├── multi-model-review/                         # 9 panel support files (intake + procedure + convergence-models + evidence-gate-spec + 5 catalog/registry files)
+│       ├── multi-model-review/                         # 6 panel support files (intake + procedure + convergence-models + evidence-gate-spec + current-model-registry + mirror-prompt)
 │       │   ├── intake.md                              # 10 intake questions + model defaults
 │       │   ├── procedure.md                           # parallel-launch + sub-agent prompt template (incl. bug-investigation target-type)
 │       │   ├── convergence-models.md                  # unanimous / threshold ≥75% / confidence-weighted ≥80% + asymptotic-convergence pattern
 │       │   ├── evidence-gate-spec.md                  # per-round log + C2 audit + bug-investigation extensions
 │       │   ├── current-model-registry.md              # tier → model name mapping (decouples playbooks from model deprecations)
-│       │   ├── known-false-positives.md               # dismissed-source-grounded patterns reviewers should NOT re-flag
-│       │   ├── pr-creation-mirror-prompt.md           # 11-category Copilot-mirror prompt template for §2D pre-pr-creation panel
-│       │   ├── pr-review-findings-schema.md           # schema for PR-bot findings → pattern-catalog
-│       │   └── pr-review-pattern-catalog.md           # PR-review-derived pattern catalog (input to pattern-catalog.md)
+│       │   └── pr-creation-mirror-prompt.md           # 11-category Copilot-mirror prompt template for the publish-gate panel
 │       └── templates/                                  # skeleton / example reference files
 │           ├── current-state-survey.md
 │           ├── design-change-request.md

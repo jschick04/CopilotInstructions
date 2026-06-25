@@ -184,15 +184,15 @@ If this is a subsequent push (review-response amend, post-merge push, rebase pus
 
 ...and apply the re-run conditions. Some scenarios re-trigger the full branch-wide sweep; others only require per-commit hygiene on the new amend.
 
-### Step 5 - IF review-targeting push (any of the in-scope rows above): pre-PR-creation multi-model review (§2D)
+### Step 5 - IF review-targeting push (any of the in-scope rows above): publish gate (Quality Gate & panel)
 
 For every review-targeting push (any of the in-scope rows above - first-review push OR subsequent review-targeting push), fetch:
 
 > `.github/playbooks/pre-pr-creation-review.md`
 
-...and run the §2D mandatory pre-PR-creation multi-model panel on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. Until this field reads one of the `READY-*` values in the current turn, the PR-creation tools enumerated in §2D G6 are forbidden - see `pre-pr-creation-review.md` G3 for the same-turn enforcement.
+...and run the mandatory publish gate (gate-runner full-mode + the multi-model panel) on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. The PR-creation tools enumerated in the publish gate's G6 require `READY-re-emitted-after-user-approval` SPECIFICALLY in the current turn - the initial `READY-pending-user-approval` is pre-approval only and does NOT unblock G6 (user-approval + same-state re-check have not happened) - see `pre-pr-creation-review.md` G3 + `pr-quality-gate/quality-gate-block.md` for the same-turn enforcement.
 
-This step is the SINGLE SOURCE OF TRUTH for "should §2D fire now?" - §2D itself does not re-classify whether the push is review-targeting; it reads from the §2D phase-state record that this step writes.
+This step is the SINGLE SOURCE OF TRUTH for "should the publish gate fire now?" - the gate itself does not re-classify whether the push is review-targeting; it reads from the phase-state record that this step writes.
 
 ## State to record before declaring "ready to push"
 
@@ -206,7 +206,7 @@ Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical
 - `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written only when the conditional sandbox-exemption gate fires (`(isFirstReviewExposurePush=true && remoteExposureExists=true)` and an amend was actually attempted). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*.
 - `rerunConditionsChecked`- `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases - `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
 - `pushCredentialsVerified` - outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field - credentials must be verified for sandbox pushes too). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
-- `preCreationReviewStatus` - outcome of Step 5 above (§2D pre-PR-creation review per `pre-pr-creation-review.md`). One of `READY-pending-user-approval` / `READY-re-emitted-after-user-approval` / `BLOCKED-<reason>` / `n/a-sandbox-exit` (when this push exited at the sandbox pre-check). A `BLOCKED-*` value fails the readiness gate AND blocks the PR-creation tools enumerated in §2D G6.
+- `preCreationReviewStatus` - outcome of Step 5 above (the publish gate per `pre-pr-creation-review.md`). One of `READY-pending-user-approval` / `READY-re-emitted-after-user-approval` / `BLOCKED-<reason>` / `n/a-sandbox-exit` (when this push exited at the sandbox pre-check). A `BLOCKED-*` value fails the readiness gate AND blocks the PR-creation tools enumerated in the publish gate's G6.
 
 Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
 

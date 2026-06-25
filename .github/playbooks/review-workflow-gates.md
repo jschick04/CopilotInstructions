@@ -271,11 +271,11 @@ Document these learnings for future panel configurations.
 - `post-code-change.md` - invokes §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §4 (panel convergence) during the multi-model reviewer panel.
 - `pre-commit.md` - invokes §2B (post-code-change ledger) before any `git commit` / `git commit --amend`.
 - `post-pr-review.md` - invokes §2 (root-cause analysis) when processing reviewer comments.
-- `pre-pr-push.md` - invokes §2A (prior-PR-review sweep, branch-wide scope) and §2D (pre-PR-creation multi-model review) before push.
+- `pre-pr-push.md` - invokes §2A (prior-PR-review sweep, branch-wide scope) and §2D (the publish gate) before push.
 - `multi-model-review.md` - owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
-- `multi-model-review/pr-creation-mirror-prompt.md` - shared 11-category Copilot-mirror prompt template used by §2D's heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
-- `pre-pr-creation-review.md` - owns the §2D heavy pre-PR-creation review gate procedure (invocation modes, ancestry-based re-run triggers, panel + synthesis + fix loop, LEDGER emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
-- `AGENTS.md` cross-cutting rules - references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (pre-PR-creation multi-model review), and §3 (scope reduction sign-off) as hard gates.
+- `multi-model-review/pr-creation-mirror-prompt.md` - shared 11-category Copilot-mirror prompt template used by §2D's (the publish gate's) heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
+- `pre-pr-creation-review.md` - owns the §2D publish gate procedure (invocation modes, ancestry-based re-run triggers, gate-runner mechanical floor, panel + synthesis + fix loop, QUALITY GATE block emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
+- `AGENTS.md` cross-cutting rules - references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (the publish gate), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 
