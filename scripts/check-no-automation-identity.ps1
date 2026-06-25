@@ -58,8 +58,8 @@ function Invoke-Git {
 
 # Disallowed-automation predicate (the canonical matcher). Case-insensitive; applied to BOTH author and committer,
 # NAME and EMAIL. The bare-name checks are EXACT (so a legitimate human like "Jane Copilot" passes); the `[bot]`
-# check is a bracketed literal (so "Abbott" / "robot" do not match). web-flow ("GitHub <noreply@github.com>") matches
-# none of these by design.
+# check is an anchored suffix on the name or the email local-part (so "Abbott" and a mid-string `[bot]` do not
+# match). web-flow ("GitHub <noreply@github.com>") matches none of these by design.
 function Get-IdentityFindings {
     param([string] $Name, [string] $Email, [string] $Role, [string] $Label)
     $result = New-Object System.Collections.Generic.List[object]
@@ -67,7 +67,7 @@ function Get-IdentityFindings {
     $cleanEmail = if ($null -ne $Email) { $Email.Trim() } else { '' }
     if ($cleanName -eq '') { $result.Add([pscustomobject]@{ Rule = 'empty-name'; Message = "$Label $Role name is empty (cannot attribute to a human)" }) }
     if ($cleanEmail -eq '') { $result.Add([pscustomobject]@{ Rule = 'empty-email'; Message = "$Label $Role email is empty (cannot attribute to a human)" }) }
-    if ("$cleanName $cleanEmail" -match '\[bot\]') { $result.Add([pscustomobject]@{ Rule = 'bot-suffix'; Message = "$Label $Role identity is a [bot] account: '$cleanName <$cleanEmail>'" }) }
+    if ($cleanName -match '\[bot\]$' -or $cleanEmail -match '\[bot\]@') { $result.Add([pscustomobject]@{ Rule = 'bot-suffix'; Message = "$Label $Role identity is a [bot]-suffixed account: '$cleanName <$cleanEmail>'" }) }
     if ($cleanName -ieq 'copilot') { $result.Add([pscustomobject]@{ Rule = 'copilot'; Message = "$Label $Role name is the Copilot automation identity: '$cleanName'" }) }
     if ($cleanName -ieq 'github-actions') { $result.Add([pscustomobject]@{ Rule = 'github-actions'; Message = "$Label $Role name is the github-actions automation identity: '$cleanName'" }) }
     if ($cleanEmail -imatch '^[0-9]+\+copilot@users\.noreply\.github\.com$') { $result.Add([pscustomobject]@{ Rule = 'copilot-noreply'; Message = "$Label $Role email is the Copilot noreply identity: '$cleanEmail'" }) }
