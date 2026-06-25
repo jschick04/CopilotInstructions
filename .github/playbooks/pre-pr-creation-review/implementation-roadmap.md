@@ -1,4 +1,6 @@
-# Implementation roadmap - pre-PR-creation review gate
+# Implementation roadmap - publish gate
+
+> **Partially superseded.** The canonical publish-gate design + the composite `QUALITY GATE` block schema now live in [`../../pr-quality-gate/quality-gate-block.md`](../../pr-quality-gate/quality-gate-block.md) and the procedure in [`../pre-pr-creation-review.md`](../pre-pr-creation-review.md). This doc retains only the genuinely-deferred features below; the G1-G7 / block-format restatements are historical illustration, not canonical.
 
 Deferred design decisions from the initial §2D introduction PR. Each ships in a follow-up PR triggered by the first real-world failure it addresses or explicit maintainer prioritization.
 
@@ -40,7 +42,7 @@ Every `blocking` finding MUST be resolved via one of exactly three paths (G5 enu
 
 No "ship it anyway" path. User can route individual findings via G4, but cannot waive G2 itself.
 
-### G3. `PRE-PR REVIEW COVERAGE` block required in the actual PR-creation turn - not user-waivable
+### G3. `QUALITY GATE` block required in the actual PR-creation turn - not user-waivable
 
 The mandatory output block (format in Step 10) MUST appear in the same chat turn as the G6 tool call.
 
@@ -69,7 +71,7 @@ Every finding routed via this status requires BOTH:
 
 ### G6. Forbidden-tool enumeration (mirrors §1B)
 
-Until `PRE-PR REVIEW COVERAGE` block emitted in current turn AND `pr-creation-status` reads `READY-pending-user-approval` or `READY-re-emitted-after-user-approval`, the agent MUST NOT call:
+Until the `QUALITY GATE` block emitted in current turn AND `pr_creation_status` reads `READY-pending-user-approval` or `READY-re-emitted-after-user-approval`, the agent MUST NOT call:
 
 - `gh pr create` (any flags including `--draft`)
 - `gh pr ready` / `gh pr ready --undo`
@@ -310,12 +312,12 @@ For `fixed`: apply change, re-stage, re-run build+tests, re-emit `POST-CODE-CHAN
 
 Prevents unbounded fix-introduces-finding cycling. Round-level max-loop (5 per `multi-model-review/procedure.md`) covers within-invocation; `fixIterationCount` covers across-invocation.
 
-### Step 10. Emit the `PRE-PR REVIEW COVERAGE` block (initial emission)
+### Step 10. Emit the `QUALITY GATE` block (initial emission)
 
 Mandatory at end of synthesis, BEFORE AGENTS `gh pr create` user-approval. Format:
 
 ```
-PRE-PR REVIEW COVERAGE
+QUALITY GATE
   emission-phase: initial-pending-user-approval
   invocation-mode: <via-pre-pr-push-step-5 | self-fire-fallback>
   re-run-triggers: <[trigger, ...] - [default: ["first-run"]]>
@@ -369,7 +371,7 @@ PRE-PR REVIEW COVERAGE
 
 Per `AGENTS.md` `gh pr create` section: present PR title + body + target branch via `ask_user`. User approves/edits/rejects. For non-GitHub forges, mirror same flow before G6 tool.
 
-### Step 12. Re-emit the `PRE-PR REVIEW COVERAGE` block in the PR-creation turn
+### Step 12. Re-emit the `QUALITY GATE` block in the PR-creation turn
 
 After user approval, BEFORE G6 tool, re-emit with:
 
@@ -420,7 +422,7 @@ When the future `review-workflow-gates-sweeps.md` §2B edit lands (tightening `p
 
 Per G7's "ALL companion edits required" rule, the introducing PR MUST include ALL of:
 
-- **`AGENTS.md` `gh pr create` section** - require `PRE-PR REVIEW COVERAGE` block per G3.
+- **`AGENTS.md` `gh pr create` section** - require the `QUALITY GATE` block per G3.
 - **`AGENTS.md` cross-cutting hard-gate bullets** - new bullet referencing §2D.
 - **`pre-pr-push.md` Step 5** - invokes this playbook. Adds `preCreationReviewStatus` to state predicate.
 - **`review-workflow-gates-sweeps.md` §2D** - hard-gate spec (LEDGER row, G1-G7 summary).

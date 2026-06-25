@@ -1,4 +1,4 @@
-# Playbook: Pre-PR-creation review (§2D)
+# Playbook: Publish gate - pre-PR-creation review
 <!-- read-receipt-token: b339bc16 -->
 
 ## Purpose
@@ -19,13 +19,13 @@ Every reviewer-flagged `blocking` finding must be resolved via one of three G5 p
 - `dismissed-source-grounded` - refuted by source evidence (file:line, doc URL, RFC, ADR, spec section) addressing the finding's claim. Hand-wave "out of scope" is invalid.
 - `routed-deferred-with-tracker-and-ask_user` - see G4.
 
-### G3. `PRE-PR REVIEW COVERAGE` block emitted in the PR-creation turn - not user-waivable
+### G3. `QUALITY GATE` block emitted in the PR-creation turn - not user-waivable
 
-The block (format in Step 7) MUST appear in the same chat turn as the G6 PR-creation tool call.
+The block (canonical schema in `../pr-quality-gate/quality-gate-block.md`; emission procedure in Step 7) MUST appear in the same chat turn as the G6 PR-creation tool call.
 
 Because the AGENTS `gh pr create` flow requires an intervening `ask_user` for title/body approval, the block is emitted twice:
 
-1. **Initial** (turn N): at end of Step 7 with `pr-creation-status: READY-pending-user-approval`.
+1. **Initial** (turn N): at end of Step 7 with `pr_creation_status: READY-pending-user-approval`.
 2. **Re-emitted** (turn N+1): in the PR-creation tool-call turn, after user-approval `ask_user` returns, with same-state re-check (`git rev-parse HEAD` matches `panelHeadSha`; `git merge-base --is-ancestor <panelHeadSha> HEAD` true; `git rev-parse <baseRef>` matches `panelBaseSha`). Any check fails: restart at Step 2. Status: `READY-re-emitted-after-user-approval`.
 
 Absence of block in PR-creation turn -> all G6 tools forbidden. Block in earlier turn does NOT satisfy.
@@ -43,8 +43,8 @@ Per finding: `fixed | dismissed-source-grounded | routed-deferred-with-tracker-a
 
 Until BOTH of these are present in the current turn, the agent MUST NOT call any tool below:
 
-1. The G3 block from Step 9 (the **re-emitted** `PRE-PR REVIEW COVERAGE` block) with `pr-creation-status: READY-re-emitted-after-user-approval`. The initial-emission status (`READY-pending-user-approval`) is NOT sufficient - user-approval + same-state re-check have not happened. `DRY-RUN-INFO-ONLY` is NEVER sufficient.
-2. The `PATTERN PREFLIGHT` block (re-emitted in Step 9; computed in Step 2.5) against current `panelHeadSha` + current `catalogRevision`/`fpRegistryRevision`. MAY use documented skip statuses (`catalog: not-yet-built`, `catalog: empty-battery`, `catalog: skipped-bootstrap`, `catalog: skipped-no-production-diff`); block must be PRESENT regardless. Additionally, the re-emitted `PRE-PR REVIEW COVERAGE` block's `catalog-revision` / `fp-registry-revision` / `pattern-preflight-skip-status` fields MUST be populated; absence or `<unset>` fails the gate.
+1. The G3 block from Step 9 (the **re-emitted** `QUALITY GATE` block) with `pr_creation_status: READY-re-emitted-after-user-approval`. The initial-emission status (`READY-pending-user-approval`) is NOT sufficient - user-approval + same-state re-check have not happened. `DRY-RUN-INFO-ONLY` is NEVER sufficient.
+2. The block's mechanical region (computed in Step 2.5 by `gate-runner` full-mode; re-emitted in Step 9) against current `panelHeadSha` + current `catalogRevision`. MAY use documented skip statuses (`catalog: not-yet-built`, `catalog: empty-battery`, `catalog: skipped-bootstrap`, `catalog: skipped-no-production-diff`) in `pattern_preflight_skip_status`; the mechanical region must be PRESENT regardless. Additionally, the re-emitted `QUALITY GATE` block's `catalog_revision` / `pattern_preflight_skip_status` fields MUST be populated; absence or `<unset>` fails the gate.
 
 Forbidden tools:
 
@@ -64,13 +64,13 @@ Pattern: absence of block IS the enforcement. New pathways extend by intent, not
 
 ### G7. Bootstrap exemption - narrow scope
 
-PR is BOOTSTRAP-EXEMPT from §2D only if ALL of:
+PR is BOOTSTRAP-EXEMPT from the publish gate only if ALL of:
 
 1. PR introduces a NEW mandatory gate not on `origin/<base>` pre-PR (verifiable: `git show origin/<base>:.github/playbooks/<gate-file>.md` does not exist or lacks the gate definition).
 2. PR body includes literal `BOOTSTRAP-EXEMPTION: <gate-name>`.
 3. PR includes ALL companion edits for gate to be operative post-merge.
 
-PRs that modify/tighten/loosen/refactor an existing gate are NOT bootstrap-exempt. If token removed from PR body before merge, exemption revoked; subsequent pushes trigger §2D normally.
+PRs that modify/tighten/loosen/refactor an existing gate are NOT bootstrap-exempt. If token removed from PR body before merge, exemption revoked; subsequent pushes trigger the gate normally.
 
 ## Waive matrix
 
@@ -125,9 +125,9 @@ This gate does NOT classify whether push is review-targeting (that is `pre-pr-pu
   - Other forges: equivalent command or `ask_user` for guidance.
 
   Then `ask_user` with options:
-  1. **STOP and run `pre-pr-push.md` first** (recommended) - normal entry point; exits §2D immediately.
-  2. **Continue as DRY-RUN** - emits `pr-creation-status: DRY-RUN-INFO-ONLY`; does NOT unblock G6.
-  3. **Abort §2D** - exit without panel.
+  1. **STOP and run `pre-pr-push.md` first** (recommended) - normal entry point; exits the publish gate immediately.
+  2. **Continue as DRY-RUN** - emits `pr_creation_status: DRY-RUN-INFO-ONLY`; does NOT unblock G6.
+  3. **Abort the gate** - exit without panel.
 
   Attempting `READY-pending-user-approval` or `READY-re-emitted-after-user-approval` while `invocationMode == direct-invocation-dry-run-only` is a §1B violation.
 
@@ -137,7 +137,7 @@ Record `invocationMode` and `baseRef` in phase-state.
 
 ### Step 2. Re-run-trigger detection (ancestry-based)
 
-When a prior §2D run exists, detect what changed:
+When a prior publish-gate run exists, detect what changed:
 
 ```powershell
 $priorHeadSha = <prior-run panelHeadSha, or "none">
@@ -167,89 +167,32 @@ if ($priorHeadSha -eq "none") {
 
 Record `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `reRunTriggers` in phase-state.
 
-### Step 2.5. Pattern preflight against catalog
+### Step 2.5. Mechanical pattern floor via gate-runner
 
-Runs BEFORE Step 3 so `PATTERN PREFLIGHT` block is in reviewers' initial context. Deterministic sweep against `multi-model-review/pr-review-pattern-catalog.md` + FP registry at `multi-model-review/known-false-positives.md`.
+Runs BEFORE Step 3 so the mechanical findings are in reviewers' initial context. `gate-runner.ps1`/`.sh` full-mode runs the rg-battery against `../pr-quality-gate/pattern-catalog.md` and emits the MECHANICAL region of the `QUALITY GATE` block (canonical schema: `../pr-quality-gate/quality-gate-block.md`).
 
 **Procedure**:
 
-1. **Resolve catalog revisions**:
+1. **Run gate-runner full-mode** (requires `COPILOT_INSTRUCTIONS_CLONE` set to the clone):
    ```
-   git -C <copilotinstructions-clone> log -1 --format=%H -- .github/playbooks/multi-model-review/pr-review-pattern-catalog.md
-   git -C <copilotinstructions-clone> log -1 --format=%H -- .github/playbooks/multi-model-review/known-false-positives.md
+   gate-runner.ps1 -BaseSha <merge-base> -HeadSha HEAD -Mode full -ProjectRoot <project-root>
    ```
-   Record SHAs as `catalog_revision`, `fp_registry_revision`. Empty stdout = file absent in HEAD = `catalog: not-yet-built` (NOT a failure). Also run `git ls-tree HEAD -- <path>` to confirm; quote both outputs in the skip block. `fatal:` exit -> retry with `git fetch origin main`; still failing -> `ask_user` + STOP.
+   It emits the mechanical region: `catalog_revision`, `prefs_revision`, `patterns_run`, and per-pattern `findings` (slug, hits, sites). `gate_status` is BLOCKED iff any pattern has hits>0 (mechanical, rg-only). Record `catalog_revision`. Empty/`fatal:` -> retry with `git fetch origin main`; still failing -> `ask_user` + STOP. Skip statuses go in `pattern_preflight_skip_status`: `catalog: not-yet-built` (catalog absent at HEAD), `catalog: empty-battery` (`patterns_run=0`), `catalog: skipped-bootstrap` (G7-exempt), `catalog: skipped-no-production-diff` (diff touches only `.github/**`, `docs/**`, `*.md`, `*.txt`, fixtures, snapshots).
 
-2. **Per high-frequency pattern** (those with executable `discovery_query`): run the query per its scope-mode:
-   - **Diff-scoped**: `git diff --name-only -z <merge-base>..HEAD -- '<glob>' | xargs -0 -r rg --line-number --no-heading --color never <pattern>`. PowerShell: pipe through `ForEach-Object` + `rg -- $_`.
-   - **Tree-scoped**: `rg --line-number --no-heading --color never <pattern> <source-tree>`.
-   - **Hybrid**: emit ONE entry with `scope_mode: hybrid`, both `tree_query`/`diff_query` keys, combined `sites:` list, each site tagged `surfaced_via: tree | diff`.
-   - **Review-only** (`discovery_query: <review-pass-only>`): no automated discovery; record `hits: review-required, sites: []`; the reviewer prompt surfaces these as instructions.
-   - All `rg` invocations: `--line-number --no-heading --color never`. `rg` exit 1 = no-match (not error); other non-zero -> `ask_user`.
-
-3. **Per match**, classify with Delta K enum (consistent with `review-workflow-gates-sweeps.md` §2B `delta-g-sweeps:` row):
+2. **Disposition every mechanical hit** (agent-appended region) with the Delta K enum (consistent with `review-workflow-gates-sweeps.md` §2B `delta-g-sweeps:` row). One disposition per `findings`/`sites` hit; no entry for a non-hit site:
    - `applied` - canonical fix in place. Requires `evidence: <file:line-range>`.
    - `already-applies` - site already correct at merge-base. Requires `evidence: <file:line-range>`.
    - `not-applicable` - site exempt. Requires `rationale: <one line>` citing (a) a code property verifiable from the cited file OR (b) a project-defined invariant. **Pure runtime-behavior assertions without code evidence are NOT valid rationale.**
 
-4. **FP cross-check**: check each finding against `known-false-positives.md` by technical claim (semantic match, not phrasing match). Match -> dismiss with canonical template, record `classification = 'recurring-false-positive'`, exclude from panel. If `<project-root>/.github/data/pr-review-findings.csv` (or `.sqlite`) absent, follow `pr-review-findings-schema.md` §Initial seeding first.
+3. **FP cross-check**: check each finding against the catalog's inline `FP-N` entries by technical claim (semantic match, not phrasing match). Match -> dismiss with the canonical template and record it in `findings_disposition` as `classification: dismissed-source-grounded` (grounded in the cited inline catalog `FP-N` entry), exclude from the panel. (Honest ceiling: gate-runner's FP mechanism is a per-pattern `fp_slug` column, NOT a site-level registry; the retired `known-false-positives.md` site-level FP memory is a disclosed narrowing per `quality-gate-block.md`.)
 
-5. **Emit `PATTERN PREFLIGHT` block** in the same response that launches Step 3 (precedes panel-launch tool calls):
+The mechanical region (`catalog_revision`, `prefs_revision`, `patterns_run`, `findings`/`sites`) plus the agent-appended dispositions (`findings_disposition` per-site, `pattern_preflight_skip_status`) populate the `QUALITY GATE` block emitted in Step 7 (canonical schema + caveman chat form: `../pr-quality-gate/quality-gate-block.md`). Both the mechanical floor and the dispositions gate PR creation via G6 (this does NOT extend §1B).
 
-```
-PATTERN PREFLIGHT
-  catalog_revision: <SHA from 2.5.1>
-  fp_registry_revision: <SHA from 2.5.1>
-  patterns_checked: <count>
-  preflight_findings:
-    - pattern: <slug from catalog>
-      scope_mode: diff-scoped | tree-scoped | hybrid | review-pass-only
-      discovery_query: <exact command run> | "<review-pass-only>"
-      hits: <count> | review-required
-      sites:
-        - path: <project-relative>
-          status: applied | already-applies | not-applicable
-          surfaced_via: tree | diff       # hybrid only
-          evidence: <file:line-range>     # applied + already-applies
-          rationale: <one line>            # not-applicable
-  fps_recognized:
-    - fp: FP-N (slug)
-      sites: [<paths>]
-```
-
-**Enforcement** (via G6, NOT §1B): the PATTERN PREFLIGHT block becomes a prerequisite for G6 tools alongside the PRE-PR REVIEW COVERAGE block. Both together gate PR creation. This does NOT extend §1B.
-
-**Skip conditions** (each requires emitting `PATTERN PREFLIGHT` with the documented status + evidence):
-- **`catalog: not-yet-built`**: catalog file absent in CopilotInstructions HEAD (empty stdout from both `git log -1` and `git ls-tree HEAD`). Quote both commands + outputs.
-- **`catalog: empty-battery`**: file exists but "Patterns (high-frequency battery)" section has zero numbered entries. Quote catalog_revision SHA + count proof.
-- **`catalog: skipped-bootstrap`**: PR is G7 bootstrap-exempt. Quote G7 token / `bootstrapTokenStatus: present-in-body`.
-- **`catalog: skipped-no-production-diff`**: diff touches only non-production files (`.github/**`, `docs/**`, `*.md`, `*.txt`, fixtures, snapshots). Quote `git diff --name-only` output.
-
-**Catalog drift detection**: if `catalog_revision` differs from prior run's recorded value, run FULL preflight regardless of `re-run-triggers`. Step 9 re-fetches catalog SHAs and restarts at Step 2.5 on drift.
-
-**Chat-emission form**: in chat, emit `PATTERN PREFLIGHT` in the compressed KV v1 form (a header line `catalog=<sha>|fpreg=<sha>|checked=<N>`, then top-level per-pattern status/counts on one line per pattern: `pattern=<slug>|scope=<mode>|hits=<N>|status=[applied:X,already:Y,na:Z]`). A pattern with findings>0 is followed by its canonical structured `sites:` sub-block (above), NOT pipe-compressed. The full PREFLIGHT block (above) remains the canonical form the orchestrator computes and feeds to §2D reviewers; the compressed form is the chat-visible summary. On re-emission in Step 9, the compressed form is sufficient if SHAs are unchanged.
-
-**Worked example** (compressed KV v1 chat rendering of the block above):
-
-```
-PATTERN PREFLIGHT (KV v1)
-catalog=a1b2c3d|fpreg=e4f5a6b|checked=12
-pattern=state-predicate-completeness|scope=diff|hits=2|status=[applied:1,already:1,na:0]
-  sites:
-    - path: src/Filters/FilterModel.cs
-      status: applied
-      evidence: 120-135
-    - path: src/Filters/FilterModel.cs
-      status: already-applies
-      evidence: 200-210
-pattern=null-deref-on-optional-chain|scope=diff|hits=0|status=[applied:0,already:0,na:0]
-```
-
-The header line mirrors the full block's `catalog_revision`/`fp_registry_revision`/`patterns_checked`. A pattern with `hits>0` is followed by its canonical structured `sites:` sub-block (schema in Step 2.5 above), NOT pipe-compressed; `hits=0` patterns collapse to the status line only.
+**Catalog drift detection**: if `catalog_revision` differs from the prior run's recorded value, re-run gate-runner full-mode regardless of `re-run-triggers`. Step 9 re-fetches the catalog SHA and restarts here on drift.
 
 ### Step 3. Launch the panel in parallel
 
-Per `multi-model-review/procedure.md` parallel-launch protocol. All reviewers launched same response (background mode) with `pr-creation-mirror-prompt.md` template. Prompts include reference to PATTERN PREFLIGHT block; reviewers verify `applied`/`already-applies` correctness, validate `not-applicable` rationale, and probe for catalog-uncovered patterns.
+Per `multi-model-review/procedure.md` parallel-launch protocol. All reviewers launched same response (background mode) with `pr-creation-mirror-prompt.md` template. Prompts include reference to the gate-runner mechanical findings; reviewers verify `applied`/`already-applies` correctness, validate `not-applicable` rationale, and probe for catalog-uncovered patterns.
 
 **Slate-floor checkpoint #1**: verify floor BEFORE launch. Substitution broke floor -> escalate.
 
@@ -280,7 +223,7 @@ For `fixed`: apply change, re-stage, re-run build+tests, emit `POST-CODE-CHANGE 
 
 **Before re-launching, increment `fixIterationCount`.** If `fixIterationCount > fixIterationCountCap` (default `3`), STOP and escalate via `ask_user`. The escalation MUST classify the iteration history:
 
-- **cap-with-regressions** - a prior round's fix introduced a NEW finding (the same code re-iterated, possibly with the same pattern class). Indicates real instability of the fix process (the §2D cap is doing its job). Default recommendation: pause, split branch, or route via G4.
+- **cap-with-regressions** - a prior round's fix introduced a NEW finding (the same code re-iterated, possibly with the same pattern class). Indicates real instability of the fix process (the gate's fix-iteration cap is doing its job). Default recommendation: pause, split branch, or route via G4.
 - **cap-with-new-clean-categories** - each fix verified correct in the next round; subsequent rounds caught genuinely NEW pattern categories (different anti-pattern shape, file area, or framework concern), NOT because the fixes are unstable. Indicates productive prompt-mining. Default recommendation: authorize one more iteration with explicit new cap; queue new patterns as instruction-file deltas.
 
 Offer four options:
@@ -293,78 +236,17 @@ Do NOT re-enter Step 2 until user authorizes a path. Reset `fixIterationCount` t
 
 Round-level max-loop (5 per `multi-model-review/procedure.md`) is a DIFFERENT counter from `fixIterationCount` (cross-invocation fix cycles). Full automation deferred to `pre-pr-creation-review/implementation-roadmap.md` priority 3.
 
-### Step 7. Emit `PRE-PR REVIEW COVERAGE` block (initial)
+### Step 7. Emit the `QUALITY GATE` block (initial)
 
-Mandatory before AGENTS user-approval. Format:
-
-```
-PRE-PR REVIEW COVERAGE
-  emission-phase: initial-pending-user-approval
-  invocation-mode: <via-pre-pr-push-step-5 | direct-invocation-dry-run-only>
-  re-run-triggers: <[trigger, ...]>
-  panel-base-ref: <baseRef>
-  panel-base-sha: <40-char SHA>
-  panel-head-sha: <40-char SHA>
-  panel-commit-count: <N>
-  diff-scope: <baseSha>..<headSha> (<N> files, +<X>/-<Y> lines)
-  slate:
-    - slot 1: <model> <family> <role> [substituted from <requested>: <reason>]
-    - ...
-  slate-substitutions: <[] or list>
-  slate-waive: <"no waive" or user-quote>
-  convergence-model: <unanimous | threshold-N% | confidence-weighted-N%>
-  convergence-waive: <"no waive" or user-quote>
-  rounds: <K>
-  fix-iteration-count: <N - incremented per Step 6; 0 for first run>
-  fix-iteration-count-cap: <3 default, or user-authorized override>
-  dropped-reviewers: <[] or list>
-  replacement-reviewers: <[] or list>
-  prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
-  panel-coverage:
-    - mode: <full-whole-branch | carry-forward-authorized> scope: <baseSha>..<headSha> commits: <N> carry-forward-ref: <ask_user ref | n/a> carried: <range | n/a>
-  findings: <total raw>, dedupe'd to <M themes>
-  resolution (every finding has a status):
-    - [<category 1-11>] <severity> [<reviewer>]: <finding>: <status>: <citation>
-    - ...
-  must-fix-blocking-findings-resolved: <K of K>
-  routed-deferred-with-tracker:
-    - <finding> -> <tracker URL> (ask_user: <call ref>)
-    - ... (default: [])
-  bootstrap-token-status: <not-applicable | present-in-body | removed-revokes-exemption>
-  catalog-revision: <40-char SHA | not-yet-built>
-  fp-registry-revision: <40-char SHA | not-yet-built>
-  pattern-preflight-skip-status: <ran | catalog: not-yet-built | catalog: empty-battery | catalog: skipped-bootstrap | catalog: skipped-no-production-diff>
-  pr-creation-status: <READY-pending-user-approval | READY-re-emitted-after-user-approval | DRY-RUN-INFO-ONLY | BLOCKED - <reason>>
-  pr-text-scan: <clean | tier1-fail: <surface:marker,...> | tier2-warn: <surface:marker,...>>
-  subagent_ask_user_calls=0 (per AGENTS.md)
-```
-
-The `catalog-revision`, `fp-registry-revision`, and `pattern-preflight-skip-status` fields are the state-echo for G6's PATTERN PREFLIGHT check - MUST be populated from phase-state on every emission. Use `not-yet-built` for SHA fields only when skip-status is `catalog: not-yet-built`; otherwise hold real SHAs.
+Mandatory before AGENTS user-approval. Emit the `QUALITY GATE` block (canonical schema + caveman chat form: `../pr-quality-gate/quality-gate-block.md`) with `emission_phase: initial-pending-user-approval` and `pr_creation_status: READY-pending-user-approval`. The mechanical region comes from gate-runner (Step 2.5); the agent-appended dispositions (slate, panel-coverage, resolution, must-fix-resolved, routed-deferred-with-tracker, prior-commit-panel-dispositions, pr-text-scan, etc.) come from Steps 2.5-6. The FOUR enumerations (`slate`, `resolution`, `routed_deferred_with_tracker`, `panel_coverage`) STAY enumerated even in the caveman form - the keys are the forcing function. `catalog_revision` + `pattern_preflight_skip_status` MUST be populated from phase-state on every emission.
 
 The `pr-text-scan` field records the result of running `scripts/check-pr-text.ps1` against the PROPOSED PR title + body BEFORE the G6 `gh pr create` tool (the pre-open agent catch); the CI `pull_request` job (`pr-text-check.yml`) is the merge-blocking backstop. `tier1-fail` BLOCKS PR creation until the markers are stripped (re-run + re-emit `clean`); `tier2-warn` is surfaced, not blocking. Honest ceiling: the gate catches MODELED markers only - an unmodeled phrasing escapes, so the field is a floor-raise, not a guarantee.
 
 #### Chat-emission form (caveman)
 
-Chat emits `PRE-PR REVIEW COVERAGE` with scalars collapsed to pipe-KV; the FOUR enumerations - `slate` (proves the floor), `resolution` (per-finding status+citation), `routed-deferred-with-tracker` (C2 deferral proof), and `panel-coverage` (cited `full-whole-branch` vs `carry-forward-authorized` + `ask_user` ref) - STAY enumerated (counts AND coverage-mode are fakeable as bare scalars). The block above is the canonical form; keys are the forcing function.
+#### Chat-emission form (caveman)
 
-```
-PRE-PR REVIEW COVERAGE (caveman)
-meta|phase=<initial-pending-user-approval|ready-re-emitted-after-user-approval>|mode=<via-pre-pr-push-step-5|direct-invocation-dry-run-only>|triggers=[<trigger>,...]|base=<baseRef>@<baseSha>|head=<headSha>|commits=<N>|scope=<N files,+X/-Y>
-panel|convergence=<unanimous|threshold-N%|confidence-weighted-N%>|conv-waive=<no|"quote">|rounds=<K>|fixiter=<N>|fixiter-cap=<3|override>|dropped=[<slot>,...]|replaced=[<slot>,...]|subs=[]|slate-waive=<no|"quote">|prior-panel-disp=<none-<reason>|compacted-list>
-panel-coverage:
-  - mode=<full-whole-branch | carry-forward-authorized> scope=<baseSha>..<headSha> commits=<N> carry-forward-ref=<ask_user ref | n/a> carried=<range | n/a>
-slate:
-  - slot 1: <model> <family> <role> [substituted from <requested>: <reason>]
-  - ...
-findings|raw=<total>|themes=<M>|mustfix-resolved=<K/K>
-resolution:
-  - [<cat 1-11>] <severity> [<reviewer>]: <finding>: <status>: <citation>
-  - ...
-routed-deferred-with-tracker:
-  - <finding> -> <tracker URL> (ask_user: <call ref>)
-  - ... (default: [])
-state|bootstrap=<not-applicable|present-in-body|removed-revokes-exemption>|catalog=<SHA|not-yet-built>|fp-registry=<SHA|not-yet-built>|preflight=<ran|catalog:not-yet-built|catalog:empty-battery|catalog:skipped-bootstrap|catalog:skipped-no-production-diff>|status=<READY-pending-user-approval|READY-re-emitted-after-user-approval|DRY-RUN-INFO-ONLY|BLOCKED-<reason>>|pr-text-scan=<clean|tier1-fail:<surface:marker,...>|tier2-warn:<surface:marker,...>> subagent_ask_user_calls=0
-```
+The caveman (compressed KV) chat form of the `QUALITY GATE` block lives with the canonical schema in `../pr-quality-gate/quality-gate-block.md`; the FOUR enumerations (`slate`, `resolution`, `routed_deferred_with_tracker`, `panel_coverage`) STAY enumerated even there (counts and coverage-mode are fakeable as bare scalars; the keys are the forcing function).
 
 ### Step 8. AGENTS user-approval
 
@@ -383,21 +265,20 @@ Record `prDescriptionCoherenceCheck`: `ran-clean` / `ran-fixed-description-befor
 In PR-creation tool-call turn (after Step 8 `ask_user` returns):
 
 - Re-run Step 2's same-state checks. Any failure (new commits, force-push, base shift) -> restart at Step 2.
-- Re-fetch `catalog_revision` + `fp_registry_revision` per Step 2.5.1. Either differs -> restart at Step 2.5.
-- Re-emit `PRE-PR REVIEW COVERAGE` with `emission-phase: ready-re-emitted-after-user-approval`, `pr-creation-status: READY-re-emitted-after-user-approval`, catalog/registry fields from current phase-state.
-- Re-emit `PATTERN PREFLIGHT`. If catalog/registry SHAs + `panelHeadSha` unchanged, carry-forward is a literal copy of Step 2.5's block. If changed, Step 2.5 re-run produces new block (panel already re-ran per restart above).
+- Re-fetch `catalog_revision` per Step 2.5. Differs -> restart at Step 2.5.
+- Re-emit the `QUALITY GATE` block with `emission_phase: ready-re-emitted-after-user-approval`, `pr_creation_status: READY-re-emitted-after-user-approval`, `same_state_recheck: passed`, catalog field from current phase-state. If `catalog_revision` + `panelHeadSha` unchanged, the mechanical region is a literal carry-forward; if changed, the Step 2.5 gate-runner re-run produces a fresh region (panel already re-ran per the restart above).
 
 Both blocks precede the Step 10 tool call in the same response.
 
 ### Step 10. Invoke the G6 tool
 
-Only after Step 9's re-emitted `PRE-PR REVIEW COVERAGE` + `PATTERN PREFLIGHT` both present in same response.
+Only after Step 9's re-emitted `QUALITY GATE` block (with `pr_creation_status: READY-re-emitted-after-user-approval` + `same_state_recheck: passed`) is present in the same response.
 
 ## State to record in canonical session todos
 
 Per `AGENTS.md` *Phase-state tracking convention*:
 
-`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`, `catalogRevision`, `fpRegistryRevision`, `patternPreflightSkipStatus`, `prTextScan`.
+`invocationMode`, `reRunTriggers`, `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `slateActuallyRun`, `slateSubstitutions`, `slateWaive`, `convergenceModelUsed`, `convergenceWaive`, `panelRounds`, `fixIterationCount`, `fixIterationCountCap`, `panelConvergence`, `droppedReviewers`, `replacementReviewers`, `priorCommitPanelDispositions`, `mustFixFindings`, `mustFixResolved`, `prDescriptionCoherenceCheck`, `bootstrapTokenStatus`, `prCreationStatus`, `catalogRevision`, `patternPreflightSkipStatus`, `prTextScan`.
 
 Read from session todos when emitting blocks; never infer from memory.
 
@@ -407,18 +288,18 @@ When `review-workflow-gates-sweeps.md` §2B tightens `post-code-change-panel` fr
 
 ## Cross-cutting fit - companion edits required (G7 condition 3)
 
-The introducing PR for §2D MUST include ALL of:
+The introducing PR for a new mandatory gate MUST include ALL of:
 
 - This playbook (`pre-pr-creation-review.md`).
 - `multi-model-review/pr-creation-mirror-prompt.md` - shared 11-category prompt.
 - `pre-pr-creation-review/implementation-roadmap.md` - deferred-features document.
 - `AGENTS.md` `gh pr create` section - require G3 block emissions before user-approval.
-- `AGENTS.md` cross-cutting hard-gate bullets - new bullet referencing §2D.
+- `AGENTS.md` cross-cutting hard-gate bullets - new bullet referencing the gate.
 - `pre-pr-push.md` Step 5 - invokes this playbook. Adds `preCreationReviewStatus` to state predicate.
-- `review-workflow-gates-sweeps.md` §2D - LEDGER row + G1-G7 enforcement summary.
+- `review-workflow-gates-sweeps.md` §2D Publish gate section - the gate's summary + G1-G7 enforcement pointer.
 - `.github/playbooks/manifest.yaml` - registers `pre-pr-creation-review`.
 
-Missing any -> §2D non-operative post-merge -> G7 bootstrap exemption invalid.
+Missing any -> the gate non-operative post-merge -> G7 bootstrap exemption invalid.
 
 ## Future enhancements (deferred)
 
@@ -426,4 +307,4 @@ See `pre-pr-creation-review/implementation-roadmap.md` for: capability-tier regi
 
 ## Why this gate exists
 
-LLM-based PR reviewers consistently surface known pattern categories. Running a multi-model panel pre-PR shifts findings from "comment after PR opens" to "blocking finding before PR opens"; same work, dramatically lower visibility cost. When a finding lands on a PR that PASSED §2D, follow `review-workflow-gates-sweeps.md` §2 root-cause analysis and propose a catalog/prompt addition. The gate improves via this feedback loop.
+LLM-based PR reviewers consistently surface known pattern categories. Running a multi-model panel pre-PR shifts findings from "comment after PR opens" to "blocking finding before PR opens"; same work, dramatically lower visibility cost. When a finding lands on a PR that PASSED the publish gate, follow `review-workflow-gates-sweeps.md` §2 root-cause analysis and propose a catalog/prompt addition. The gate improves via this feedback loop.

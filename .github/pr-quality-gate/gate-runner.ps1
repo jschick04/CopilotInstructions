@@ -11,6 +11,7 @@ param(
     [switch] $AutoFetchCatalog,
     [int] $LockTimeoutSeconds = 30,
     [string] $ProjectRoot = (Get-Location).Path,
+    [switch] $Verify,
     [string] $PrRef = ''
 )
 
@@ -302,16 +303,18 @@ foreach ($f in $findings) {
 "  same_state_recheck: not-yet-rechecked"
 "  gate_status: $gateStatus"
 
-# ===== Append to findings.csv =====
-$dataDir = Join-Path $clone '.github/pr-quality-gate/data'
-if (-not (Test-Path -LiteralPath $dataDir)) { New-Item -ItemType Directory -Force -Path $dataDir | Out-Null }
-$rows = @()
-foreach ($f in $findings) {
-    if (-not ($f.hits -is [int]) -or $f.hits -le 0) { continue }
-    foreach ($s in $f.sites) {
-        $rows += @{ timestamp = $ts; revision = $catalogRevision; pattern_slug = $f.slug; classification = 'pending'; finding_brief = "$($f.slug) hit"; slate_mode = $Mode; finding_type = 'pattern' }
+# ===== Append to findings.csv (skipped in -Verify read-only mode) =====
+if (-not $Verify) {
+    $dataDir = Join-Path $clone '.github/pr-quality-gate/data'
+    if (-not (Test-Path -LiteralPath $dataDir)) { New-Item -ItemType Directory -Force -Path $dataDir | Out-Null }
+    $rows = @()
+    foreach ($f in $findings) {
+        if (-not ($f.hits -is [int]) -or $f.hits -le 0) { continue }
+        foreach ($s in $f.sites) {
+            $rows += @{ timestamp = $ts; revision = $catalogRevision; pattern_slug = $f.slug; classification = 'pending'; finding_brief = "$($f.slug) hit"; slate_mode = $Mode; finding_type = 'pattern' }
+        }
     }
+    if ($rows.Count -gt 0) { Add-FindingsRows -DataDir $dataDir -Rows $rows }
 }
-if ($rows.Count -gt 0) { Add-FindingsRows -DataDir $dataDir -Rows $rows }
 
 if ($gateStatus -ne 'READY') { exit 1 } else { exit 0 }

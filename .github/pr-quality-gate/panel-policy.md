@@ -7,7 +7,7 @@ Multi-reviewer panel governance for `full` and `triage` modes. The orchestrator 
 TWO panel invocation points per task, both required for non-trivial work:
 
 1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous DESIGN_READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while correction is cheap.
-2. **Pre-PR-creation panel** - AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. This slot is enforced by `gate-runner.ps1` / `gate-runner.sh` (G6 forbidden-tool gate). Reviewers see the diff + QUALITY GATE block. Required verdict: `unanimous CODE_REVIEW_READY`.
+2. **Pre-PR-creation panel** - AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. `gate-runner.ps1`/`.sh` runs the rg-battery + scaffolds the reviewer set; the panel + verdict are AGENT-ASSERTED via the §1B `QUALITY GATE` block. Reviewers see the diff + block. Target verdict: `unanimous CODE_REVIEW_READY`.
 
 "Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything called a feature/refactor/add/implement. A small isolated single-file bugfix (e.g., 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
 

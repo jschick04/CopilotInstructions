@@ -1,6 +1,6 @@
-# PR Quality Gate (v5, lightweight) - Design Spec v2
+# PR Quality Gate (v5, lightweight)
 
-Status: **DESIGN DOC - pre-implementation panel review (v2 - refined per Slot 1-4 panel feedback)**. Branch: `lightweight-gate-v5`. Parallel to `main` (current heavy system); enables A/B comparison.
+Status: **CANONICAL / IMPLEMENTED** on `main`. Honest ceiling: `gate-runner.ps1`/`.sh` run the mechanical rg-battery; the §1B `QUALITY GATE` block, the multi-model panel, and its verdict are AGENT-ASSERTED (not script-verified). CI `quality-gate-check.yml` is the merge-blocking remote backstop but runs gate-runner HEADLESS (rg-floor only - no block/panel/verdict check). `--no-verify` bypasses the local floor; `gh pr create` is not mechanically gated at create (the §0 SENTINEL + `ask_user` + slug `pr-creation-or-push-without-quality-gate-block` are the discipline layer).
 
 ## Goal
 
@@ -55,70 +55,9 @@ CopilotInstructions/.github/pr-quality-gate/
 
 `triage` and `lint-only` are user-opted-in exceptions (`caveman_decision=both`). `full` preserves the hard requirement; other modes require fresh per-PR `ask_user` receipts.
 
-## QUALITY GATE block format
+## QUALITY GATE block
 
-Required prerequisite for all G6 forbidden-tools (PR-creation/draft-state mutation). Emitted in same turn as the tool call.
-
-```
-QUALITY GATE
-  catalog_revision: <SHA of pattern-catalog.md at HEAD of CopilotInstructions clone>
-  prefs_revision: <SHA of coding-preferences.md at HEAD of clone>
-  runner_version: <gate-runner.ps1 self-reported version>
-  panel_mode: full | triage | lint-only
-  panel_mode_receipt: <ask_user call-ref + quoted user-response substring>   # required for triage|lint-only; absent for full
-  base_sha: <40-char SHA of merge-base origin/<base>..HEAD>
-  head_sha: <40-char SHA of current HEAD>
-  diff_scope: <N files, +<X>/-<Y> lines>
-  patterns_run: <N>
-  findings:
-    - pattern: <slug>
-      hits: <count>
-      classification: pending | applied | already-applies | not-applicable | dismissed-source-grounded | routed-deferred
-      site: <file:line> - <1-line signature>
-      evidence_or_rationale: <file:line-range> for applied; rationale for not-applicable per Delta K rubric
-  fps_recognized:
-    - fp: <slug>
-      site: <file:line>
-  preferences_compliance:
-    - <slug>: ok | violated (<file:line>)
-  panel:                                      # absent for lint-only
-    invoked: true | false
-    slate_floor_passed: true | false
-    reviewers: [<slot>: <model> <family> <role>]
-    convergence_model: unanimous | threshold-N% | confidence-weighted-N% | single-reviewer   # single-reviewer required under triage
-    convergence_result: passed | failed
-    dropped_reviewers: []
-    panel_rounds: <N>
-    fix_iteration_count: <N>
-    must_fix_unresolved: <count>
-  commit_approval: present
-  same_state_recheck: passed | not-yet-rechecked
-  gate_status: READY | BLOCKED - <reason>
-```
-
-**Note on `panel_mode: triage`**: `convergence_model` MUST be `single-reviewer` (not `unanimous`). Distinguishes single-voice judgment from multi-model independent verification in the audit trail.
-
-**Same-state re-check transition procedure** (the procedure for moving `same_state_recheck: not-yet-rechecked` → `passed`):
-
-> Before invoking any G6 tool, the agent MUST re-run ALL THREE of the following commands and compare against the values from the prior gate-runner emission:
-> 1. `git rev-parse HEAD` → must match `head_sha`
-> 2. `git -C <copilot-instructions-clone> log -1 --format=%H -- .github/pr-quality-gate/pattern-catalog.md` → must match `catalog_revision`
-> 3. `git -C <copilot-instructions-clone> log -1 --format=%H -- .github/pr-quality-gate/coding-preferences.md` → must match `prefs_revision`
->
-> If ALL three match, the agent re-emits the QUALITY GATE block with `same_state_recheck: passed` in the same response as the tool call (literal carry-forward; no recomputation). If ANY of the three drifted, the agent re-runs `gate-runner.ps1` from scratch and re-emits with fresh values (`same_state_recheck: passed` only after this re-run).
-
-**Enforcement** (§1B amendment):
-- G6 forbidden tools (`gh pr create`, `gh pr ready`, `gh api .../pulls`, and the full enumeration from current §1B preserved verbatim) blocked unless QUALITY GATE block is present in current turn with `gate_status: READY` AND ALL of:
-  - `head_sha` matches `git rev-parse HEAD` at tool-call time (same-state re-check - Slot 1/2 B-2)
-  - `catalog_revision` matches current catalog SHA at tool-call time (currentness - Slot 1 NB-V4)
-  - `prefs_revision` matches current prefs SHA at tool-call time (currentness - Slot 2/3/4 v6 finding; same hole the catalog re-check closes)
-  - `same_state_recheck: passed` (per the transition procedure above)
-  - `must_fix_unresolved: 0` (or all findings have `routed-deferred` with `ask_user` evidence)
-  - For `panel_mode: full|triage`: `panel.convergence_result: passed` AND `panel.dropped_reviewers: []` (or replacements present)
-  - For `panel_mode: triage|lint-only`: `panel_mode_receipt` MUST be present, with `ask_user` call-ref and quoted user-response containing the literal mode-acknowledgment token
-  - For `panel_mode: lint-only`: `panel` section absent (consistent with no-panel-invoked carve-out)
-  - `preferences_compliance` has no `violated` entries with `severity: blocking` (waived via `ask_user` if needed)
-  - **`commit_approval: present` is REQUIRED in ALL repos** - the §0 commit-approval gate applies everywhere, including the instruction repo; only the extra §1B diff-review is waived for panel-certified instruction-repo edits (Slot 2 #5)
+The `QUALITY GATE` block is the unified publish-gate artifact - the mechanical gate-runner floor plus the agent-appended panel sign-off - and the G6 forbidden-tools prerequisite (PR-creation / draft-state mutation), emitted in the same turn as the tool call. **Canonical schema: [`quality-gate-block.md`](quality-gate-block.md).** The composite block format (with the in-block provenance split: CI-reproducible mechanical region vs agent-asserted disposition region), the same-state re-check transition, the G6 enforcement AND-list (fail-open-guarded - publish authorization is the full AND-list incl. `pr_creation_status`, NOT the bare mechanical `gate_status`), the `BLOCKED-*` taxonomy, and the two disclosed narrowings (catalog + FP-registry) all live there.
 
 ## findings.csv schema (global, file-locked, no project identifier)
 
@@ -140,7 +79,7 @@ timestamp,revision,pattern_slug,classification,finding_brief,slate_mode,finding_
 
 **Trade-off**: without `project_hash`, cannot distinguish noisy-project clusters. Aggregate-only; per-project trends require manual export.
 
-**File locking** (Slot 1 B-4, Slot 2 #4, Slot 3 E):
+**File locking**:
 
 Lock file: `data/findings.csv.lock`. Contains JSON with:
 ```
@@ -180,7 +119,7 @@ while ((Get-Date) -lt $deadline) {
 # If $deadline reached without acquire: emit ask_user with lock holder details + STOP
 ```
 
-Bash twin (`gate-runner.sh`) uses compatible atomic creation (Slot 4 NB-2):
+Bash twin (`gate-runner.sh`) uses compatible atomic creation:
 ```
 LOCK="$DATA_DIR/findings.csv.lock"
 DEADLINE=$(($(date +%s) + ${LOCK_TIMEOUT_SECONDS:-30}))
@@ -218,7 +157,7 @@ Comments: lines starting with `<!--` and ending with `-->` (markdown HTML commen
 
 Parse failures (duplicate slug, invalid scope_mode, malformed JSON in `params`, malformed glob, malformed table row) → gate-runner exits 2 with stderr message naming line + cause.
 
-**Cross-field validity constraints** (Slot 3 v6+v7 finding - prevent silently-misconfigured or ambiguous rows):
+**Cross-field validity constraints** (prevent silently-misconfigured or ambiguous rows):
 
 Single-row representation (no implicit row-pairing); `params` JSON shape determined by `scope_mode`:
 
@@ -238,7 +177,7 @@ Violations of any cross-field constraint → exit 2 with stderr message naming l
 
 FP entries are sub-sections in the same catalog file, NOT a separate file. Format: `### FP-<N>: <slug>` with `Technical claim`, `Why FP`, `Recurrence pattern`, `Canonical dismissal template`, `Mitigation candidates` subsections (mirrors current v4 `known-false-positives.md` content, condensed inline).
 
-## Idempotency contract (Slot 3 #2)
+## Idempotency contract
 
 For identical inputs `(base_sha, head_sha, catalog_revision, prefs_revision, panel_mode)`, `gate-runner.ps1` (and `.sh` twin) produce byte-stable output EXCEPT for the `timestamp` field (which varies by invocation). Specifically:
 
@@ -252,7 +191,7 @@ For identical inputs `(base_sha, head_sha, catalog_revision, prefs_revision, pan
 
 This is the **byte-stable contract** - automated tests (parity test matrix below) MUST verify it.
 
-## Cross-runtime parity (Slot 3 #5 - PS + bash twin)
+## Cross-runtime parity (PS + bash twin)
 
 `gate-runner.ps1` and `gate-runner.sh` MUST produce identical output for identical inputs. Verified via a golden-output test matrix in `tests/`:
 
@@ -284,7 +223,7 @@ Test runner: simple bash/PS that invokes both runners against each case + diffs 
 
 Stderr carries diagnostic detail; stdout is the QUALITY GATE block.
 
-**Exit 5 recovery state transition** (Slot 3 #3):
+**Exit 5 recovery state transition**:
 
 On exit 5, the orchestrator's recovery is:
 1. **First exit 5 on this attempt**: auto-rerun `gate-runner.ps1` once. If second run also exits 5, escalate to step 2.
@@ -308,7 +247,7 @@ Single file; orchestrator reads it before invoking `invoke-panel.ps1`. Contents 
 
 ## coding-preferences.md (declarative metadata - NOT arbitrary shell)
 
-To prevent RCE (Slot 2 #2), checks are declarative - `gate-runner.ps1` has hardcoded implementations per `check_type`, with structured parameters per type. Catalog never specifies executable strings.
+To prevent RCE, checks are declarative - `gate-runner.ps1` has hardcoded implementations per `check_type`, with structured parameters per type. Catalog never specifies executable strings.
 
 ```
 | slug | check_type | params | scope | severity |
@@ -321,7 +260,7 @@ To prevent RCE (Slot 2 #2), checks are declarative - `gate-runner.ps1` has hardc
 | no-conventional-commit-prefix | commit-message-rg-negative | {"pattern":"^(feat|fix|chore|docs|test|refactor|style|perf|ci)(\\(.+\\))?: ","target":"HEAD"} | commit | blocking |
 ```
 
-**`params` format**: JSON object inline in the markdown table cell. JSON arrays for `args` and `globs` ensure unambiguous argv element parsing (Slot 1 V7) - no string-splitting subtleties, no shell-quoting hazards. Pipe characters inside JSON values escaped as `\|` per markdown table rules; parser unescapes before JSON parse.
+**`params` format**: JSON object inline in the markdown table cell. JSON arrays for `args` and `globs` ensure unambiguous argv element parsing - no string-splitting subtleties, no shell-quoting hazards. Pipe characters inside JSON values escaped as `\|` per markdown table rules; parser unescapes before JSON parse.
 
 **`check_type` enumeration** (hardcoded in gate-runner; new types require code change, not catalog change):
 - `rg`: ripgrep with `pattern` + `globs[]` → exit non-zero on match = violation
@@ -334,7 +273,7 @@ To prevent RCE (Slot 2 #2), checks are declarative - `gate-runner.ps1` has hardc
 **RCE mitigation**:
 - `params` JSON contains TYPED values per `check_type`, validated at parse time against expected schema per type (unknown keys / wrong types → exit 2)
 - gate-runner has switch/case on `check_type` and constructs the invocation with explicit argument arrays (PowerShell `&` operator with array, NOT string concatenation; bash `"$@"` arrays)
-- `analyzer` binary + subcommand whitelist (Slot 1 NB-V6 expanded per Slot 2 NB):
+- `analyzer` binary + subcommand whitelist:
 
   | tool | allowed subcommands |
   |---|---|
@@ -357,14 +296,14 @@ $env:COPILOT_INSTRUCTIONS_CLONE = "C:\Projects\CopilotInstructions"   # or ~/Pro
 & "$env:COPILOT_INSTRUCTIONS_CLONE/.github/pr-quality-gate/gate-runner.ps1" -BaseSha <sha> -HeadSha <sha> -Mode full
 ```
 
-Bootstrap recovery (Slot 3 A): if clone missing OR `$env:COPILOT_INSTRUCTIONS_CLONE` not set → orchestrator emits `ask_user` with the exact clone command:
+Bootstrap recovery: if clone missing OR `$env:COPILOT_INSTRUCTIONS_CLONE` not set → orchestrator emits `ask_user` with the exact clone command:
 ```
-git clone --branch lightweight-gate-v5 https://github.com/<owner>/CopilotInstructions.git C:\Projects\CopilotInstructions
+git clone https://github.com/<owner>/CopilotInstructions.git C:\Projects\CopilotInstructions
 [Environment]::SetEnvironmentVariable("COPILOT_INSTRUCTIONS_CLONE", "C:\Projects\CopilotInstructions", "User")
 ```
 + STOP. Agent does NOT auto-clone (security: clone URL should be user-confirmed).
 
-**Clone-path validation** (Slot 1 NB-V6 - runtime precondition):
+**Clone-path validation** (runtime precondition):
 
 Before reading anything from `$env:COPILOT_INSTRUCTIONS_CLONE`, `gate-runner.ps1` (and `.sh` twin) MUST verify:
 1. Path exists and is a directory
@@ -377,7 +316,7 @@ Default pattern matches any host (enterprise forks, self-hosted Gitea/Forgejo). 
 
 **Catalog freshness** (Slot 1 NB-V5):
 - Default: `gate-runner.ps1 -Mode <mode>` does NOT auto-fetch; consumer owns clone freshness via their own `git pull` cadence
-- Opt-in: `gate-runner.ps1 -AutoFetchCatalog` performs `git -C $env:COPILOT_INSTRUCTIONS_CLONE fetch origin lightweight-gate-v5 --depth 1 --quiet && git -C ... checkout origin/lightweight-gate-v5 -- .github/pr-quality-gate/` before reading catalog SHA
+- Opt-in: `gate-runner.ps1 -AutoFetchCatalog` performs `git -C $env:COPILOT_INSTRUCTIONS_CLONE fetch origin <current-branch> --depth 1 --quiet && git -C ... checkout origin/<current-branch> -- .github/pr-quality-gate/` before reading catalog SHA
 - **Dirty-state guard** (Slot 1 NB-V8): before any `-AutoFetchCatalog` `git checkout`, gate-runner runs `git -C <clone> status --porcelain .github/pr-quality-gate/`. If output is non-empty (uncommitted local changes in the gate folder), gate-runner refuses to auto-fetch and emits `ask_user` naming the dirty files. User must commit, stash, or discard before `-AutoFetchCatalog` proceeds. Catalog maintainers iterating on local drafts cannot lose work to a consumer auto-fetch.
 - Either way, the resolved `catalog_revision` field is `git -C $env:COPILOT_INSTRUCTIONS_CLONE log -1 --format=%H -- .github/pr-quality-gate/pattern-catalog.md` (reads the clone's HEAD per Slot 4 NB-4, NOT literal `main` - works for any branch)
 
@@ -385,7 +324,7 @@ PowerShell + bash twins for cross-platform (Slot 1 NB-3). pwsh on Linux/macOS wo
 
 **macOS version floor**: bash twin's `sleep 0.N` requires macOS 12+ / FreeBSD 9+. Older versions truncate to `sleep 0` (functional, less efficient jitter).
 
-## Session-boundary recovery (Slot 2 G, Slot 4 F)
+## Session-boundary recovery
 
 Recovery model: **rerun-only**. After any session boundary (compression, restart):
 1. Read `plan.md`: which PR/branch, what task
@@ -395,19 +334,14 @@ Recovery model: **rerun-only**. After any session boundary (compression, restart
 
 Gate-runner is fast (seconds); panel re-invocation via `invoke-panel.ps1` with fresh agents. Branch from `plan.md` (not CSV).
 
-## Validation plan (post-build)
+## Validation
 
-1. Run `gate-runner.ps1` against a known-noisy PR's HEAD from your own project (first record that PR's baseline historical-finding + false-positive counts so you have something to compare against)
-2. Compare to v4 catalog recall (~89%); v5 rg-battery alone should match or exceed
-3. Run `invoke-panel.ps1 -Mode full` against the same diff; verify multi-panel reviews emit `CODE-REVIEW PANEL CONVERGED` block correctly
-4. Run `invoke-panel.ps1 -Mode triage`; verify single-reviewer record format
-5. Run `invoke-panel.ps1 -Mode lint-only` (skips panel); verify QUALITY GATE block accepts the slate carve-out
-6. Stress-test file locking: 2 concurrent gate-runner sessions; verify no row corruption
+Run `gate-runner.ps1` against a known-noisy PR HEAD and compare to the v4 catalog recall baseline (~89%); the rg-battery alone should match or exceed. Verify `invoke-panel.ps1 -Mode full|triage|lint-only` emit their records correctly, and stress-test the CSV lock with 2 concurrent sessions (no row corruption).
 
-## What's RETIRED on this branch (kept on `main` for A/B compare)
+## What this migration retired (now canonical on `main`)
 
-- `multi-model-review/pr-review-pattern-catalog.md` 252-line version → 80-line condensed catalog
-- `multi-model-review/known-false-positives.md` separate file → inline FP entries in catalog
+- `multi-model-review/pr-review-pattern-catalog*.md` (System B's project-specific seed) - DELETED; generalizable patterns distilled into the leaner cross-project `pattern-catalog.md`. **Catalog-narrowing disclosure:** NOT a 1:1 carry - project-specific patterns (Blazor / C# / app-shaped) are out of scope here and belong in the *consuming project's own* catalog. The gate is a cross-project floor, not seed parity.
+- `multi-model-review/known-false-positives.md` separate file - inline FP entries in catalog
 - `multi-model-review/pr-review-findings-schema.md` 97-line schema → 30-line data/README.md
 - `pre-pr-creation-review.md` Step 2.5 strict format → `gate-runner.ps1` script
 - `pre-pr-creation-review.md` 10-step flow → 3-step (scan → fix → commit) + same-state re-check at PR creation
@@ -415,22 +349,13 @@ Gate-runner is fast (seconds); panel re-invocation via `invoke-panel.ps1` with f
 - §2B `POST-CODE-CHANGE LEDGER` ceremony → fields folded into QUALITY GATE block
 - Per-project `.github/data/` → global locked CSV at CopilotInstructions
 
-## What's AMENDED on this branch
+## What this migration amended
 
 - `review-workflow-gates.md` §1A: add `slate-mode: full | triage | lint-only` carve-out documented in `panel-policy.md`
 - `review-workflow-gates.md` §1B: forbidden-tools gate references QUALITY GATE block name + `gate_status: READY` requirement
 - `review-workflow-gates-sweeps.md` §2B: LEDGER pointer says "see QUALITY GATE block in `pr-quality-gate/quality-gate-block.md`"
 - `review-workflow-gates.md` PRE-COMMIT GATE PASSED: adds `preferences_compliance: <slug>: passed|violated` for every machine-checkable pref
 
-## Open items pre-implementation panel verification
+## Provenance
 
-This README is the design spec; before building the other files, the 4-reviewer panel will verify:
-- All 6 blockers closed (B-1 through B-6)
-- All 7 NBs addressed or acknowledged
-- No new bypass surfaces introduced
-- Cross-document references all resolve
-- Exit code contract complete
-- File locking semantics correct
-- Cross-platform portability adequate
-
-Verdict required: 4/4 DESIGN_READY before implementation proceeds.
+Drafted as the v5 design spec (4/4 DESIGN_READY pre-implementation panel), built incrementally on `main`. The publish-gate migration (slug `pr-creation-or-push-without-quality-gate-block`, CI `quality-gate-check.yml`, §2D teardown) completed the transition from the older `multi-model-review` system. Its shared engine (`current-model-registry.md`, `procedure.md`, `multi-model-review.md`) survives - it backs `post-code-change.md` §3.

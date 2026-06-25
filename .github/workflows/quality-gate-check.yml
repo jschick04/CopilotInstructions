@@ -1,0 +1,28 @@
+name: quality-gate-check
+
+# Runs the PR Quality Gate rg-battery (gate-runner.ps1 -Verify -Mode full) over the whole-branch diff. This is the
+# merge-blocking remote backstop for the mechanical pattern floor; -Verify makes the run read-only (no findings.csv
+# append, no lock). HONEST CEILING: CI runs gate-runner HEADLESS - it verifies only the mechanical rg-battery, NOT
+# the QUALITY GATE block emission, the multi-model panel, or the panel verdict (all agent-asserted). The synchronize
+# trigger covers review-response pushes, not just PR creation. To make this gate non-bypassable at merge, mark this
+# job a REQUIRED status check in branch protection (mirrors automation-identity-check).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality-gate:
+    name: PR Quality Gate rg-battery (whole-branch, merge-blocking floor)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - shell: pwsh
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: ./scripts/run-quality-gate-ci.ps1 -BaseRef "$env:BASE_REF" -CiMode

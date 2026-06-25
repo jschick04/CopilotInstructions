@@ -13,6 +13,7 @@ ALLOWED_CLONE_URL_PATTERN='^https?://.+/CopilotInstructions(\.git)?$'
 AUTO_FETCH_CATALOG=0
 LOCK_TIMEOUT_SECONDS=30
 PROJECT_ROOT="$(pwd)"
+VERIFY=0
 PR_REF=''
 
 # ===== CLI parsing =====
@@ -25,6 +26,7 @@ while [[ $# -gt 0 ]]; do
         -AutoFetchCatalog|--auto-fetch-catalog) AUTO_FETCH_CATALOG=1; shift ;;
         -LockTimeoutSeconds|--lock-timeout-seconds) LOCK_TIMEOUT_SECONDS="$2"; shift 2 ;;
         -ProjectRoot|--project-root)        PROJECT_ROOT="$2"; shift 2 ;;
+        -Verify|--verify)                   VERIFY=1; shift ;;
         -PrRef|--pr-ref)                    PR_REF="$2"; shift 2 ;;
         *) echo "[gate-runner ERROR] Unknown flag: $1" >&2; exit 2 ;;
     esac
@@ -258,7 +260,7 @@ CSV="$DATA_DIR/findings.csv"
 LOCK="$CSV.lock"
 TS="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-if [[ $TOTAL_REAL_FINDINGS -gt 0 ]]; then
+if [[ $VERIFY -eq 0 && $TOTAL_REAL_FINDINGS -gt 0 ]]; then
     acquire_lock "$LOCK" || die 4 "Could not acquire findings.csv lock within ${LOCK_TIMEOUT_SECONDS}s"
     trap 'rm -f "$LOCK"' EXIT
     [[ ! -f "$CSV" ]] && printf 'timestamp,revision,pattern_slug,classification,finding_brief,slate_mode,finding_type\n' > "$CSV"

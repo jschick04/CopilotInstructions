@@ -210,7 +210,7 @@ gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<
 4. Catalog sub-blocks (`pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, `playbook-invocations`) stay in EXISTING STRUCTURED form below KV (dot-path parsers depend on structure).
 5. APPENDIX (only when count>0): emit the canonical structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
 6. This instructions repo: full schema to the receipt (flushed to a note), appendix optional in chat. Consuming repos: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
-7. §0 SENTINEL, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, and `PRE-PR REVIEW COVERAGE` emit the caveman chat-emission form defined in each block's home section, NOT verbose YAML.
+7. §0 SENTINEL, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, and the `QUALITY GATE` block emit the caveman chat-emission form defined in each block's home section, NOT verbose YAML.
 
 ### Waiver semantics
 
@@ -336,44 +336,35 @@ If the same duplication pattern is detected in a subsequent commit (i.e., the us
 
 ---
 
-## 2D. Pre-PR-creation multi-model review (HARD GATE)
+## 2D. Publish gate (Quality Gate & panel sign-off) (HARD GATE)
 
 ### Rule
 
-Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), a multi-model heavy panel (≥4-reviewer slate floor per the `pre-pr-creation-review.md` waive matrix) MUST run on the FULL branch diff (`<base>..HEAD`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Steps 2 and 7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). The `PRE-PR REVIEW COVERAGE` block MUST emit in that same tool-call turn (G3).
+Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), the unified publish gate MUST be satisfied: `gate-runner.ps1`/`.sh` full-mode runs the rg-battery AND a multi-model heavy panel (≥4-reviewer slate floor per the `pre-pr-creation-review.md` waive matrix) runs on the FULL branch diff (`<base>..HEAD`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Steps 2 and 7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). The composite `QUALITY GATE` block MUST emit in that same tool-call turn (G3). **Canonical schema + the G6 enforcement AND-list + the `BLOCKED-*` taxonomy: [`pr-quality-gate/quality-gate-block.md`](../pr-quality-gate/quality-gate-block.md).**
 
 Strict mandatory  -  G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
 
-### LEDGER row format
+### Publish authorization
 
-When §2D is in scope (review-targeting push per `pre-pr-push.md` Step 5), the §2D ledger row appears in `PRE-PR REVIEW COVERAGE` per the playbook's Step 7 / Step 9 emission format. The `pr-creation-status` field is the gate's READY signal  -  values:
-
-- `READY-pending-user-approval` (initial emission, end of synthesis turn).
-- `READY-re-emitted-after-user-approval` (PR-creation tool-call turn, after AGENTS user-approval ask_user returns + same-state re-check passes).
-- `BLOCKED  -  <N> must-fix unresolved` (must-fix findings still pending).
-- `BLOCKED  -  slate-floor violated` (slate composition fell below the waive matrix floor).
-- `BLOCKED  -  bootstrap-token-removed` (G7 token removed from PR body after initial emission).
-- `BLOCKED  -  same-state-check-failed` (HEAD / base / commit-count changed between initial and re-emission).
-
-The PR-creation tool call is forbidden unless `pr-creation-status` reads `READY-re-emitted-after-user-approval` in the same turn.
+When the gate is in scope (review-targeting push per `pre-pr-push.md` Step 5), the publish-readiness signal is the QUALITY GATE block's agent-asserted `pr_creation_status` (distinct from the mechanical `gate_status`). The PR-creation tool call is forbidden unless `pr_creation_status` reads `READY-re-emitted-after-user-approval` in the same turn (after the §0 user-approval `ask_user` returns + same-state re-check passes). The full `BLOCKED-*` taxonomy and the complete G6 AND-list live in `quality-gate-block.md`.
 
 ### Bootstrap exemption (narrow scope)
 
-The PR that introduces §2D itself (this entire gate, the consumer playbook, the cross-cutting AGENTS.md bullet, this `review-workflow-gates-sweeps.md` §2D section, the `pre-pr-push.md` Step 5 hook, the `multi-model-review/pr-creation-mirror-prompt.md` template, the `pre-pr-creation-review/implementation-roadmap.md` deferred-features document, and the `manifest.yaml` registration) is EXEMPT from §2D for THAT specific PR. The exemption requires ALL of:
+The PR that introduces a NEW mandatory gate is EXEMPT from THAT gate for THAT specific PR (when §2D was first introduced this covered its whole companion set: the gate, the consumer playbook, the cross-cutting AGENTS.md bullet, this section, the `pre-pr-push.md` Step 5 hook, the `multi-model-review/pr-creation-mirror-prompt.md` template, and the `manifest.yaml` registration). The exemption requires ALL of:
 
 1. The PR introduces a NEW mandatory gate that did not exist on `origin/<base>` pre-PR.
-2. The PR body contains the literal token `BOOTSTRAP-EXEMPTION: §2D pre-PR-creation review gate`.
+2. The PR body contains the literal token `BOOTSTRAP-EXEMPTION: <gate-name> gate`.
 3. The PR includes ALL companion edits required for the gate to be operative post-merge (listed above).
 
-PRs that modify, tighten, loosen, or refactor §2D-as-already-shipped are NOT bootstrap-exempt  -  they go through §2D normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
+PRs that modify, tighten, loosen, or refactor an already-shipped gate are NOT bootstrap-exempt  -  they go through the gate normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
 
 This template applies to any future meta-change introducing a new mandatory gate at the §2-level: the introducing PR is exempt from the gate it introduces; subsequent modification PRs go through the gate normally.
 
 ### Full procedure
 
-See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1 invocation mode, Step 2 ancestry-based re-run-trigger detection, Steps 3-6 panel + synthesis + fix loop, Steps 7-10 LEDGER emissions and user approval flow). Deferred features (capability-tier registry, context-budget circuit breaker, branch-level fix-iteration cap, citation-preserving compaction format, etc.) live in `pre-pr-creation-review/implementation-roadmap.md` for follow-up PRs.
+See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1 invocation mode, Step 2 ancestry-based re-run-trigger detection, Steps 3-6 panel + synthesis + fix loop, Steps 7-10 QUALITY GATE block emissions and user approval flow). Deferred features (capability-tier registry, context-budget circuit breaker, branch-level fix-iteration cap, citation-preserving compaction format, etc.) live in `pre-pr-creation-review/implementation-roadmap.md` for follow-up PRs.
 
-### Why §2D exists
+### Why this gate exists
 
 LLM-based PR reviewers (GitHub Copilot's PR-review feature, GitLab Duo Code Review, similar bot reviewers) consistently surface a known set of pattern categories on every PR. Patching the static-pattern catalog reactively after each PR is whack-a-mole. The LLM-judgment patterns (doc-impl divergence, comment-promises-behavior-code-doesn't-deliver, hardcoded ARIA, framework-binding stale-render, attach-without-detach, etc.) need an LLM in the loop to catch. Running our own multi-model panel pre-PR with the same category coverage shifts those findings from "review comment after PR opens" to "blocking finding before PR opens"  -  the work to fix is the same; the visibility cost (reviewer time, PR thread churn, CI cycles, force-push pollution) is dramatically lower.
 
