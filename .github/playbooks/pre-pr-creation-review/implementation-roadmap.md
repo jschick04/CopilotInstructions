@@ -164,7 +164,7 @@ Categories (summary): 1. Bugs/logic errors, 2. Security, 3. Argument/input valid
 Read canonical phase-state record:
 
 ```
-invocation-mode:
+invocation_mode:
   if pre-pr-push.md phase-state record present AND Step 5 hook fires this gate:
     -> "via-pre-pr-push-step-5"
     read isFirstReviewExposurePush, remoteExposureExists, baseRef from that record
@@ -314,58 +314,13 @@ Prevents unbounded fix-introduces-finding cycling. Round-level max-loop (5 per `
 
 ### Step 10. Emit the `QUALITY GATE` block (initial emission)
 
-Mandatory at end of synthesis, BEFORE AGENTS `gh pr create` user-approval. Format:
+Mandatory at end of synthesis, BEFORE the AGENTS `gh pr create` user-approval. Emit the canonical `QUALITY GATE` block (schema: `../../pr-quality-gate/quality-gate-block.md`) with `emission_phase: initial-pending-user-approval` and `pr_creation_status: READY-pending-user-approval`. The deferred features in this roadmap would EXTEND that block's agent-appended region with:
 
-```
-QUALITY GATE
-  emission-phase: initial-pending-user-approval
-  invocation-mode: <via-pre-pr-push-step-5 | self-fire-fallback>
-  re-run-triggers: <[trigger, ...] - [default: ["first-run"]]>
-  panel-base-ref: <baseRef>
-  panel-base-sha: <40-char SHA>
-  panel-head-sha: <40-char SHA>
-  panel-commit-count: <N>
-  diff-scope: <baseSha>..<headSha> (<N> files, +<X>/-<Y> lines)
-  slate:
- - slot 1: <tier-id> <family> <role>: <model> [substituted from <requested-model>: <reason>] OR [no substitution]
- - ...
-  slate-substitutions: <[] - [default: []]>
-  slate-floor-rechecks: <[{checkpoint, satisfied, ...}] - [default: [{launch, true}, {synthesis, true}]]>
-  slate-waive: <"no waive" - [default: "no waive"]>
-  convergence-model: <unanimous | threshold-N% | confidence-weighted-N%>
-  convergence-waive: <"no waive" - [default: "no waive"]>
-  rounds: <K>
-  dropped-reviewers: <[] - [default: []]>
-  replacement-reviewers: <[] - [default: []]>
-  degraded-due-to-reviewer-loss: <true | false - [default: false]>
-  degraded-due-to-context: <true | false - [default: false]>
-  context-budget:
-    window-size: <orchestrator window in tokens>
-    session-used-at-panel-launch: <tokens>
-    trigger-pct-at-launch: <0.0-1.0>
-    compaction-applied: <true | false>
-    compaction-artifact-path: <path or "n/a">
-    mid-loop-rechecks: <[{round, trigger-pct}] - [default: []]>
-  prior-commit-panel-dispositions: <"none - <reason>" or compacted list>
-  panel-coverage:
-    - mode: <full-whole-branch | carry-forward-authorized> scope: <baseSha>..<headSha> commits: <N> carry-forward-ref: <ask_user ref | n/a> carried: <range | n/a>
-  fix-iteration-count: <N - [default: 0]>
-  fix-iteration-cap: <3 or user-authorized override>
-  findings: <total raw>, dedupe'd to <M unique themes>
-  resolution (every finding has a status):
- - [<category 1-11>] <severity> [<reviewer model>]: <finding summary>: <status>: <citation>
- - ...
-  must-fix-blocking-findings-resolved: <K of K>
-  routed-deferred-with-tracker-and-ask_user:
- - <finding> -> <tracker URL> (ask_user approval: <call ref>)
- - ... - [default: []]
-  bootstrap-token-status: <not-applicable | present-in-body | removed-revokes-exemption - [default: not-applicable]>
-  pr-creation-status: <READY-pending-user-approval | BLOCKED - <N> must-fix unresolved | BLOCKED - slate-floor violated | BLOCKED - context-budget exceeded>
-  pr-text-scan: <clean | tier1-fail: <surface:marker,...> | tier2-warn: <surface:marker,...>>
-  subagent_ask_user_calls=0 (orchestrator-only routing verified per AGENTS.md cross-cutting rule)
-```
+- `context_budget:` (`window_size`, `session_used_at_panel_launch`, `trigger_pct_at_launch`, `compaction_applied`, `compaction_artifact_path`, `mid_loop_rechecks`) - the context-budget circuit breaker (feature 2).
+- `slate_floor_rechecks:` plus `degraded_due_to_reviewer_loss` / `degraded_due_to_context` - the capability-tier + degraded-mode tracking (features 1, 4).
+- `fix_iteration_cap` override semantics - the branch-level fix-iteration cap (feature 3).
 
-`pr-creation-status: READY-pending-user-approval` required to proceed to Step 11.
+`pr_creation_status: READY-pending-user-approval` is required to proceed to Step 11.
 
 ### Step 11. AGENTS `gh pr create` user-approval flow
 
@@ -373,14 +328,11 @@ Per `AGENTS.md` `gh pr create` section: present PR title + body + target branch 
 
 ### Step 12. Re-emit the `QUALITY GATE` block in the PR-creation turn
 
-After user approval, BEFORE G6 tool, re-emit with:
+After user approval, BEFORE the G6 tool, re-emit with `emission_phase: ready-re-emitted-after-user-approval` + `pr_creation_status: READY-re-emitted-after-user-approval` + `same_state_recheck: passed` after the same-state re-check:
 
-- `emission-phase: ready-re-emitted-after-user-approval`
-- Same-state re-check:
- - Step 2 trigger detection: if triggers differ from prior-run -> restart at Step 2.
- - `git rev-parse HEAD` still matches `panelHeadSha`.
- - `git rev-parse <baseRef>` still matches `panelBaseSha`.
-- `pr-creation-status: READY-re-emitted-after-user-approval`
+- Step 2 trigger detection: if triggers differ from the prior run -> restart at Step 2.
+- `git rev-parse HEAD` still matches `panelHeadSha`.
+- `git rev-parse <baseRef>` still matches `panelBaseSha`.
 
 Any same-state check fails -> restart at Step 2.
 
