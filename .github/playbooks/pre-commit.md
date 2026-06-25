@@ -132,7 +132,7 @@ Also inspect env-var overrides (env beats config silently):
 $env:GIT_AUTHOR_NAME, $env:GIT_AUTHOR_EMAIL, $env:GIT_COMMITTER_NAME, $env:GIT_COMMITTER_EMAIL, $env:EMAIL
 ```
 
-For author-preserving replays (`--amend` without `--reset-author`, `cherry-pick`, `rebase`, `am`), ALSO inspect the replayed commit's author:
+For author-preserving replays (`--amend` without `--reset-author`, `cherry-pick`, `rebase`, `am`), ALSO inspect the replayed commit's author/committer:
 
 ```powershell
 git --no-pager log -1 --format='%an <%ae>%n%cn <%ce>' <target-commit-sha>

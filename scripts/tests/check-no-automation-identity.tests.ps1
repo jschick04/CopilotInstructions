@@ -139,6 +139,14 @@ $repo = Track (New-IdRepo); Add-IdCommit $repo 'Abbott Robotics' 'abbott@example
 $r = Invoke-Range $repo
 Assert-True ($r.ExitCode -eq 0) "names containing 'bot'/'abbott' without literal [bot] pass"
 
+$repo = Track (New-IdRepo); Add-IdCommit $repo 'Project[bot]Tool' 'dev@example.com'
+$r = Invoke-Range $repo
+Assert-True ($r.ExitCode -eq 0) "a mid-string [bot] in the name is NOT matched (suffix-anchored, not substring)"
+
+$repo = Track (New-IdRepo); Add-IdCommit $repo 'Dev' 'foo[bot]bar@example.com'
+$r = Invoke-Range $repo
+Assert-True ($r.ExitCode -eq 0) "a mid-string [bot] in the email local-part is NOT matched (must be [bot]@)"
+
 Write-Host ""
 Write-Host "=== range-mode mechanics ===" -ForegroundColor Cyan
 
