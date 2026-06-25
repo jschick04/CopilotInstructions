@@ -77,3 +77,36 @@ b46ba1e1a27a2eca  modern-gate dot-source guard + StrictMode scaffold (check-no-m
 2a28b3d3f888bed3  modern-gate dot-source guard + StrictMode scaffold (check-no-machine-paths.ps1 vs check-pr-text.ps1)
 d506aa39b06e628e  checker bootstrap (check-no-machine-paths.ps1 vs check-no-panel-artifacts.ps1; RepoRoot param + Resolve-RepoRoot)
 077606b1f9541a68  test-harness preamble (check-no-machine-paths.tests.ps1 vs check-commit-message.tests.ps1; Requires + StrictMode + test-common)
+
+# fu5-size-reduction PR-1 automation-identity gate (scripts/check-no-automation-identity.ps1 + its tests): shares the
+# range-mode commit-metadata gate scaffold with check-commit-message.ps1 - the per-script exit-code constants + the
+# Invoke-Git fail-closed wrapper, the findings output-tail (-Json record / per-finding ::error / exit), and the
+# test-harness Invoke-Checker preamble (& pwsh -File $checker -RepoRoot -BaseRef -HeadRef; capture ExitCode + Output).
+# Each is a per-file idiom that cannot be DRY-ed (StrictMode/exit constants must live in each script's own scope; the
+# Invoke-Git wrapper closes over the per-script $RepoRoot); the gates' decision logic (Get-IdentityFindings vs
+# Get-MessageFindings) stays distinct. Same self-contained-per-gate disposition as the machine-path waivers above.
+ff944910b2388c7b  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+21ca21c0fec2fb5f  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+9b800c62adcd68cf  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+dbda1c12d98b66c8  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+2fb1ad387b83e718  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+b0ed3b7dbfdac471  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+a4c4f7fdb2c8755d  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+22f09684fad67d55  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+b37b5149392dd589  exit-code constants + Invoke-Git idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1)
+989874d2a779f324  findings output-tail idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1; -Json record / ::error / exit)
+6c926528d6eab271  findings output-tail idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1; -Json record / ::error / exit)
+765a7f7f93882e96  findings output-tail idiom (check-no-automation-identity.ps1 vs check-commit-message.ps1; -Json record / ::error / exit)
+24b99fd7c6570c31  test-harness Invoke-Checker preamble (check-no-automation-identity.tests.ps1 vs check-commit-message.tests.ps1)
+f65f9946fc12288a  test-harness Invoke-Checker preamble (check-no-automation-identity.tests.ps1 vs check-commit-message.tests.ps1)
+c2ce9b379007c5ac  checker bootstrap (check-no-automation-identity.ps1 vs check-commit-message.ps1; CmdletBinding + param)
+648e47661b884633  checker bootstrap (check-no-automation-identity.ps1 vs check-commit-message.ps1; param tail + StrictMode)
+59a631da0ec886f6  checker bootstrap (check-no-automation-identity.ps1 vs check-commit-message.ps1; param tail + StrictMode)
+c872701255a6780f  checker bootstrap (check-no-automation-identity.ps1 vs check-commit-message.ps1; StrictMode + Import-Module repo-root)
+c4b154c8c8ab6076  checker bootstrap (check-no-automation-identity.ps1 vs check-comment-audit.ps1; StrictMode + Import-Module + Resolve-RepoRoot)
+b20021a1db77d4ca  checker bootstrap (check-no-automation-identity.ps1 vs check-comment-audit.ps1; StrictMode + Import-Module + Resolve-RepoRoot)
+59d57722091af554  checker bootstrap (check-no-automation-identity.ps1 vs check-comment-audit.ps1; StrictMode + Import-Module + Resolve-RepoRoot)
+b858d5fbd58681df  checker bootstrap (check-no-automation-identity.ps1 vs check-commit-message.ps1; CmdletBinding + param head)
+7e8c74e6c4539059  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)
+581e65fcb5027fda  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)
+91b930c5e42576fc  pull_request workflow boilerplate (automation-identity-check.yml vs machine-path-check.yml; on/runs-on/checkout)

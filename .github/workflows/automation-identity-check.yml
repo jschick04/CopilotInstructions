@@ -1,0 +1,33 @@
+name: automation-identity-check
+
+# Scans the branch's commits for a disallowed automation author/committer identity (Copilot / *[bot] / github-actions /
+# the Copilot noreply / empty). The pre-commit hook is the local gate; this merge-blocking job is the remote backstop
+# (the hook is --no-verify-bypassable and clone-hooks-optional, and cherry-pick/rebase/am never fire the pre-commit
+# hook so they are caught only here + at pre-push run-local-ci).
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  automation-identity:
+    name: No disallowed automation author/committer identity in the branch commits
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+        with:
+          fetch-depth: 0
+      - shell: pwsh
+        env:
+          BASE_REF: origin/${{ github.base_ref || 'main' }}
+        run: ./scripts/check-no-automation-identity.ps1 -BaseRef "$env:BASE_REF" -CiMode
+
+  automation-identity-tests:
+    name: automation-identity checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-no-automation-identity.tests.ps1

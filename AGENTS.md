@@ -279,15 +279,14 @@ General coding standards live in two auto-loaded files: `coding-standards.instru
 
 ## 4. Git Identity & Push Credentials
 
-Both **commit attribution** (`user.name`/`user.email`) AND `git push` **authentication** MUST belong to the human user - never a "disallowed automation identity" (case-insensitive: `Copilot`, `copilot[bot]`, `github-actions[bot]`, `223556219+Copilot@users.noreply.github.com`, any `[bot]`-suffixed account, any non-user service principal). A session authenticating as the human's own GitHub account is fine.
+Both **commit attribution** (`user.name`/`user.email`) AND `git push` **authentication** MUST belong to the human user, never a disallowed automation identity (case-insensitive). The `check-no-automation-identity` gate rejects the commit-side modeled set: `Copilot`, any `[bot]`-suffixed account, `github-actions`, the Copilot noreply, empty. Any other non-user service principal is prose-judgment, not gate-matched. A session authenticating as the human's own GitHub account is fine.
 
 Always-loaded. Procedure in `pre-commit.md` (§4.1) and `pre-pr-push.md` Pre-check 0 (§4.2).
 
 ### 4.1 Commit author identity - hard gates
 
-- **No automation-identity injection** via any scope of `git config`, `[include]`/`[includeIf]`, `git -c` flags, `--author`, or env vars (`GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL`/`GIT_COMMITTER_NAME`/`GIT_COMMITTER_EMAIL`/`EMAIL`).
-- **Prompt-when-missing.** Before any commit-producing op: verify `git var GIT_AUTHOR_IDENT`/`GIT_COMMITTER_IDENT` (including env overrides) are non-empty + non-disallowed; for `--amend`/`cherry-pick`/`rebase`/`am`, check preserved author too. On fail: `ask_user`, write **local** (global requires opt-in). NEVER guess from machine username.
-- **`--reset-author` constrained** to disallowed-automation only. Never overwrite legitimate human author.
+- **Disallowed-automation author/committer is rejected fail-closed** by `check-no-automation-identity` (the modeled set; pre-commit hook + CI). `git commit` exports the resolved identity into the hook, so pre-commit covers config / env / `git -c` / `--author` / `--amend`-preserved; cherry-pick/rebase/am + `--no-verify` -> pre-push + CI range scan.
+- **On reject / missing:** `ask_user`, then write a real human identity **local** (global = opt-in); NEVER guess from machine username. `--reset-author` only replaces a disallowed-automation author, never a legitimate human one.
 - **Don't touch commit signing.** Surface signing failures via `ask_user`; never bypass with `--no-gpg-sign`.
 - **Actor labels in prompts:** literal `the agent`/`you (the user)`. Display resolved identity + scope. No bare `I`/`me`/`you`. Commit-ownership separate from push-ownership.
 

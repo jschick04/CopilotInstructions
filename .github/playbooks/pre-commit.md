@@ -132,13 +132,13 @@ Also inspect env-var overrides (env beats config silently):
 $env:GIT_AUTHOR_NAME, $env:GIT_AUTHOR_EMAIL, $env:GIT_COMMITTER_NAME, $env:GIT_COMMITTER_EMAIL, $env:EMAIL
 ```
 
-For commit-producing operations that preserve the author from a replayed commit (`--amend` without `--reset-author`, `cherry-pick`, `rebase`, `am`), ALSO inspect the commit being amended / replayed:
+For author-preserving replays (`--amend` without `--reset-author`, `cherry-pick`, `rebase`, `am`), ALSO inspect the replayed commit's author:
 
 ```powershell
 git --no-pager log -1 --format='%an <%ae>%n%cn <%ce>' <target-commit-sha>
 ```
 
-**Disallowed automation identity** = case-insensitive match against `Copilot`, `copilot[bot]`, `github-actions[bot]`, `223556219+Copilot@users.noreply.github.com`, any other `[bot]`-suffixed GitHub account, or any non-user service principal. Full definition in `AGENTS.md` §4.
+**Disallowed automation identity** (case-insensitive): `scripts/check-no-automation-identity.ps1` rejects the modeled set - `Copilot`, any `[bot]`-suffixed account, `github-actions`, the Copilot noreply, empty (fail-closed pre-commit + CI); any other non-user service principal is prose-judgment. Full definition in `AGENTS.md` §4.
 
 **Trigger the `ask_user` flow** when ANY of these hold: (a) effective `user.name` or `user.email` is empty in all scopes; (b) effective identity (config or env override) is a disallowed automation identity; (c) preserved author / committer on a replay target is a disallowed automation identity.
 
