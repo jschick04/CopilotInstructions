@@ -111,8 +111,8 @@ PR is BOOTSTRAP-EXEMPT from §2D only if ALL of:
 | C2 disposition per finding (G5) | **NO** | - |
 | Forbidden-tool list (G6) | **NO** | - |
 | Bootstrap exemption (G7) | **NO** | Conditions either met or not. |
-| Convergence model | **YES** | Floor: `threshold >= 75%`. `confidence-weighted >= 80%` also allowed. Record under `convergence-waive`. |
-| Reviewer slate composition | **YES** | Floor (all simultaneous): >= 4 reviewers; >= 1 Claude + >= 2 GPT (>= 1 premium + >= 1 cross-version/codex) + >= 1 Gemini; >= 1 `rubber-duck` + >= 2 `code-review`; >= 1 heavy-tier. Record under `slate-waive`. Floor re-checked after every drop/replacement. |
+| Convergence model | **YES** | Floor: `threshold >= 75%`. `confidence-weighted >= 80%` also allowed. Record under `convergence_waive`. |
+| Reviewer slate composition | **YES** | Floor (all simultaneous): >= 4 reviewers; >= 1 Claude + >= 2 GPT (>= 1 premium + >= 1 cross-version/codex) + >= 1 Gemini; >= 1 `rubber-duck` + >= 2 `code-review`; >= 1 heavy-tier. Record under `slate_waive`. Floor re-checked after every drop/replacement. |
 | `routed-deferred` per finding | **YES with G4** | External tracker URL + same-turn `ask_user`. |
 
 Items not in matrix: NOT waivable. If uncertain, treat as NOT waivable; escalate via `ask_user`.
@@ -128,7 +128,7 @@ Bundle in one prompt before launching:
 
 ## Reviewer slate - capability-tier definition
 
-Slate defined by capability tier + family + role, NOT hardcoded model name. Tier -> model mapping in `multi-model-review/current-model-registry.md`. Missing tier: fall back to highest-capability successor from same family; log under `slate-substitutions`.
+Slate defined by capability tier + family + role, NOT hardcoded model name. Tier -> model mapping in `multi-model-review/current-model-registry.md`. Missing tier: fall back to highest-capability successor from same family; log under `slate_substitutions`.
 
 **Default heavy slate (full profile: 6 reviewers, >= 3 families, satisfies floor; lite profile uses 3 cross-family light-tier instead)**:
 
@@ -210,7 +210,7 @@ if ($priorHeadSha -eq "none") {
 
 Record `reRunTriggers: [...]` in LEDGER (list; triggers CAN co-occur).
 
-**Prior-commit-panel-dispositions carry-forward (demoted to user-authorized exception)**: the DEFAULT on every op is a FULL whole-branch re-read (no carry-forward). Carry-forward is an EXPLICIT user-authorized exception, eligible only when the trigger set is exactly `["net-new-commits"]` (any rewrite/squash/base-shift forces full -> `"none - prior run invalidated by <trigger list>"`); when authorized it MUST be recorded in the cited `panel-coverage` COVERAGE element with `mode: carry-forward-authorized` + `carry-forward-ref: <ask_user ref>` + `carried: <range>`. See `pre-pr-creation-review.md` Steps 2 and 7.
+**Prior-commit-panel-dispositions carry-forward (demoted to user-authorized exception)**: the DEFAULT on every op is a FULL whole-branch re-read (no carry-forward). Carry-forward is an EXPLICIT user-authorized exception, eligible only when the trigger set is exactly `["net-new-commits"]` (any rewrite/squash/base-shift forces full -> `"none - prior run invalidated by <trigger list>"`); when authorized it MUST be recorded in the cited `panel_coverage` COVERAGE element with `mode: carry-forward-authorized` + `carry-forward-ref: <ask_user ref>` + `carried: <range>`. See `pre-pr-creation-review.md` Steps 2 and 7.
 
 ### Step 3. Context-budget circuit breaker
 
@@ -235,7 +235,7 @@ Summarize per-commit panel outputs into `<session-state-folder>/panel-history-<b
 - Example: `null-check-param-X | major | dismissed-source-grounded | "IFoo.cs documents non-null"`
 - `citation-summary` truncated to ~80 chars but MUST be present (dedup depends on it).
 - Replace full per-commit outputs in context with compacted summary.
-- Pass as `prior-commit-panel-dispositions` in reviewer prompt.
+- Pass as `prior_commit_panel_dispositions` in reviewer prompt.
 - Record `compactionApplied: true`, `compactionArtifactPath`, `compactionFindingCount` in LEDGER.
 
 #### Step 3b. Escalation

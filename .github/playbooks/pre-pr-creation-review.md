@@ -82,8 +82,8 @@ PRs that modify/tighten/loosen/refactor an existing gate are NOT bootstrap-exemp
 | G5 (disposition per finding) | NO | - |
 | G6 (forbidden tools) | NO | - |
 | G7 conditions | NO | Either all 3 met or exemption doesn't apply. |
-| Convergence model (default `unanimous`) | YES | Floor: `threshold >=75%` or `confidence-weighted >=80%`. Recorded under `convergence-waive`. Must-fix=0 still applies. |
-| Slate composition | YES | Floor: >=4 reviewers; >=1 Claude + >=2 GPT (one premium + one cross-version/codex) + >=1 Gemini; >=1 `rubber-duck` + >=2 `code-review`; >=1 heavy-tier. Recorded under `slate-waive`. Re-checked after every drop/replacement. |
+| Convergence model (default `unanimous`) | YES | Floor: `threshold >=75%` or `confidence-weighted >=80%`. Recorded under `convergence_waive`. Must-fix=0 still applies. |
+| Slate composition | YES | Floor: >=4 reviewers; >=1 Claude + >=2 GPT (one premium + one cross-version/codex) + >=1 Gemini; >=1 `rubber-duck` + >=2 `code-review`; >=1 heavy-tier. Recorded under `slate_waive`. Re-checked after every drop/replacement. |
 | Individual finding via G4 | YES (with G4) | External tracker URL + same-turn `ask_user`. |
 
 Items not in the matrix are NOT waivable.
@@ -101,7 +101,7 @@ Tier -> current model via `multi-model-review/current-model-registry.md`.
 | 5 | `heavy-gemini-premium` | Gemini | `code-review` |
 | 6 | `heavy-claude-standard` | Claude | `rubber-duck` |
 
-**Substitution**: unavailable model -> highest-capability successor from same family. Record `slate-substitutions: [{slot, requested, substituted, reason}]`. Floor re-checked after every substitution.
+**Substitution**: unavailable model -> highest-capability successor from same family. Record `slate_substitutions: [{slot, requested, substituted, reason}]`. Floor re-checked after every substitution.
 
 ## Reviewer prompt
 
@@ -161,9 +161,9 @@ if ($priorHeadSha -eq "none") {
 }
 ```
 
-`re-run-triggers` is a LIST (can co-occur). `history-rewrite` covers force-push, amend, interactive rebase.
+`re_run_triggers` is a LIST (can co-occur). `history-rewrite` covers force-push, amend, interactive rebase.
 
-**Whole-branch panel coverage (default) + carry-forward exception**: the DEFAULT on every pre-PR op (every review-targeting transition routed through `pre-pr-push.md` - PR creation plus every review-response / update push) is a FULL re-read of the whole-branch diff `panelBaseSha..HEAD` by the panel - no prior dispositions carried. Carry-forward of prior-commit-panel-dispositions is an EXPLICIT, user-authorized cost exception, ELIGIBLE only when `re-run-triggers == ["net-new-commits"]` (any rewrite/squash/base-shift forces a full re-read and invalidates priors). When - and only when - the user authorizes carry-forward, it MUST be recorded in the cited `panel-coverage` COVERAGE element with `mode: carry-forward-authorized` + `carry-forward-ref: <ask_user ref>` + `carried: <range>` (Step 7); absent that explicit authorization the panel re-reads the whole branch in full and records `panel-coverage` with `mode: full-whole-branch`. This default-full / audited-exception policy is process-descriptive (it bounds what was re-read this op), not a defect-free guarantee.
+**Whole-branch panel coverage (default) + carry-forward exception**: the DEFAULT on every pre-PR op (every review-targeting transition routed through `pre-pr-push.md` - PR creation plus every review-response / update push) is a FULL re-read of the whole-branch diff `panelBaseSha..HEAD` by the panel - no prior dispositions carried. Carry-forward of prior-commit-panel-dispositions is an EXPLICIT, user-authorized cost exception, ELIGIBLE only when `re_run_triggers == ["net-new-commits"]` (any rewrite/squash/base-shift forces a full re-read and invalidates priors). When - and only when - the user authorizes carry-forward, it MUST be recorded in the cited `panel_coverage` COVERAGE element with `mode: carry-forward-authorized` + `carry-forward-ref: <ask_user ref>` + `carried: <range>` (Step 7); absent that explicit authorization the panel re-reads the whole branch in full and records `panel_coverage` with `mode: full-whole-branch`. This default-full / audited-exception policy is process-descriptive (it bounds what was re-read this op), not a defect-free guarantee.
 
 Record `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount`, `reRunTriggers` in phase-state.
 
@@ -188,7 +188,7 @@ Runs BEFORE Step 3 so the mechanical findings are in reviewers' initial context.
 
 The mechanical region (`catalog_revision`, `prefs_revision`, `patterns_run`, `findings`/`sites`) plus the agent-appended dispositions (`findings_disposition` per-site, `pattern_preflight_skip_status`) populate the `QUALITY GATE` block emitted in Step 7 (canonical schema + caveman chat form: `../pr-quality-gate/quality-gate-block.md`). Both the mechanical floor and the dispositions gate PR creation via G6 (this does NOT extend §1B).
 
-**Catalog drift detection**: if `catalog_revision` differs from the prior run's recorded value, re-run gate-runner full-mode regardless of `re-run-triggers`. Step 9 re-fetches the catalog SHA and restarts here on drift.
+**Catalog drift detection**: if `catalog_revision` differs from the prior run's recorded value, re-run gate-runner full-mode regardless of `re_run_triggers`. Step 9 re-fetches the catalog SHA and restarts here on drift.
 
 ### Step 3. Launch the panel in parallel
 
@@ -238,9 +238,9 @@ Round-level max-loop (5 per `multi-model-review/procedure.md`) is a DIFFERENT co
 
 ### Step 7. Emit the `QUALITY GATE` block (initial)
 
-Mandatory before AGENTS user-approval. Emit the `QUALITY GATE` block (canonical schema + caveman chat form: `../pr-quality-gate/quality-gate-block.md`) with `emission_phase: initial-pending-user-approval` and `pr_creation_status: READY-pending-user-approval`. The mechanical region comes from gate-runner (Step 2.5); the agent-appended dispositions (slate, panel-coverage, resolution, must-fix-resolved, routed-deferred-with-tracker, prior-commit-panel-dispositions, pr-text-scan, etc.) come from Steps 2.5-6. The FOUR enumerations (`slate`, `resolution`, `routed_deferred_with_tracker`, `panel_coverage`) STAY enumerated even in the caveman form - the keys are the forcing function. `catalog_revision` + `pattern_preflight_skip_status` MUST be populated from phase-state on every emission.
+Mandatory before AGENTS user-approval. Emit the `QUALITY GATE` block (canonical schema + caveman chat form: `../pr-quality-gate/quality-gate-block.md`) with `emission_phase: initial-pending-user-approval` and `pr_creation_status: READY-pending-user-approval`. The mechanical region comes from gate-runner (Step 2.5); the agent-appended dispositions (slate, panel_coverage, resolution, must_fix_unresolved, routed_deferred_with_tracker, prior_commit_panel_dispositions, pr_text_scan, etc.) come from Steps 2.5-6. The FOUR enumerations (`slate`, `resolution`, `routed_deferred_with_tracker`, `panel_coverage`) STAY enumerated even in the caveman form - the keys are the forcing function. `catalog_revision` + `pattern_preflight_skip_status` MUST be populated from phase-state on every emission.
 
-The `pr-text-scan` field records the result of running `scripts/check-pr-text.ps1` against the PROPOSED PR title + body BEFORE the G6 `gh pr create` tool (the pre-open agent catch); the CI `pull_request` job (`pr-text-check.yml`) is the merge-blocking backstop. `tier1-fail` BLOCKS PR creation until the markers are stripped (re-run + re-emit `clean`); `tier2-warn` is surfaced, not blocking. Honest ceiling: the gate catches MODELED markers only - an unmodeled phrasing escapes, so the field is a floor-raise, not a guarantee.
+The `pr_text_scan` field records the result of running `scripts/check-pr-text.ps1` against the PROPOSED PR title + body BEFORE the G6 `gh pr create` tool (the pre-open agent catch); the CI `pull_request` job (`pr-text-check.yml`) is the merge-blocking backstop. `tier1-fail` BLOCKS PR creation until the markers are stripped (re-run + re-emit `clean`); `tier2-warn` is surfaced, not blocking. Honest ceiling: the gate catches MODELED markers only - an unmodeled phrasing escapes, so the field is a floor-raise, not a guarantee.
 
 #### Chat-emission form (caveman)
 
