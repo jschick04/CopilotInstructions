@@ -102,9 +102,21 @@ function Read-CatalogTable { param([string] $Path)
     return $entries
 }
 
+function Get-RgHits { param([string[]] $RgArgs, [string] $Pattern)
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $out = & rg @RgArgs 2>$errFile
+        if ($LASTEXITCODE -gt 1) {
+            $rgErr = ((Get-Content -Raw -LiteralPath $errFile -ErrorAction SilentlyContinue) | Out-String).Trim()
+            Exit-Runner 4 "rg exited with code $LASTEXITCODE for pattern '$Pattern': $rgErr"
+        }
+        if ($out) { return @($out -split "`n" | Where-Object { $_ }) }
+        return @()
+    } finally { Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue }
+}
+
 function Invoke-RgPattern { param([string[]] $Files, [string] $Pattern, [string[]] $Globs, [string] $TreeRoot)
     if (-not (Get-Command rg -ErrorAction SilentlyContinue)) { Exit-Runner 3 'ripgrep (rg) not found on PATH.' }
-    $hits = @()
     if ($Files -and $Files.Count -gt 0) {
         # Filter by glob match AND by file-still-exists-at-HEAD (git diff includes deleted files which rg cannot read).
         $matched = $Files | Where-Object {
@@ -115,18 +127,12 @@ function Invoke-RgPattern { param([string[]] $Files, [string] $Pattern, [string[
         if ($matched.Count -eq 0) { return @() }
         # Convert to full paths so rg can find them regardless of $PWD.
         $matched = $matched | ForEach-Object { Join-Path $TreeRoot $_ }
-        $out = & rg --line-number --no-heading --color never -- $Pattern $matched 2>$null
-        if ($LASTEXITCODE -gt 1) { Exit-Runner 4 "rg exited with code $LASTEXITCODE for pattern '$Pattern'" }
-        if ($out) { $hits = $out -split "`n" | Where-Object { $_ } }
-    } else {
-        $rgArgs = @('--line-number','--no-heading','--color','never')
-        foreach ($g in $Globs) { $rgArgs += @('--glob', $g) }
-        $rgArgs += @('--', $Pattern, $TreeRoot)
-        $out = & rg @rgArgs 2>$null
-        if ($LASTEXITCODE -gt 1) { Exit-Runner 4 "rg exited with code $LASTEXITCODE for pattern '$Pattern'" }
-        if ($out) { $hits = $out -split "`n" | Where-Object { $_ } }
+        return Get-RgHits -RgArgs (@('--line-number', '--no-heading', '--color', 'never', '--', $Pattern) + @($matched)) -Pattern $Pattern
     }
-    return $hits
+    $rgArgs = @('--line-number', '--no-heading', '--color', 'never')
+    foreach ($g in $Globs) { $rgArgs += @('--glob', $g) }
+    $rgArgs += @('--', $Pattern, $TreeRoot)
+    return Get-RgHits -RgArgs $rgArgs -Pattern $Pattern
 }
 
 function Request-Lock { param([string] $LockPath, [int] $TimeoutSec)
