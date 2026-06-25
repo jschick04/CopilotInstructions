@@ -110,7 +110,9 @@ function Get-RgHits { param([string[]] $RgArgs, [string] $Pattern)
             $rgErr = ((Get-Content -Raw -LiteralPath $errFile -ErrorAction SilentlyContinue) | Out-String).Trim()
             Exit-Runner 4 "rg exited with code $LASTEXITCODE for pattern '$Pattern': $rgErr"
         }
-        if ($out) { return @($out -split "`n" | Where-Object { $_ }) }
+        # & rg yields one array element per match line; normalize per-element so multi-hit patterns are never
+        # collapsed into one site (-split applies to each element here, not to a stringified array).
+        if ($null -ne $out) { return @($out | ForEach-Object { $_ -split "`n" } | Where-Object { $_ }) }
         return @()
     } finally { Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue }
 }

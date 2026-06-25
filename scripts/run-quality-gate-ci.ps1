@@ -37,17 +37,18 @@ if ($LASTEXITCODE -ne 0 -or -not $head) {
 $base = $base.Trim()
 $head = $head.Trim()
 
-# gate-runner requires ripgrep (rg). It is NOT in the default GitHub-hosted ubuntu image, so install it on a Linux CI
-# runner when absent (the coverage gate forbids a separate apt-get run: step, so setup lives in this mirrored script);
-# everywhere else, fail closed rather than run fail-open without the rg-battery.
+# gate-runner requires ripgrep (rg). It is NOT in the default GitHub-hosted ubuntu image, so auto-install it ONLY on a
+# Linux CI runner (-CiMode) when absent (the coverage gate forbids a separate apt-get run: step, so setup lives in this
+# mirrored script). This script is also reachable from run-local-ci in local dev; there we never auto-install (no
+# surprise sudo prompt/hang) and fail closed with an install hint rather than run fail-open without the rg-battery.
 if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
-    if ($env:RUNNER_OS -eq 'Linux') {
-        Write-Host 'run-quality-gate-ci: ripgrep (rg) not found on the runner; installing via apt-get...'
+    if ($CiMode -and $env:RUNNER_OS -eq 'Linux') {
+        Write-Host 'run-quality-gate-ci: ripgrep (rg) not found on the CI runner; installing via apt-get...'
         & sudo apt-get update -qq 2>&1 | Out-Null
         & sudo apt-get install -y -qq ripgrep 2>&1 | Out-Null
     }
     if (-not (Get-Command rg -ErrorAction SilentlyContinue)) {
-        Write-WrapErr 'run-quality-gate-ci: ripgrep (rg) is required by gate-runner but is not on PATH (and could not be auto-installed) - install ripgrep and retry'
+        Write-WrapErr 'run-quality-gate-ci: ripgrep (rg) is required by gate-runner but is not on PATH (install ripgrep - e.g. apt-get install ripgrep / winget install BurntSushi.ripgrep.MSVC - and retry)'
         exit 2
     }
 }

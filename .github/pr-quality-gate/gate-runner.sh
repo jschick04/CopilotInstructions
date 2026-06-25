@@ -166,6 +166,22 @@ DIFF_FILES="$(git -C "$PROJECT_ROOT" diff --name-only "$BASE_SHA..$HEAD_SHA" 2>/
 FILE_COUNT="$(echo "$DIFF_FILES" | grep -c '^' || true)"
 
 # ===== Pattern execution =====
+# Run rg with stderr captured: exit 0 = matches (emit to stdout), exit 1 = no matches (normal), exit >1 = a real rg
+# error -> die with the captured stderr (mirrors gate-runner.ps1 Get-RgHits -> Exit-Runner 4) instead of letting set -e
+# abort with no diagnostic. Relies on `set -o pipefail` so the die propagates through the `run_rg | sort` callers.
+_rg_capture() {  # args: pattern-for-diagnostic, then the full rg argv
+    local pat="$1"; shift
+    local errf out rc=0
+    errf="$(mktemp)"
+    out="$(rg "$@" 2>"$errf")" || rc=$?
+    if [[ $rc -gt 1 ]]; then
+        local err; err="$(cat "$errf" 2>/dev/null || true)"; rm -f "$errf"
+        die 4 "rg exited with code $rc for pattern '$pat': $err"
+    fi
+    rm -f "$errf"
+    [[ $rc -eq 0 && -n "$out" ]] && printf '%s\n' "$out"
+    return 0
+}
 run_rg() {  # args: pattern, globs-json-array, file-list-or-empty (newline-separated)
     local pat="$1" globs_json="$2" file_list="$3"
     local rg_args=(--line-number --no-heading --color never)
@@ -182,11 +198,11 @@ run_rg() {  # args: pattern, globs-json-array, file-list-or-empty (newline-separ
             done
         done <<< "$file_list"
         [[ ${#matched[@]} -eq 0 ]] && return 0
-        rg "${rg_args[@]}" --regexp "$pat" -- "${matched[@]}" 2>/dev/null || [[ $? -eq 1 ]]
+        _rg_capture "$pat" "${rg_args[@]}" --regexp "$pat" -- "${matched[@]}"
     else
         while IFS= read -r g; do rg_args+=(--glob "$g"); done < <(echo "$globs_json" | jq -r '.[]')
         rg_args+=(--regexp "$pat" -- "$PROJECT_ROOT")
-        rg "${rg_args[@]}" 2>/dev/null || [[ $? -eq 1 ]]
+        _rg_capture "$pat" "${rg_args[@]}"
     fi
 }
 
