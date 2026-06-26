@@ -59,7 +59,7 @@ function Add-Finding {
     $findings.Add([pscustomobject]@{ Slug = $Slug; File = $File; Line = $Line; Severity = $Severity; Message = $Message })
 }
 
-$changed = @(@(Invoke-Git @('diff', '--name-only', '--no-renames', '--diff-filter=d', "$BaseRef..$HeadRef") | Where-Object { $_ }) | ForEach-Object { $_ -replace '\\', '/' })
+$changed = @(@(Invoke-Git @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', '--diff-filter=d', "$BaseRef..$HeadRef") | Where-Object { $_ }) | ForEach-Object { $_ -replace '\\', '/' })
 
 $addedByFile = @{}
 foreach ($f in $changed) {
@@ -94,7 +94,7 @@ foreach ($a in (Get-Added '\.(sh|ya?ml)$')) {
 }
 if ($Mode -eq 'commit') {
     # Commit-cadence only; denominator excludes audits/** and is rename-blind (the panel-ledger files-touched convention).
-    $tipFiles = @(Invoke-Git @('diff-tree', '--root', '--no-renames', '--no-commit-id', '--name-only', '-r', $HeadRef) |
+    $tipFiles = @(Invoke-Git @('-c', 'core.quotePath=false', 'diff-tree', '--root', '--no-renames', '--no-commit-id', '--name-only', '-r', $HeadRef) |
         Where-Object { $_ -and $_ -notmatch '^\.github/pr-quality-gate/audits/' }).Count
     foreach ($a in (Get-Added '\.github/pr-quality-gate/audits/post-code-change-last\.md$')) {
         $m = [regex]::Match($a.Text, 'files-touched:\s*(\d+)')

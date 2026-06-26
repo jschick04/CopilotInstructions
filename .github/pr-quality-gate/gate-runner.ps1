@@ -205,7 +205,7 @@ $catalogRevision = Get-FileRevision -Clone $clone -RelPath '.github/pr-quality-g
 $prefsRevision = Get-FileRevision -Clone $clone -RelPath '.github/pr-quality-gate/coding-preferences.md'
 
 $entries = Read-CatalogTable -Path $catalogPath
-$diffFiles = & git -C $ProjectRoot diff --name-only "$BaseSha..$HeadSha" 2>$null
+$diffFiles = & git -C $ProjectRoot -c core.quotePath=false diff --name-only "$BaseSha..$HeadSha" 2>$null
 if ($LASTEXITCODE -ne 0) { Exit-Runner 4 "git diff failed for $BaseSha..$HeadSha" }
 $diffFiles = $diffFiles -split "`n" | Where-Object { $_ }
 $fileCount = $diffFiles.Count

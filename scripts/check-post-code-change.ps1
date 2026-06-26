@@ -65,14 +65,14 @@ function Get-ChangedPaths {
 }
 
 if ($StagedMode) {
-    $stagedResult = Invoke-Git -Arguments @('diff', '--cached', '--name-only', '--no-renames', '--diff-filter=ACMRTD')
+    $stagedResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames', '--diff-filter=ACMRTD')
     $changedPaths = Get-ChangedPaths -GitResult $stagedResult
     if (-not $changedPaths) {
         Write-Host "OK: no staged changes."
         exit $script:ExitOk
     }
 
-    $nameStatusResult = Invoke-Git -Arguments @('diff', '--cached', '--name-status', '-M', '--diff-filter=ACMRTD')
+    $nameStatusResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '--name-status', '-M', '--diff-filter=ACMRTD')
     $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
     $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
     if ($governanceTier -lt 1) {
@@ -130,7 +130,7 @@ if ($StagedMode) {
     }
     # B1 structural-hygiene diff-signal floor (LOCAL, --no-verify-bypassable, CI-blind; see lib/hygiene-signals.psm1).
     # Each detected code-diff signal forces its matching ledger field to be present-with-a-justified-value.
-    $diffContentResult = Invoke-Git -Arguments @('diff', '--cached', '-U0', '--no-color', '--diff-filter=ACMRTD')
+    $diffContentResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '-U0', '--no-color', '--diff-filter=ACMRTD')
     $diffContentLines = @($diffContentResult.Stdout) | ForEach-Object { $_ }
     $hygieneViolations = @(Get-StructuralHygieneViolations -NameStatusLines $nameStatusLines -DiffLines $diffContentLines -LedgerLines $ledgerLines)
     if ($hygieneViolations.Count -gt 0) {
@@ -176,17 +176,17 @@ foreach ($commitSha in $commitsForward) {
     $parentResult = Invoke-Git -Arguments @('rev-parse', "${commitSha}^") -AllowFailure
     if ($parentResult.ExitCode -ne 0) {
         $expectedParentSha = $gitEmptyTreeSha
-        $diffResult = Invoke-Git -Arguments @('--no-pager', 'diff', '--name-only', '--no-renames', $gitEmptyTreeSha, $commitSha)
+        $diffResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-only', '--no-renames', $gitEmptyTreeSha, $commitSha)
     } else {
         $expectedParentSha = ($parentResult.Stdout | Out-String).Trim()
-        $diffResult = Invoke-Git -Arguments @('--no-pager', 'diff', '--name-only', '--no-renames', "${expectedParentSha}..${commitSha}")
+        $diffResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-only', '--no-renames', "${expectedParentSha}..${commitSha}")
     }
     $changedPaths = Get-ChangedPaths -GitResult $diffResult
 
     $nameStatusResult = if ($parentResult.ExitCode -ne 0) {
-        Invoke-Git -Arguments @('--no-pager', 'diff', '--name-status', '-M', $gitEmptyTreeSha, $commitSha)
+        Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-status', '-M', $gitEmptyTreeSha, $commitSha)
     } else {
-        Invoke-Git -Arguments @('--no-pager', 'diff', '--name-status', '-M', "${expectedParentSha}..${commitSha}")
+        Invoke-Git -Arguments @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-status', '-M', "${expectedParentSha}..${commitSha}")
     }
     $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
     $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines

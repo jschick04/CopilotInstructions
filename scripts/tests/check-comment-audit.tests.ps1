@@ -145,6 +145,16 @@ $diffPlusContent = @(
 $sites = Get-NewCommentSites -DiffLines $diffPlusContent
 Assert-Equal 1 $sites.Count 'a comment added after a context line is detected (line counter tracks context lines)'
 
+$diffSpacePath = @(
+    'diff --git a/my service.cs b/my service.cs',
+    "+++ b/my service.cs`t",
+    '@@ -1 +1,2 @@',
+    ' code();',
+    '+    // comment in a space-named file'
+)
+$sites = Get-NewCommentSites -DiffLines $diffSpacePath
+Assert-Equal 1 $sites.Count 'a space-containing path (git disambiguation tab in the +++ header) is parsed (capture stops at the tab) -> the new comment is detected'
+
 $diffQuotedPath = @(
     'diff --git "a/we\"ird.sql" "b/we\"ird.sql"',
     '--- "a/we\"ird.sql"',

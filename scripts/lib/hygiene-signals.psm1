@@ -38,7 +38,11 @@
 #  - the non-test-IVT DETECTION (Get-AddedIvtTargets) only matches a grant that STARTS the added line
 #    (`+[assembly: InternalsVisibleTo` / `+<InternalsVisibleTo Include=`); a commented-out / string-literal /
 #    minified-inline (several elements on one line) IVT is not detected - the line-start anchor won't false-capture
-#    a comment, at the cost of the rare inline form (the catalog slug + panel are the broader backstop).
+#    a comment, at the cost of the rare inline form (the catalog slug + panel are the broader backstop);
+#  - the visibility/DI/IVT `+++ b/<path>` header parse stops at git's disambiguation tab (so space-containing
+#    paths ARE handled) and the checker's core.quotePath=false keeps non-ASCII paths literal; but a path git
+#    ALWAYS C-quotes (an embedded `"`, backslash, or control char -> `+++ "b/...`) is not matched and its added
+#    lines are missed (Windows-illegal, rare on POSIX - the catalog slug + panel are the broader backstop).
 
 Set-StrictMode -Version Latest
 
@@ -109,7 +113,9 @@ function Get-VisibilityRelevantDiffLines {
     # files like .csproj that carry IVT). Additions-only: the widening + DI signals are additions-only, so
     # removed (`-`) lines and whole-file deletions are intentionally excluded (narrowing is not a widening signal).
     # The file path is read from the `+++ b/<path>` header ONLY in the pre-`@@` file-header section (inHeader),
-    # so a hunk CONTENT line that merely looks like a header cannot spuriously mark a file relevant.
+    # so a hunk CONTENT line that merely looks like a header cannot spuriously mark a file relevant. The capture
+    # is `[^\t]+` (not `.+`): git appends a disambiguation TAB to the `+++` header for a space-containing path,
+    # which core.quotePath=false does NOT strip - a greedy `.+` would fold the tab into the extension and miss it.
     param([string[]] $DiffLines)
     $inRelevantFile = $false
     $inHeader = $false
@@ -118,7 +124,7 @@ function Get-VisibilityRelevantDiffLines {
         if ($line -match '^diff --git ') { $inRelevantFile = $false; $inHeader = $true; continue }
         if ($line -match '^@@ ') { $inHeader = $false; continue }
         if ($inHeader) {
-            if ($line -match '^\+\+\+ b/(.+)$') { $inRelevantFile = (Test-IsVisibilityRelevantFile $Matches[1]) }
+            if ($line -match '^\+\+\+ b/([^\t]+)') { $inRelevantFile = (Test-IsVisibilityRelevantFile $Matches[1]) }
             continue
         }
         if (-not $inRelevantFile) { continue }

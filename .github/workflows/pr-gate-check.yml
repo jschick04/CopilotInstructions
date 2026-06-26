@@ -48,6 +48,14 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/hygiene-signals.tests.ps1
 
+  quotepath-convention-tests:
+    name: quotePath-convention guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/quotepath-convention.tests.ps1
+
   read-receipts-tests:
     name: read-receipt gate unit tests
     runs-on: ubuntu-latest

@@ -162,7 +162,7 @@ while IFS= read -r line; do
 done < "$CATALOG_PATH"
 
 # ===== Diff file list =====
-DIFF_FILES="$(git -C "$PROJECT_ROOT" diff --name-only "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)"
+DIFF_FILES="$(git -C "$PROJECT_ROOT" -c core.quotePath=false diff --name-only "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)"
 FILE_COUNT="$(echo "$DIFF_FILES" | grep -c '^' || true)"
 
 # ===== Pattern execution =====
