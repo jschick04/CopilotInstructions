@@ -51,7 +51,7 @@ function Test-IsVisibilityRelevantFile {
 }
 
 function Get-DomainTokens {
-    # Split a PascalCase/camelCase file base name into segments; a domain token is >=4 chars and not a stop-list role.
+    # Split a file base name into fragments (a PascalCase/camelCase word, an ALLCAPS acronym, or any lowercase/alphanumeric run); a domain token is >=4 chars and not a stop-list role.
     param([string] $FileName)
     $base = [System.IO.Path]::GetFileNameWithoutExtension($FileName)
     $segments = [regex]::Matches($base, '[A-Z][a-z0-9]+|[A-Z]{2,}(?![a-z])|[a-z0-9]+') | ForEach-Object { $_.Value }
