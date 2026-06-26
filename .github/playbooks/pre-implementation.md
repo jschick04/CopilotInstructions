@@ -88,7 +88,7 @@ Before the multi-model panel, evaluate whether the user's intent to skip (if any
 **G5 individual triggers** (each safety-critical above trivial scope):
 
 - **Public API surface** - any visibility widening, new exported type, or change to a signed / packaged API surface.
-- **Folder / namespace restructure** - any move or rename of a folder or namespace.
+- **Folder / namespace restructure** - any move or rename of a folder or namespace, OR a net-new cohesive file group (>=3 new code files in one folder, >=2 sharing a domain token) that could form a capability slice but lands flat. (The B1 floor in `scripts/lib/hygiene-signals.psm1` re-checks the recorded `library-restructure` decision at commit time from the diff - a LOCAL, `--no-verify`-bypassable backstop, not CI-revalidated.)
 - **Test surface migration** - ≥1 test project has files moved, renamed, or re-targeted to a different SUT assembly.
 
 **G5 softer signals** (count toward ≥3-of-N escalation):

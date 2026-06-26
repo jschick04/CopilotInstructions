@@ -15,6 +15,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    - <list of file paths the reviewer should view>
 
    **Critique focus** (vary per reviewer slot per intake - cross-family / technical-design / coding-discipline / rubber-duck design):
+   **Standing structural-hygiene axis** (every `diff`-target panel, IN ADDITION to the change-specific focus): VERIFY the POST-CODE-CHANGE LEDGER's structural-hygiene fields against the actual diff - folder placement vs VSA (`vsa-audit`), member visibility + `InternalsVisibleTo` (`touched-file-LPA`), DI-fit (`dependency-injection-fit`), comment necessity + §3.1 quality (`comment-audit-§3.1` + `hygiene-cleanup`). Confirm each field's value matches what the diff shows; do NOT restate a parallel criteria set. The B1 floor only forces these fields present-with-a-justified-value (local, bypassable); the panel is what checks the value is APT.
    1. <focus point 1>
    2. <focus point 2>
    ...

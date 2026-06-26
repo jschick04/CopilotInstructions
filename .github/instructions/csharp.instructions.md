@@ -91,7 +91,7 @@ Default to the most-restrictive access modifier at every level. Promoting later 
 - **Preferred (.NET 5+):** csproj `<ItemGroup><InternalsVisibleTo Include="OtherAssembly" /></ItemGroup>`. SDK-style projects auto-generate the assembly-level attribute at build time, keeping `Properties/AssemblyInfo.cs` empty (or absent entirely).
 - **Legacy:** `[assembly: InternalsVisibleTo("OtherAssembly")]` in `Properties/AssemblyInfo.cs`. Still works; migrate to csproj when convenient.
 
-The audit playbook's hard gate "friend-asm mechanism verified before recommending internalization" applies in C# as: open the project's csproj AND `Properties/AssemblyInfo.cs` (if present) and confirm the IVT entry covers the friend you expect. Don't recommend `internal` without the grant in place; if missing, the recommendation is *internalize-and-add-IVT-entry*.
+The audit playbook's hard gate "friend-asm mechanism verified before recommending internalization" applies in C# as: open the project's csproj AND `Properties/AssemblyInfo.cs` (if present) and confirm the IVT entry covers the friend you expect. Don't recommend `internal` without the grant in place; if missing, the recommendation is *internalize-and-add-IVT-entry*. IVT scope is a deliberate, recorded decision (default test-only) - see `.github/playbooks/least-privilege-audit.md`.
 
 **C#-specific common misses caught in past reviews** (these are the failure-mode catalog the audit playbook's per-language tuning should catch):
 

@@ -105,9 +105,11 @@ POST-CODE-CHANGE LEDGER
   files-touched: <count + brief shape, e.g. "21 (370+/0-)">
   profile: <full|lite|full-default>
   gates:
-    hygiene-cleanup: <ran | N/A: reason>
+    hygiene-cleanup: <ran (incl. §3.1 quality pass) | N/A: reason>
     touched-file-LPA: <ran (N findings, K unjustified) | N/A: reason>
     vsa-audit: <ran (N placements checked, K misplaced) | N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change>
+    dependency-injection-fit: <ran (new injectable: static-utility|owned-disposable|service) | N/A - <playbook>:<line>>
+      # DI-shape only; visibility+IVT under touched-file-LPA (B1-forced on a DI signal).
     emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>
     recurring-pattern-sweep: <ran, N findings>
       - <pattern>: <N matches | no matches>
@@ -200,7 +202,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
-gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 
 **Rules:**
