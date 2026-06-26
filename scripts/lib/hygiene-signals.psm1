@@ -126,10 +126,27 @@ function Test-DiSignal {
 }
 
 function Get-LedgerFieldValue {
-    # First value for a `key: value` line (the ledger receipt is the canonical/audit-file YAML-ish form).
-    param([string[]] $LedgerLines, [string] $Key)
+    # First value for a `key: value` line. With -ParentKey, restrict the match to lines INSIDE that parent
+    # block (the deeper-indented lines after the `<ParentKey>:` header, until a line at the parent's indent
+    # or shallower closes it). This is required because some keys (notably library-restructure) appear under
+    # MULTIPLE parent blocks (pre-impl-trigger-detections AND pre-impl-playbook-decisions); a flat first-match
+    # would read the wrong block's value.
+    param([string[]] $LedgerLines, [string] $Key, [string] $ParentKey)
     $regex = '^\s*' + [regex]::Escape($Key) + ':\s*(.*\S)\s*$'
-    foreach ($line in @($LedgerLines)) { if ($line -match $regex) { return $Matches[1] } }
+    if (-not $ParentKey) {
+        foreach ($line in @($LedgerLines)) { if ($line -match $regex) { return $Matches[1] } }
+        return $null
+    }
+    $parentRegex = '^(\s*)' + [regex]::Escape($ParentKey) + ':\s*$'
+    $parentIndent = -1
+    foreach ($line in @($LedgerLines)) {
+        if ($parentIndent -lt 0) {
+            if ($line -match $parentRegex) { $parentIndent = $Matches[1].Length }
+            continue
+        }
+        if ($line -match '^(\s*)\S' -and $Matches[1].Length -le $parentIndent) { return $null }
+        if ($line -match $regex) { return $Matches[1] }
+    }
     return $null
 }
 
@@ -163,7 +180,7 @@ function Get-StructuralHygieneViolations {
         if (-not (Test-FieldJustified (Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'vsa-audit'))) {
             $violations += "structural-hygiene: $($slice.Files) net-new code files in '$($slice.Dir)' share domain token '$($slice.Token)' (cohesive-slice-born-flat signal) but the LEDGER 'vsa-audit' field is absent/bare/uncited - record 'ran (...)' or 'N/A - <playbook>:<line>'."
         }
-        $libRestructure = Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'library-restructure'
+        $libRestructure = Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'library-restructure' -ParentKey 'pre-impl-playbook-decisions'
         if ($libRestructure -and $libRestructure -match '^\s*not-required-trigger-not-detected') {
             $violations += "structural-hygiene: a net-new cohesive slice is present but pre-impl-playbook-decisions.library-restructure is 'not-required-trigger-not-detected' - must be 'invoked' or 'required-but-skipped: <re-confirmation>'."
         }
