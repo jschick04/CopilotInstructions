@@ -271,7 +271,7 @@ function Get-StructuralHygieneViolations {
     if ($nonTestIvtTarget) {
         $lpaValue = Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'touched-file-LPA'
         if (-not ($lpaValue -and $lpaValue -match '^\s*ran\s*\([^)]*production-ivt:\s*[^)\s]')) {
-            $violations += "structural-hygiene: a non-test InternalsVisibleTo target '$nonTestIvtTarget' was added (a production friend-grant) but the LEDGER 'touched-file-LPA' does not record the deliberate decision - record 'ran (production-ivt: <why a test target / DI-seam / public API is unsuitable>)' (a bare 'ran' / 'N/A' is not valid for a non-test friend-grant)."
+            $violations += "structural-hygiene: a non-test InternalsVisibleTo target '$nonTestIvtTarget' was added (a production friend-grant) but the LEDGER 'touched-file-LPA' does not record the deliberate decision - record 'ran (N findings, K unjustified; production-ivt: <why a test target / DI-seam / public API is unsuitable>)' (a bare 'ran' / 'N/A' is not valid for a non-test friend-grant)."
         }
     }
 
