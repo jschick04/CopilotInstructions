@@ -78,18 +78,26 @@ Assert-False (Test-FieldJustified 'N/A: small change')                         '
 Assert-False (Test-FieldJustified '')                                          'empty value is NOT justified'
 Assert-False (Test-FieldJustified $null)                                       'absent value is NOT justified'
 
+Write-Host '=== Get-LedgerFieldValue -ParentKey (scoped read past a same-named shadowing key) ==='
+$twoBlocks = @('    pre-impl-trigger-detections:', '      library-restructure: no', '    pre-impl-playbook-decisions:', '      library-restructure: invoked')
+Assert-Equal 'no'      (Get-LedgerFieldValue -LedgerLines $twoBlocks -Key 'library-restructure')                                          'flat read returns the FIRST (trigger-detections) value'
+Assert-Equal 'invoked' (Get-LedgerFieldValue -LedgerLines $twoBlocks -Key 'library-restructure' -ParentKey 'pre-impl-playbook-decisions') 'parent-scoped read returns the playbook-decisions value (skips the shadowing trigger-detections entry)'
+Assert-True  ($null -eq (Get-LedgerFieldValue -LedgerLines $twoBlocks -Key 'library-restructure' -ParentKey 'absent-parent')) 'parent-scoped read with a missing parent block returns null'
+Assert-True  ($null -eq (Get-LedgerFieldValue -LedgerLines @('    pre-impl-playbook-decisions:', '    next-sibling: x') -Key 'library-restructure' -ParentKey 'pre-impl-playbook-decisions')) 'parent-scoped read stops at the next sibling block (key absent in the parent -> null)'
+
 Write-Host '=== Get-StructuralHygieneViolations (end-to-end) ==='
 $p2aNameStatus = $p2aFiles | ForEach-Object { "A`t$_" }
 $ledgerMissing = @('POST-CODE-CHANGE LEDGER', '  gates:', '    build: passed')
 $v1 = @(Get-StructuralHygieneViolations -NameStatusLines $p2aNameStatus -DiffLines @() -LedgerLines $ledgerMissing)
 Assert-True ($v1.Count -ge 1) 'P2a cohort + a ledger lacking vsa-audit -> violation (the gap B1 would have caught)'
-$ledgerJustified = @('POST-CODE-CHANGE LEDGER', '    vsa-audit: ran (5 placements, 5 moved to Wevt slice)', '    library-restructure: invoked')
+$ledgerJustified = @('POST-CODE-CHANGE LEDGER', '    vsa-audit: ran (5 placements, 5 moved to Wevt slice)', '    pre-impl-trigger-detections:', '      library-restructure: yes', '    pre-impl-playbook-decisions:', '      library-restructure: invoked')
 $v2 = @(Get-StructuralHygieneViolations -NameStatusLines $p2aNameStatus -DiffLines @() -LedgerLines $ledgerJustified)
 Assert-True ($v2.Count -eq 0) 'P2a cohort + a justified vsa-audit + invoked library-restructure -> clean'
-# the library-restructure decision-record enforcement
-$ledgerLrDefault = @('    vsa-audit: ran (placed)', '    library-restructure: not-required-trigger-not-detected')
+# the library-restructure decision-record enforcement reads pre-impl-PLAYBOOK-DECISIONS, not the same-named
+# pre-impl-trigger-detections entry that shadows it earlier in a real ledger (here trigger says 'no')
+$ledgerLrDefault = @('    vsa-audit: ran (placed)', '    pre-impl-trigger-detections:', '      library-restructure: no', '    pre-impl-playbook-decisions:', '      library-restructure: not-required-trigger-not-detected')
 $v3 = @(Get-StructuralHygieneViolations -NameStatusLines $p2aNameStatus -DiffLines @() -LedgerLines $ledgerLrDefault)
-Assert-True ($v3.Count -ge 1) 'cohesive slice + library-restructure=not-required-trigger-not-detected -> violation (decision-record enforcement)'
+Assert-True ($v3.Count -ge 1) 'cohesive slice + pre-impl-playbook-decisions.library-restructure=not-required-trigger-not-detected -> violation (decision-record enforcement, not shadowed by trigger-detections)'
 # THIS PR's own shape: only .ps1 + .md changes -> NO violations even with an empty hygiene receipt (no self-fire)
 $thisPrNameStatus = @("A`tscripts/lib/hygiene-signals.psm1", "A`tscripts/tests/hygiene-signals.tests.ps1", "M`t.github/playbooks/review-workflow-gates-sweeps.md")
 $thisPrDiff = @('diff --git a/docs/x.md b/docs/x.md', '+++ b/docs/x.md', '+services.AddSingleton example in prose', '+public internal in prose')
