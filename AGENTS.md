@@ -66,7 +66,7 @@ Before ANY `git commit`:
 
 ### gh pr create / gh pr ready (PUBLISH boundary)
 
-PUBLISH gate, DISTINCT from the §0 `git commit` gate (ceiling + flow: `pr-quality-gate/README.md`):
+PUBLISH gate, DISTINCT from the §0 `git commit` gate (ceiling + flow: `.github/pr-quality-gate/README.md`):
 1. `pre-pr-creation-review.md` must have emitted the §1B `QUALITY GATE` block (`gate_status: READY`, gate-runner full-mode) + whole-branch panel coverage. Absent -> STOP.
 2. `ask_user` PR title/body/target (approve / edit / reject).
 3. Re-emit the block (same-state re-check) in the invocation turn; execute only after approval.

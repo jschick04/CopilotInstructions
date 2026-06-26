@@ -96,7 +96,7 @@ if ($Mode -eq 'commit') {
     # Commit-cadence only; denominator excludes audits/** and is rename-blind (the panel-ledger files-touched convention).
     $tipFiles = @(Invoke-Git @('diff-tree', '--root', '--no-renames', '--no-commit-id', '--name-only', '-r', $HeadRef) |
         Where-Object { $_ -and $_ -notmatch '^\.github/pr-quality-gate/audits/' }).Count
-    foreach ($a in (Get-Added 'pr-quality-gate/audits/post-code-change-last\.md$')) {
+    foreach ($a in (Get-Added '\.github/pr-quality-gate/audits/post-code-change-last\.md$')) {
         $m = [regex]::Match($a.Text, 'files-touched:\s*(\d+)')
         if ($m.Success -and [int]$m.Groups[1].Value -ne $tipFiles) {
             Add-Finding 'receipt-numeric-claim-drift' $a.File $a.Line 'hard' "files-touched claims $($m.Groups[1].Value) but the tip commit ($HeadRef) touches $tipFiles"
