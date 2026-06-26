@@ -46,26 +46,28 @@ Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/WevtReader.cs','a/We
 # 3 role-named files with no shared domain token -> no fire (disclosed false-negative)
 Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/Handler.cs','a/Command.cs','a/Result.cs')).Fired '3 pure-role-named files (no shared domain token) do not fire (disclosed FN)'
 
-Write-Host '=== Test-VisibilityDeltaSignal + Test-DiSignal (operate on pre-filtered code-diff lines) ==='
+Write-Host '=== Test-VisibilityDeltaSignal + Test-DiSignal (operate on pre-filtered visibility-relevant diff lines) ==='
 Assert-True  (Test-VisibilityDeltaSignal @('+    public sealed class Foo'))       'added public class is a visibility delta'
 Assert-True  (Test-VisibilityDeltaSignal @('-    internal int Bar()'))            'removed internal member is a visibility delta'
 Assert-True  (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleTo("X")]')) 'IVT is a visibility/friend-grant delta'
 Assert-False (Test-VisibilityDeltaSignal @('+    var x = ComputeThing();'))        'a plain added line is not a visibility delta'
 Assert-True  (Test-DiSignal @('+        services.AddSingleton<IFoo, Foo>();'))     'AddSingleton is a DI signal'
 Assert-True  (Test-DiSignal @('+    public Foo([Inject] IBar bar) { }'))           '[Inject] is a DI signal'
+Assert-True  (Test-DiSignal @('+    public Foo([FromKeyedServices("cache")] IBar bar) { }')) '[FromKeyedServices("...")] (with args) is a DI signal'
+Assert-False (Test-DiSignal @('+    [FromKeyedServicesRegistry] private int _x;'))            'an attribute merely starting with FromKeyedServices does NOT false-fire (word-boundary anchor)'
 Assert-False (Test-DiSignal @('-        services.AddSingleton<IFoo, Foo>();'))     'a REMOVED DI registration is not a new-DI signal'
 
-Write-Host '=== Get-CodeFileDiffLines (only code-file hunks; docs/script prose excluded) ==='
+Write-Host '=== Get-VisibilityRelevantDiffLines (code + project-file hunks; docs/script prose excluded) ==='
 $mixedDiff = @(
     'diff --git a/x.cs b/x.cs', '+++ b/x.cs', '@@ -0,0 +1 @@', '+    public class Real',
     'diff --git a/README.md b/README.md', '+++ b/README.md', '@@ -0,0 +1 @@', '+the word public appears in prose'
 )
-$codeLines = Get-CodeFileDiffLines -DiffLines $mixedDiff
+$codeLines = Get-VisibilityRelevantDiffLines -DiffLines $mixedDiff
 Assert-True  ($codeLines -contains '+    public class Real')                  'the .cs +line is included'
 Assert-False ($codeLines -contains '+the word public appears in prose')      'the .md prose +line is EXCLUDED (no false-fire on docs)'
-# csproj IVT (the PREFERRED .NET 5+ placement) must reach the visibility scope (ps catch: was a dead path)
+# csproj IVT (the PREFERRED .NET 5+ placement) must reach the visibility scope (regression: previously a dead path)
 $csprojDiff = @('diff --git a/X.csproj b/X.csproj', '+++ b/X.csproj', '@@ -0,0 +1 @@', '+    <InternalsVisibleTo Include="X.Tests" />')
-$csprojLines = Get-CodeFileDiffLines -DiffLines $csprojDiff
+$csprojLines = Get-VisibilityRelevantDiffLines -DiffLines $csprojDiff
 Assert-True  (Test-VisibilityDeltaSignal $csprojLines) 'csproj <InternalsVisibleTo> reaches + fires the visibility signal'
 
 Write-Host '=== Test-FieldJustified (present-with-justified-value; bare/uncited N/A rejected) ==='
