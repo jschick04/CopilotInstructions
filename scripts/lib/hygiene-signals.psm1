@@ -32,7 +32,11 @@
 #    (additions-only sees only the `+internal` line) - benign (it forces a recorded field, satisfiable by `ran`);
 #  - the non-test-IVT classifier (Test-IsTestAssemblyName) is a conservative NAME-proxy for the rule's semantic
 #    "no production consumer" test - fallible BOTH ways: a production lib named like a test (a *TestData* util)
-#    is treated test (missed); a test convention NOT in the list is treated production (forces a marker).
+#    is treated test (missed); a test convention NOT in the list is treated production (forces a marker);
+#  - the non-test-IVT DETECTION (Get-AddedIvtTargets) only matches a grant that STARTS the added line
+#    (`+[assembly: InternalsVisibleTo` / `+<InternalsVisibleTo Include=`); a commented-out / string-literal /
+#    minified-inline (several elements on one line) IVT is not detected - the line-start anchor won't false-capture
+#    a comment, at the cost of the rare inline form (the catalog slug + panel are the broader backstop).
 
 Set-StrictMode -Version Latest
 
@@ -138,7 +142,9 @@ function Get-AddedIvtTargets {
     # Target assembly names from ADDED InternalsVisibleTo grants - the C# attribute (optional namespace qualifier
     # / `Attribute` suffix, legacy AssemblyInfo.cs or modern) AND the preferred .NET 5+ csproj
     # `<InternalsVisibleTo Include="..." />` item (Include in any position, single or double quotes). The IVT arg
-    # may carry `, PublicKey=...` - the assembly name is the part before the first comma.
+    # may carry `, PublicKey=...` - the assembly name is the part before the first comma. The grant must START the
+    # added line (after `+` and indentation): a commented-out / string-literal / minified-inline (several elements
+    # on one line) IVT is not detected - the line-start anchor is the safe direction (never false-captures a comment).
     param([string[]] $DiffLines)
     $targets = @()
     foreach ($line in @($DiffLines)) {
@@ -255,7 +261,7 @@ function Get-StructuralHygieneViolations {
     $nonTestIvtTarget = Test-NonTestIvtSignal -DiffLines $relevantDiffLines
     if ($nonTestIvtTarget) {
         $lpaValue = Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'touched-file-LPA'
-        if (-not ($lpaValue -and $lpaValue -match '^\s*ran\s*\([^)]*production-ivt:\s*\S')) {
+        if (-not ($lpaValue -and $lpaValue -match '^\s*ran\s*\([^)]*production-ivt:\s*[^)\s]')) {
             $violations += "structural-hygiene: a non-test InternalsVisibleTo target '$nonTestIvtTarget' was added (a production friend-grant) but the LEDGER 'touched-file-LPA' does not record the deliberate decision - record 'ran (production-ivt: <why a test target / DI-seam / public API is unsuitable>)' (a bare 'ran' / 'N/A' is not valid for a non-test friend-grant)."
         }
     }
