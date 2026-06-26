@@ -37,6 +37,7 @@ if (-not (Test-Path -LiteralPath $modulePath)) {
     exit $script:ExitInvocation
 }
 Import-Module $modulePath -Force
+Import-Module (Join-Path $PSScriptRoot 'lib/hygiene-signals.psm1') -Force
 $gitEmptyTreeSha = Get-GitEmptyTreeSha
 
 
@@ -125,6 +126,15 @@ if ($StagedMode) {
     }
     if (-not $check.Valid) {
         foreach ($err in $check.Errors) { Write-Violation "staged $AuditPath : $err" }
+        exit $script:ExitViolation
+    }
+    # B1 structural-hygiene diff-signal floor (LOCAL, --no-verify-bypassable, CI-blind; see lib/hygiene-signals.psm1).
+    # Each detected code-diff signal forces its matching ledger field to be present-with-a-justified-value.
+    $diffContentResult = Invoke-Git -Arguments @('diff', '--cached', '-U0', '--no-color', '--diff-filter=ACMRTD')
+    $diffContentLines = @($diffContentResult.Stdout) | ForEach-Object { $_ }
+    $hygieneViolations = @(Get-StructuralHygieneViolations -NameStatusLines $nameStatusLines -DiffLines $diffContentLines -LedgerLines $ledgerLines)
+    if ($hygieneViolations.Count -gt 0) {
+        foreach ($violation in $hygieneViolations) { Write-Violation "staged $AuditPath : $violation" }
         exit $script:ExitViolation
     }
     Write-Host "OK: staged panel ledger is fresh and valid (panel-required commit)."

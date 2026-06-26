@@ -25,6 +25,8 @@ Bundle these in one prompt:
 
 ## Procedure
 
+> **Delegated diffs do NOT inherit hygiene.** On a sub-agent diff, the orchestrator MUST put the hygiene asks (VSA/LPA/DI-fit/comment-quality) in the delegating spec AND run this Procedure on the returned diff first.
+
 ### 1. Imports/usings hygiene - whole-solution, scoped diagnostics
 
 Run on every commit, before showing the diff. Scope is the **whole solution/workspace**, not just touched files: a file move or namespace change can leave a `using` orphaned in any consumer.
