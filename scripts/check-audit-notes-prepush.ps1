@@ -92,13 +92,13 @@ foreach ($sha in $commitSet.Keys) {
     $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
     $parent = Get-CommitParentSha -RepoRoot $RepoRoot -CommitSha $sha
 
-    $dp = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('--no-pager', 'diff', '--name-only', '--no-renames', $parent, $sha)
+    $dp = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-only', '--no-renames', $parent, $sha)
     if ($dp.ExitCode -ne 0) {
         Write-Host "ERROR: 'git diff' for commit ${short} (parent ${parent}) failed (exit $($dp.ExitCode)); cannot determine whether the panel is required. Failing closed rather than skipping validation."
         exit $ExitViolation
     }
     $changedPaths = @($dp.Stdout) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }
-    $ns = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('--no-pager', 'diff', '--name-status', '-M', $parent, $sha)
+    $ns = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-status', '-M', $parent, $sha)
     if ($ns.ExitCode -ne 0) {
         Write-Host "ERROR: 'git diff --name-status' for commit ${short} (parent ${parent}) failed (exit $($ns.ExitCode)); cannot determine the governance tier. Failing closed rather than skipping validation."
         exit $ExitViolation

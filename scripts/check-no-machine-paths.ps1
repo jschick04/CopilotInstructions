@@ -118,10 +118,10 @@ if (-not $stagedMode -and -not $baseMode) {
 
 if ($stagedMode) {
     $rangeLabel = 'staged diff'
-    $diffArgs = @('-C', $repoRoot, 'diff', '--cached', '--no-color', '-U0', '--', '.') + $script:SelfExcludePathspecs
+    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--cached', '--no-color', '-U0', '--', '.') + $script:SelfExcludePathspecs
 } else {
     $rangeLabel = "$BaseRef...HEAD range"
-    $diffArgs = @('-C', $repoRoot, 'diff', '--no-color', '-U0', "$BaseRef...HEAD", '--', '.') + $script:SelfExcludePathspecs
+    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--no-color', '-U0', "$BaseRef...HEAD", '--', '.') + $script:SelfExcludePathspecs
 }
 
 $diffOutput = & git @diffArgs 2>$null

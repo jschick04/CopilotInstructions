@@ -46,7 +46,7 @@ if (Test-Path -LiteralPath $waiverFull -PathType Leaf) {
 function Get-Normalized { param([string] $Line) ($Line -replace '\s+', ' ').Trim() }
 function Test-Trivial { param([string] $Norm) ($Norm.Length -le 2) -or ($Norm -notmatch '[A-Za-z0-9]') }
 
-$diffArgs = if ($BaseRef) { @('diff', '-U0', '--no-color', "$BaseRef...HEAD") } else { @('diff', '--cached', '-U0', '--no-color') }
+$diffArgs = if ($BaseRef) { @('-c', 'core.quotePath=false', 'diff', '-U0', '--no-color', "$BaseRef...HEAD") } else { @('-c', 'core.quotePath=false', 'diff', '--cached', '-U0', '--no-color') }
 $diffLines = @(& git -C $RepoRoot @diffArgs 2>$null)
 if ($LASTEXITCODE -ne 0) {
     Write-Host "check-duplication: 'git $($diffArgs -join ' ')' failed (exit $LASTEXITCODE); cannot compute the diff (is the base ref fetched?). Failing closed."
@@ -61,7 +61,7 @@ function Complete-Run {
 }
 function Test-GeneratedMirror { param([string] $Path) ($Path -replace '\\', '/') -cmatch '^\.github/pr-quality-gate/pattern-catalog\.md$' }
 foreach ($line in $diffLines) {
-    if ($line -cmatch '^\+\+\+\s+b/(.+)$') { Complete-Run; $curFile = $matches[1]; $curExcluded = (Test-GeneratedMirror $curFile); continue }
+    if ($line -cmatch '^\+\+\+\s+b/([^\t]+)') { Complete-Run; $curFile = $matches[1]; $curExcluded = (Test-GeneratedMirror $curFile); continue }
     if ($line -cmatch '^(---|diff |index |@@|\\ )' ) { Complete-Run; continue }
     if ($line.StartsWith('+')) {
         if ($curExcluded) { continue }

@@ -195,6 +195,22 @@ $r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Mode.cs' -Content "pub
 Assert-B1Viz $r $false 'taxonomy MODE-ONLY: a chmod with no content change -> does NOT fire'
 $r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r 'Doc.md') -Value 'the word public appears here'
 Assert-B1Viz $r $false 'taxonomy ADD docs (.md): -> does NOT fire (docs excluded from the visibility scope)'
+# core.quotePath: a non-ASCII path is octal-escaped in the diff header WITHOUT core.quotePath=false (so the
+# `+++ b/<path>` regex misses it) and literal WITH it. check-post-code-change.ps1 sets the flag on every B1 diff;
+# assert the WITH/WITHOUT difference so that fix cannot silently regress.
+$r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r ([string][char]0x00FC + 'ber.cs')) -Value 'public class U { }'
+Invoke-GitOk $r add -A | Out-Null
+$quotedDiff   = @(git -C $r diff --cached -U0 --no-color)
+$unquotedDiff = @(git -C $r -c core.quotePath=false diff --cached -U0 --no-color)
+Assert-True  ($quotedDiff.Count -gt 0 -and $unquotedDiff.Count -gt 0) 'core.quotePath fixture produced real diffs [anti-vacuous]'
+Assert-False (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $quotedDiff))   'WITHOUT core.quotePath=false a non-ASCII .cs path is octal-escaped in the header -> MISSED (the bug the fix prevents)'
+Assert-True  (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $unquotedDiff)) 'WITH core.quotePath=false the non-ASCII .cs path is literal -> the widening fires (the check-post-code-change fix)'
+# space-path: git does NOT quote a space - it appends a disambiguation TAB to the `+++ b/<path>` header that
+# core.quotePath=false does NOT strip; the `[^\t]+` capture (not `.+`) stops before it so GetExtension sees `.cs`.
+$r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r 'my service.cs') -Value 'public class S { }'
+$spaceDiff = Get-B1StagedDiff $r
+Assert-True ($spaceDiff.Count -gt 0) 'space-path fixture produced a real staged diff [anti-vacuous]'
+Assert-True (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $spaceDiff)) 'a space-containing .cs path (disambiguation-tab in the +++ header) -> the widening still fires'
 Remove-TestTempDirectories
 
 Write-Host ''

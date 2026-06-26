@@ -176,7 +176,7 @@ function Get-NewCommentLineSites {
             continue
         }
         if (-not $inHunk) {
-            if ($line -cmatch '^\+\+\+\s+b/(.+)$') {
+            if ($line -cmatch '^\+\+\+\s+b/([^\t]+)') {
                 $currentFile = $matches[1]
                 $currentNewLine = 0
             }

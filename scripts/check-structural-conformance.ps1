@@ -146,9 +146,9 @@ if ($PSBoundParameters.ContainsKey('Paths')) {
     }
     $checkPaths = @($lsFiles | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
 } elseif ($BaseRef) {
-    $checkPaths = Get-AcrPaths -GitArgs @('diff', '--name-status', '--diff-filter=ACR', '-M', "$BaseRef...HEAD")
+    $checkPaths = Get-AcrPaths -GitArgs @('-c', 'core.quotePath=false', 'diff', '--name-status', '--diff-filter=ACR', '-M', "$BaseRef...HEAD")
 } else {
-    $checkPaths = Get-AcrPaths -GitArgs @('diff', '--cached', '--name-status', '--diff-filter=ACR', '-M')
+    $checkPaths = Get-AcrPaths -GitArgs @('-c', 'core.quotePath=false', 'diff', '--cached', '--name-status', '--diff-filter=ACR', '-M')
 }
 $checkPaths = @($checkPaths)
 
