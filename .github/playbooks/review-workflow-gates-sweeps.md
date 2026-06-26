@@ -106,8 +106,8 @@ POST-CODE-CHANGE LEDGER
   profile: <full|lite|full-default>
   gates:
     hygiene-cleanup: <ran (incl. §3.1 quality pass) | N/A: reason>
-    touched-file-LPA: <ran (N findings, K unjustified) | N/A: reason>
-    vsa-audit: <ran (N placements checked, K misplaced) | N/A: no added/moved/renamed file, no new top-level type in an existing file, no multi-type file introduced, no root-level placement change>
+    touched-file-LPA: <ran (N findings, K unjustified) | N/A - <playbook>:<line>>
+    vsa-audit: <ran (N placements checked, K misplaced) | N/A - <playbook>:<line>>
     dependency-injection-fit: <ran (new injectable: static-utility|owned-disposable|service) | N/A - <playbook>:<line>>
       # DI-shape only; visibility+IVT under touched-file-LPA (B1-forced on a DI signal).
     emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>

@@ -82,25 +82,28 @@ function Test-CohesiveSliceSignal {
     return $result
 }
 
-function Get-CodeFileDiffLines {
-    # From `git diff --cached -U0` output, return the +/- content lines belonging to CODE files only.
+function Get-VisibilityRelevantDiffLines {
+    # From `git diff --cached -U0` output, return the +/- content lines belonging to visibility-relevant files:
+    # compiled source PLUS project/metadata files (.csproj etc.) that carry IVT/friend-grants (see
+    # Test-IsVisibilityRelevantFile). NOT code-only - callers must not assume non-source files are excluded.
     param([string[]] $DiffLines)
-    $inCodeFile = $false
+    $inRelevantFile = $false
     $out = @()
     foreach ($line in @($DiffLines)) {
-        if ($line -match '^diff --git ') { $inCodeFile = $false; continue }
-        if ($line -match '^\+\+\+ b/(.+)$') { $inCodeFile = (Test-IsVisibilityRelevantFile $Matches[1]); continue }
+        if ($line -match '^diff --git ') { $inRelevantFile = $false; continue }
+        if ($line -match '^\+\+\+ b/(.+)$') { $inRelevantFile = (Test-IsVisibilityRelevantFile $Matches[1]); continue }
         if ($line -match '^(--- |@@ |index |new file|deleted file|similarity|rename )') { continue }
-        if (-not $inCodeFile) { continue }
+        if (-not $inRelevantFile) { continue }
         if ($line -match '^[+-]' -and $line -notmatch '^([+]{3}|[-]{3})') { $out += $line }
     }
     return $out
 }
 
 function Test-VisibilityDeltaSignal {
-    # A visibility/export/friend-grant surface delta in code (added OR removed access-modified declaration, or IVT).
-    param([string[]] $CodeDiffLines)
-    foreach ($line in @($CodeDiffLines)) {
+    # A visibility/export/friend-grant surface delta (added OR removed access-modified declaration, or IVT).
+    # Operates on pre-filtered visibility-relevant diff lines (code + project files like .csproj).
+    param([string[]] $DiffLines)
+    foreach ($line in @($DiffLines)) {
         if ($line -match '^[+-]\s*(\[assembly:\s*)?InternalsVisibleTo|^[+-]\s*<InternalsVisibleTo\b') { return $true }
         if ($line -match '^[+-]\s*(public|private|protected|internal)\s+([A-Za-z\[]|static\b|sealed\b|abstract\b|partial\b|readonly\b|virtual\b|override\b|async\b|const\b|new\b)') { return $true }
     }
@@ -109,12 +112,15 @@ function Test-VisibilityDeltaSignal {
 
 function Test-DiSignal {
     # A new dependency-injection registration / injectable marker (DI-shape only; visibility stays with LPA).
-    param([string[]] $CodeDiffLines)
-    foreach ($line in @($CodeDiffLines)) {
+    # Operates on pre-filtered visibility-relevant diff lines.
+    param([string[]] $DiffLines)
+    foreach ($line in @($DiffLines)) {
         if ($line -notmatch '^\+') { continue }
         if ($line -match '\.Add(Singleton|Scoped|Transient|HostedService)\b') { return $true }
         if ($line -match '\bservices\.Add|\bServices\.Add|\bbuilder\.Services\b') { return $true }
-        if ($line -match '\[Inject\]|\[FromServices\]|\[FromKeyedServices') { return $true }
+        # Anchor each attribute token on a word boundary so a longer name that merely starts with one
+        # (e.g. [FromKeyedServicesRegistry]) does not false-positive; [FromKeyedServices(...)] args still match.
+        if ($line -match '\[Inject\b|\[FromServices\b|\[FromKeyedServices\b') { return $true }
     }
     return $false
 }
@@ -150,7 +156,7 @@ function Get-StructuralHygieneViolations {
         $parts = $line -split "`t"
         if ($parts.Count -ge 2 -and $parts[0].Trim() -match '^A' -and (Test-IsCodeFile $parts[-1])) { $addedCodeFiles += $parts[-1] }
     }
-    $codeDiffLines = Get-CodeFileDiffLines -DiffLines $DiffLines
+    $relevantDiffLines = Get-VisibilityRelevantDiffLines -DiffLines $DiffLines
 
     $slice = Test-CohesiveSliceSignal -AddedCodeFiles $addedCodeFiles
     if ($slice.Fired) {
@@ -163,13 +169,13 @@ function Get-StructuralHygieneViolations {
         }
     }
 
-    if (Test-VisibilityDeltaSignal -CodeDiffLines $codeDiffLines) {
+    if (Test-VisibilityDeltaSignal -DiffLines $relevantDiffLines) {
         if (-not (Test-FieldJustified (Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'touched-file-LPA'))) {
             $violations += "structural-hygiene: a visibility / InternalsVisibleTo token delta is present in code but the LEDGER 'touched-file-LPA' field is absent/bare/uncited - record 'ran (...)' or 'N/A - <playbook>:<line>'."
         }
     }
 
-    if (Test-DiSignal -CodeDiffLines $codeDiffLines) {
+    if (Test-DiSignal -DiffLines $relevantDiffLines) {
         if (-not (Test-FieldJustified (Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'dependency-injection-fit'))) {
             $violations += "structural-hygiene: a dependency-injection registration / injectable signal is present in code but the LEDGER 'dependency-injection-fit' field is absent/bare/uncited - record 'ran (...)' or 'N/A - <playbook>:<line>'."
         }
@@ -178,4 +184,4 @@ function Get-StructuralHygieneViolations {
     return $violations
 }
 
-Export-ModuleMember -Function Test-IsCodeFile, Test-IsVisibilityRelevantFile, Get-DomainTokens, Test-CohesiveSliceSignal, Get-CodeFileDiffLines, Test-VisibilityDeltaSignal, Test-DiSignal, Get-LedgerFieldValue, Test-FieldJustified, Get-StructuralHygieneViolations
+Export-ModuleMember -Function Test-IsCodeFile, Test-IsVisibilityRelevantFile, Get-DomainTokens, Test-CohesiveSliceSignal, Get-VisibilityRelevantDiffLines, Test-VisibilityDeltaSignal, Test-DiSignal, Get-LedgerFieldValue, Test-FieldJustified, Get-StructuralHygieneViolations
