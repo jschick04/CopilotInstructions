@@ -24,7 +24,9 @@
 #    InternalsVisibleTo); they do NOT fire on JS/TS `export`, Go capitalization, Rust `pub`, or framework DI
 #    annotations even though those extensions are in CodeFileExtensions - only (i) slice-cohesion is language-agnostic;
 #  - DI (iii) detects explicit container registration / [Inject] only, NOT bare constructor injection whose
-#    registration sits in an unchanged composition root (split-commit DI wiring is missed);
+#    registration sits in an unchanged composition root (split-commit DI wiring is missed); it skips leading
+#    comment lines but is line-regex (not a parser): a registration sharing a line with a leading comment-open
+#    (`/* x */ services.Add()`) is MISSED, and a DI token inside a string literal ("...services.Add...") over-fires;
 #  - sealed/final REMOVAL (inheritance widening) is not separately detected (no -/+ correlation); note a typical
 #    whole-line `-public sealed class X`/`+public class X` STILL fires via the re-emitted `+public` line - the
 #    true miss is only the contrived implicit-visibility case (`sealed class X`->`class X`, no access token);
@@ -132,7 +134,7 @@ function Test-VisibilityDeltaSignal {
     # as always-allowed. Operates on the additions-only visibility-relevant diff lines. C#/.NET-shaped (header FN).
     param([string[]] $DiffLines)
     foreach ($line in @($DiffLines)) {
-        if ($line -match '^\+\s*(\[assembly:\s*)?(?:[\w.]+\.)?InternalsVisibleTo|^\+\s*<InternalsVisibleTo\b') { return $true }
+        if ($line -match '^\+\s*\[assembly:\s*(?:[\w.]+\.)?InternalsVisibleTo(?:Attribute)?\b|^\+\s*<InternalsVisibleTo\b') { return $true }
         if ($line -match '^\+\s*(public|protected|internal)\s+([A-Za-z\[]|static\b|sealed\b|abstract\b|partial\b|readonly\b|virtual\b|override\b|async\b|const\b|new\b)') { return $true }
     }
     return $false
@@ -182,6 +184,7 @@ function Test-DiSignal {
     param([string[]] $DiffLines)
     foreach ($line in @($DiffLines)) {
         if ($line -notmatch '^\+') { continue }
+        if ($line -match '^\+\s*(//|/\*|\*)') { continue }
         if ($line -match '\.Add(Singleton|Scoped|Transient|HostedService)\b') { return $true }
         if ($line -match '\bservices\.Add|\bServices\.Add|\bbuilder\.Services\b') { return $true }
         # Anchor each attribute token on a word boundary so a longer name that merely starts with one

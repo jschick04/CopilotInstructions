@@ -50,6 +50,9 @@ Write-Host '=== Test-VisibilityDeltaSignal (WIDENING-only: added exposed decl / 
 Assert-True  (Test-VisibilityDeltaSignal @('+    public sealed class Foo'))       'added public class is a widening'
 Assert-True  (Test-VisibilityDeltaSignal @('+    protected int Bar()'))           'added protected member is a widening'
 Assert-True  (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleTo("X")]')) 'added IVT friend-grant is a widening'
+Assert-True  (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleToAttribute("X")]')) 'the InternalsVisibleToAttribute full-name form is a widening'
+Assert-False (Test-VisibilityDeltaSignal @('+    var InternalsVisibleTo = 5;'))   'an identifier named InternalsVisibleTo (no [assembly:) does NOT fire'
+Assert-False (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleToFoo("X")]')) 'a different attribute merely starting with InternalsVisibleTo does NOT fire (word boundary)'
 Assert-False (Test-VisibilityDeltaSignal @('-    internal int Bar()'))            'a REMOVED internal member is narrowing - does NOT fire (LPA allows removals)'
 Assert-False (Test-VisibilityDeltaSignal @('-[assembly: InternalsVisibleTo("X")]')) 'a REMOVED IVT is narrowing - does NOT fire'
 Assert-False (Test-VisibilityDeltaSignal @('+    private int _x;'))               'an added PRIVATE member is not a widening (private is not exposed)'
@@ -59,6 +62,8 @@ Assert-True  (Test-DiSignal @('+    public Foo([Inject] IBar bar) { }'))        
 Assert-True  (Test-DiSignal @('+    public Foo([FromKeyedServices("cache")] IBar bar) { }')) '[FromKeyedServices("...")] (with args) is a DI signal'
 Assert-False (Test-DiSignal @('+    [FromKeyedServicesRegistry] private int _x;'))            'an attribute merely starting with FromKeyedServices does NOT false-fire (word-boundary anchor)'
 Assert-False (Test-DiSignal @('-        services.AddSingleton<IFoo, Foo>();'))     'a REMOVED DI registration is not a new-DI signal'
+Assert-False (Test-DiSignal @('+        // services.AddSingleton<IFoo, Foo>();'))  'a commented-out services.Add (// line) does NOT fire (comment-skip)'
+Assert-False (Test-DiSignal @('+     * services.AddScoped<IBar, Bar>() example')) 'a block-comment continuation (* line) mentioning services.Add does NOT fire'
 
 Write-Host '=== Get-VisibilityRelevantDiffLines (ADDED lines of code+project files; inHeader guard; docs excluded) ==='
 $mixedDiff = @(
