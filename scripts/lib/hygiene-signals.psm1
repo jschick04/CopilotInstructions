@@ -8,15 +8,31 @@
 # see the disclosed blind spots below); the field's justification VALUE stays agent-asserted + panel-verified,
 # NOT script-verified. The citation token is SHAPE/presence-checked, not aptness-verified.
 #
-# DISCLOSED false-negatives (heuristic floor, not a guarantee):
+# SCOPE: the visibility (ii) + DI (iii) signals are WIDENING / additions-only - they fire on ADDED exposed
+# surface, mirroring the least-privilege-audit rule's added-token trigger; pure narrowing (removed members,
+# removed IVT, whole-file deletions, ->private) does NOT fire (the LPA rule treats removals as always-allowed).
+# B1 is the mechanical FLOOR; the least-privilege-audit review-pass rule is the broader visibility check. For a
+# NON-test InternalsVisibleTo target (a production friend-grant) B1 additionally FLAGS it and FORCES the
+# touched-file-LPA field to carry a `production-ivt:` marker (shape-checked PRESENT, not aptness-verified; the
+# panel + the non-test-ivt-target catalog slug verify the justification). B1 does NOT prevent/guarantee no-prod-IVT.
+#
+# DISCLOSED false-negatives / blind spots (heuristic floor, not a guarantee):
 #  - a cohesive slice whose files share NO domain token (pure role names: Handler/Command/Result) does not fire (i);
 #  - a group dribbled in <3-at-a-time across separate commits is missed by the per-commit threshold (history-mode
 #    would catch it, but the receipt is local-only and not CI-wired);
-#  - visibility (ii) + DI (iii) detection are C#/.NET-shaped (access-modifier keywords, services.Add*/[Inject], csproj
-#    InternalsVisibleTo); they do NOT fire on JS/TS `export`, Go capitalization, Rust `pub`, or framework DI annotations
-#    even though those extensions are in CodeFileExtensions - only (i) slice-cohesion is language-agnostic;
-#  - DI (iii) detects explicit container registration / [Inject] only, NOT bare constructor injection whose registration
-#    sits in an unchanged composition root (same-commit registration is covered; a split-commit DI wiring is missed).
+#  - visibility (ii) + DI (iii) are C#/.NET-shaped (access-modifier keywords, services.Add*/[Inject], csproj
+#    InternalsVisibleTo); they do NOT fire on JS/TS `export`, Go capitalization, Rust `pub`, or framework DI
+#    annotations even though those extensions are in CodeFileExtensions - only (i) slice-cohesion is language-agnostic;
+#  - DI (iii) detects explicit container registration / [Inject] only, NOT bare constructor injection whose
+#    registration sits in an unchanged composition root (split-commit DI wiring is missed);
+#  - sealed/final REMOVAL (inheritance widening) is not separately detected (no -/+ correlation); note a typical
+#    whole-line `-public sealed class X`/`+public class X` STILL fires via the re-emitted `+public` line - the
+#    true miss is only the contrived implicit-visibility case (`sealed class X`->`class X`, no access token);
+#  - a narrowing MODIFICATION that keeps an access token (`-public class X`/`+internal class X`) STILL fires
+#    (additions-only sees only the `+internal` line) - benign (it forces a recorded field, satisfiable by `ran`);
+#  - the non-test-IVT classifier (Test-IsTestAssemblyName) is a conservative NAME-proxy for the rule's semantic
+#    "no production consumer" test - fallible BOTH ways: a production lib named like a test (a *TestData* util)
+#    is treated test (missed); a test convention NOT in the list is treated production (forces a marker).
 
 Set-StrictMode -Version Latest
 
@@ -83,31 +99,75 @@ function Test-CohesiveSliceSignal {
 }
 
 function Get-VisibilityRelevantDiffLines {
-    # From `git diff --cached -U0` output, return the +/- content lines belonging to visibility-relevant files:
-    # compiled source PLUS project/metadata files (.csproj etc.) that carry IVT/friend-grants (see
-    # Test-IsVisibilityRelevantFile). NOT code-only - callers must not assume non-source files are excluded.
+    # Return the ADDED (+) content lines belonging to visibility-relevant files (compiled source PLUS project
+    # files like .csproj that carry IVT). Additions-only: the widening + DI signals are additions-only, so
+    # removed (`-`) lines and whole-file deletions are intentionally excluded (narrowing is not a widening signal).
+    # The file path is read from the `+++ b/<path>` header ONLY in the pre-`@@` file-header section (inHeader),
+    # so a hunk CONTENT line that merely looks like a header cannot spuriously mark a file relevant.
     param([string[]] $DiffLines)
     $inRelevantFile = $false
+    $inHeader = $false
     $out = @()
     foreach ($line in @($DiffLines)) {
-        if ($line -match '^diff --git ') { $inRelevantFile = $false; continue }
-        if ($line -match '^\+\+\+ b/(.+)$') { $inRelevantFile = (Test-IsVisibilityRelevantFile $Matches[1]); continue }
-        if ($line -match '^(--- |@@ |index |new file|deleted file|similarity|rename )') { continue }
+        if ($line -match '^diff --git ') { $inRelevantFile = $false; $inHeader = $true; continue }
+        if ($line -match '^@@ ') { $inHeader = $false; continue }
+        if ($inHeader) {
+            if ($line -match '^\+\+\+ b/(.+)$') { $inRelevantFile = (Test-IsVisibilityRelevantFile $Matches[1]) }
+            continue
+        }
         if (-not $inRelevantFile) { continue }
-        if ($line -match '^[+-]' -and $line -notmatch '^([+]{3}|[-]{3})') { $out += $line }
+        if ($line -match '^\+' -and $line -notmatch '^\+{3}') { $out += $line }
     }
     return $out
 }
 
 function Test-VisibilityDeltaSignal {
-    # A visibility/export/friend-grant surface delta (added OR removed access-modified declaration, or IVT).
-    # Operates on pre-filtered visibility-relevant diff lines (code + project files like .csproj).
+    # WIDENING-only floor: fires on an ADDED exposed declaration (public/protected/internal - NOT private) or an
+    # ADDED InternalsVisibleTo friend-grant, mirroring the least-privilege-audit rule's added-token trigger.
+    # Narrowing (removed members, removed IVT, deletions, ->private) does NOT fire - the LPA rule treats removals
+    # as always-allowed. Operates on the additions-only visibility-relevant diff lines. C#/.NET-shaped (header FN).
     param([string[]] $DiffLines)
     foreach ($line in @($DiffLines)) {
-        if ($line -match '^[+-]\s*(\[assembly:\s*)?InternalsVisibleTo|^[+-]\s*<InternalsVisibleTo\b') { return $true }
-        if ($line -match '^[+-]\s*(public|private|protected|internal)\s+([A-Za-z\[]|static\b|sealed\b|abstract\b|partial\b|readonly\b|virtual\b|override\b|async\b|const\b|new\b)') { return $true }
+        if ($line -match '^\+\s*(\[assembly:\s*)?(?:[\w.]+\.)?InternalsVisibleTo|^\+\s*<InternalsVisibleTo\b') { return $true }
+        if ($line -match '^\+\s*(public|protected|internal)\s+([A-Za-z\[]|static\b|sealed\b|abstract\b|partial\b|readonly\b|virtual\b|override\b|async\b|const\b|new\b)') { return $true }
     }
     return $false
+}
+
+function Get-AddedIvtTargets {
+    # Target assembly names from ADDED InternalsVisibleTo grants - the C# attribute (optional namespace qualifier
+    # / `Attribute` suffix, legacy AssemblyInfo.cs or modern) AND the preferred .NET 5+ csproj
+    # `<InternalsVisibleTo Include="..." />` item (Include in any position, single or double quotes). The IVT arg
+    # may carry `, PublicKey=...` - the assembly name is the part before the first comma.
+    param([string[]] $DiffLines)
+    $targets = @()
+    foreach ($line in @($DiffLines)) {
+        if ($line -notmatch '^\+') { continue }
+        if ($line -match '^\+\s*\[assembly:\s*(?:[\w.]+\.)?InternalsVisibleTo(?:Attribute)?\s*\(\s*"([^"]+)"') { $targets += ($Matches[1] -split ',')[0].Trim() }
+        elseif ($line -match '^\+\s*<InternalsVisibleTo\b[^>]*\bInclude\s*=\s*["'']([^"'']+)["'']') { $targets += ($Matches[1] -split ',')[0].Trim() }
+    }
+    return @($targets)
+}
+
+function Test-IsTestAssemblyName {
+    # Conservative NAME-proxy for the least-privilege-audit rule's semantic "test / no-production-consumer"
+    # assembly (canonical definition: least-privilege-audit.md). Matches a PascalCase segment (case-sensitive,
+    # boundary-aware) of a test / test-double convention. Fallible BOTH ways (see the header blind-spot note);
+    # NOT project-kind-verified.
+    param([string] $Name)
+    if (-not $Name) { return $false }
+    $asm = ($Name -split ',')[0].Trim().Trim('"').Trim()
+    return $asm -cmatch '(?:^|\.|[a-z0-9])(?:Tests?|Specs?|Fakes?|Mocks?|Fixtures?|Benchmarks?|Stubs?|E2E|Acceptance)(?=$|\.|[A-Z])'
+}
+
+function Test-NonTestIvtSignal {
+    # Fires when an ADDED IVT grant targets a NON-test assembly (a production friend-grant) - the GATED case that
+    # must record a deliberate production-ivt decision. Returns the first non-test target name (or $null).
+    param([string[]] $DiffLines)
+    foreach ($target in (Get-AddedIvtTargets -DiffLines $DiffLines)) {
+        if (-not (Test-IsTestAssemblyName $target)) { return $target }
+    }
+    return $null
 }
 
 function Test-DiSignal {
@@ -188,7 +248,15 @@ function Get-StructuralHygieneViolations {
 
     if (Test-VisibilityDeltaSignal -DiffLines $relevantDiffLines) {
         if (-not (Test-FieldJustified (Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'touched-file-LPA'))) {
-            $violations += "structural-hygiene: a visibility / InternalsVisibleTo token delta is present in code but the LEDGER 'touched-file-LPA' field is absent/bare/uncited - record 'ran (...)' or 'N/A - <playbook>:<line>'."
+            $violations += "structural-hygiene: a visibility-widening signal (added exposed declaration / InternalsVisibleTo) is present in code but the LEDGER 'touched-file-LPA' field is absent/bare/uncited - record 'ran (...)' or 'N/A - <playbook>:<line>'."
+        }
+    }
+
+    $nonTestIvtTarget = Test-NonTestIvtSignal -DiffLines $relevantDiffLines
+    if ($nonTestIvtTarget) {
+        $lpaValue = Get-LedgerFieldValue -LedgerLines $LedgerLines -Key 'touched-file-LPA'
+        if (-not ($lpaValue -and $lpaValue -match '^\s*ran\s*\([^)]*production-ivt:\s*\S')) {
+            $violations += "structural-hygiene: a non-test InternalsVisibleTo target '$nonTestIvtTarget' was added (a production friend-grant) but the LEDGER 'touched-file-LPA' does not record the deliberate decision - record 'ran (production-ivt: <why a test target / DI-seam / public API is unsuitable>)' (a bare 'ran' / 'N/A' is not valid for a non-test friend-grant)."
         }
     }
 
@@ -201,4 +269,4 @@ function Get-StructuralHygieneViolations {
     return $violations
 }
 
-Export-ModuleMember -Function Test-IsCodeFile, Test-IsVisibilityRelevantFile, Get-DomainTokens, Test-CohesiveSliceSignal, Get-VisibilityRelevantDiffLines, Test-VisibilityDeltaSignal, Test-DiSignal, Get-LedgerFieldValue, Test-FieldJustified, Get-StructuralHygieneViolations
+Export-ModuleMember -Function Test-IsCodeFile, Test-IsVisibilityRelevantFile, Get-DomainTokens, Test-CohesiveSliceSignal, Get-VisibilityRelevantDiffLines, Test-VisibilityDeltaSignal, Test-DiSignal, Get-AddedIvtTargets, Test-IsTestAssemblyName, Test-NonTestIvtSignal, Get-LedgerFieldValue, Test-FieldJustified, Get-StructuralHygieneViolations
