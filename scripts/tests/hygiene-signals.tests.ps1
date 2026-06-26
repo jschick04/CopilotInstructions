@@ -139,11 +139,13 @@ $nonTestIvtDiff = @('diff --git a/src/App.csproj b/src/App.csproj', '+++ b/src/A
 $v5 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (reviewed)'))
 Assert-True ($v5.Count -ge 1) 'added non-test IVT + touched-file-LPA WITHOUT a production-ivt marker -> violation'
 $v6 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (production-ivt: DI-seam unsuitable for the app-composition head)'))
-Assert-True ($v6.Count -eq 0) 'added non-test IVT + touched-file-LPA ran (production-ivt: <reason>) -> clean'
+Assert-True ($v6.Count -eq 0) 'the legacy standalone ran (production-ivt: <reason>) form is STILL accepted by B1 (backward-compat; the docs now prescribe the combined v6d shape) -> clean'
 $v6b = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: N/A - least-privilege-audit.md:44 production-ivt: foo'))
 Assert-True ($v6b.Count -ge 1) 'a cited N/A that merely embeds the production-ivt token (not ran (...)) is REJECTED for a non-test IVT'
 $v6c = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (production-ivt:)'))
 Assert-True ($v6c.Count -ge 1) 'an EMPTY production-ivt marker (no reason) is REJECTED for a non-test IVT'
+$v6d = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (3 findings, 1 unjustified; production-ivt: DI-seam unsuitable for the app-composition head)'))
+Assert-True ($v6d.Count -eq 0) 'the canonical COMBINED shape ran (N findings, K unjustified; production-ivt: <reason>) the docs now prescribe -> clean (locks the doc-mechanism contract)'
 $testIvtDiff = @('diff --git a/src/App.csproj b/src/App.csproj', '+++ b/src/App.csproj', '@@ -1,1 +1,2 @@', '+    <InternalsVisibleTo Include="App.Tests" />')
 $v7 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $testIvtDiff -LedgerLines @('    touched-file-LPA: ran (test friend-grant)'))
 Assert-True ($v7.Count -eq 0) 'a TEST-target IVT + a justified touched-file-LPA (no production-ivt marker required) -> clean'

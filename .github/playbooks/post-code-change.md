@@ -3,7 +3,7 @@
 
 ## Purpose
 
-After implementation, run the import/using hygiene pass, the touched-file recurring-pattern sweep, the multi-model reviewer panel (via `multi-model-review.md`), the verify-the-fix-actually-fixed-it check, and the affected builds + tests. Fires immediately after code edits land, before showing the diff to the user. Output: a green build with the panel converged and the diagnosis-verifying metric/test passing.
+After implementation, run the import/using hygiene pass, the touched-file recurring-pattern sweep, the multi-model reviewer panel (via `multi-model-review.md`), the verify-fix check, and the affected builds + tests. Fires after code edits land, before showing the diff. Output: a green build with the panel converged and the diagnosis-verifying metric/test passing.
 
 ## Hard gates (also in `AGENTS.md` - repeated here for context)
 
@@ -25,7 +25,7 @@ Bundle these in one prompt:
 
 ## Procedure
 
-> **Delegated diffs do NOT inherit hygiene.** On a sub-agent diff, the orchestrator MUST put the hygiene asks (VSA/LPA/DI-fit/comment-quality) in the delegating spec AND run this Procedure on the returned diff first.
+> **Delegated diffs do NOT inherit hygiene.** On a sub-agent diff, the orchestrator MUST put the hygiene asks (VSA/LPA/comment-quality, and DI-fit = the §2B `dependency-injection-fit` row) in the delegating spec AND run this Procedure on the returned diff first.
 
 ### 1. Imports/usings hygiene - whole-solution, scoped diagnostics
 
