@@ -46,18 +46,21 @@ Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/WevtReader.cs','a/We
 # 3 role-named files with no shared domain token -> no fire (disclosed false-negative)
 Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/Handler.cs','a/Command.cs','a/Result.cs')).Fired '3 pure-role-named files (no shared domain token) do not fire (disclosed FN)'
 
-Write-Host '=== Test-VisibilityDeltaSignal + Test-DiSignal (operate on pre-filtered visibility-relevant diff lines) ==='
-Assert-True  (Test-VisibilityDeltaSignal @('+    public sealed class Foo'))       'added public class is a visibility delta'
-Assert-True  (Test-VisibilityDeltaSignal @('-    internal int Bar()'))            'removed internal member is a visibility delta'
-Assert-True  (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleTo("X")]')) 'IVT is a visibility/friend-grant delta'
-Assert-False (Test-VisibilityDeltaSignal @('+    var x = ComputeThing();'))        'a plain added line is not a visibility delta'
+Write-Host '=== Test-VisibilityDeltaSignal (WIDENING-only: added exposed decl / added IVT; narrowing does NOT fire) ==='
+Assert-True  (Test-VisibilityDeltaSignal @('+    public sealed class Foo'))       'added public class is a widening'
+Assert-True  (Test-VisibilityDeltaSignal @('+    protected int Bar()'))           'added protected member is a widening'
+Assert-True  (Test-VisibilityDeltaSignal @('+[assembly: InternalsVisibleTo("X")]')) 'added IVT friend-grant is a widening'
+Assert-False (Test-VisibilityDeltaSignal @('-    internal int Bar()'))            'a REMOVED internal member is narrowing - does NOT fire (LPA allows removals)'
+Assert-False (Test-VisibilityDeltaSignal @('-[assembly: InternalsVisibleTo("X")]')) 'a REMOVED IVT is narrowing - does NOT fire'
+Assert-False (Test-VisibilityDeltaSignal @('+    private int _x;'))               'an added PRIVATE member is not a widening (private is not exposed)'
+Assert-False (Test-VisibilityDeltaSignal @('+    var x = ComputeThing();'))        'a plain added line is not a widening'
 Assert-True  (Test-DiSignal @('+        services.AddSingleton<IFoo, Foo>();'))     'AddSingleton is a DI signal'
 Assert-True  (Test-DiSignal @('+    public Foo([Inject] IBar bar) { }'))           '[Inject] is a DI signal'
 Assert-True  (Test-DiSignal @('+    public Foo([FromKeyedServices("cache")] IBar bar) { }')) '[FromKeyedServices("...")] (with args) is a DI signal'
 Assert-False (Test-DiSignal @('+    [FromKeyedServicesRegistry] private int _x;'))            'an attribute merely starting with FromKeyedServices does NOT false-fire (word-boundary anchor)'
 Assert-False (Test-DiSignal @('-        services.AddSingleton<IFoo, Foo>();'))     'a REMOVED DI registration is not a new-DI signal'
 
-Write-Host '=== Get-VisibilityRelevantDiffLines (code + project-file hunks; docs/script prose excluded) ==='
+Write-Host '=== Get-VisibilityRelevantDiffLines (ADDED lines of code+project files; inHeader guard; docs excluded) ==='
 $mixedDiff = @(
     'diff --git a/x.cs b/x.cs', '+++ b/x.cs', '@@ -0,0 +1 @@', '+    public class Real',
     'diff --git a/README.md b/README.md', '+++ b/README.md', '@@ -0,0 +1 @@', '+the word public appears in prose'
@@ -67,8 +70,30 @@ Assert-True  ($codeLines -contains '+    public class Real')                  't
 Assert-False ($codeLines -contains '+the word public appears in prose')      'the .md prose +line is EXCLUDED (no false-fire on docs)'
 # csproj IVT (the PREFERRED .NET 5+ placement) must reach the visibility scope (regression: previously a dead path)
 $csprojDiff = @('diff --git a/X.csproj b/X.csproj', '+++ b/X.csproj', '@@ -0,0 +1 @@', '+    <InternalsVisibleTo Include="X.Tests" />')
-$csprojLines = Get-VisibilityRelevantDiffLines -DiffLines $csprojDiff
-Assert-True  (Test-VisibilityDeltaSignal $csprojLines) 'csproj <InternalsVisibleTo> reaches + fires the visibility signal'
+Assert-True  (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $csprojDiff)) 'csproj <InternalsVisibleTo> reaches + fires the visibility signal'
+# inHeader guard: a hunk CONTENT line that looks like a `+++ b/<path>` header must NOT mark a docs file relevant
+$mimicDiff = @('diff --git a/notes.md b/notes.md', '+++ b/notes.md', '@@ -1,2 +1,2 @@', '+++ b/fake.cs', '+    public class NotCode { }')
+Assert-False (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $mimicDiff)) 'a header-shaped content line in a .md hunk does not spuriously mark it visibility-relevant'
+# additions-only: a DELETED .cs (only `-` lines, +++ is /dev/null) contributes nothing (deletion = narrowing)
+$deletedCsDiff = @('diff --git a/Foo.cs b/Foo.cs', 'deleted file mode 100644', '--- a/Foo.cs', '+++ /dev/null', '@@ -1,1 +0,0 @@', '-public class Foo { }')
+Assert-False (Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $deletedCsDiff)) 'deleting a .cs file (pure narrowing) does NOT fire the widening signal'
+
+Write-Host '=== Get-AddedIvtTargets / Test-IsTestAssemblyName / Test-NonTestIvtSignal (GATED non-test IVT) ==='
+Assert-Equal 'My.Tests' ((Get-AddedIvtTargets @('+[assembly: InternalsVisibleTo("My.Tests")]')) -join ',') 'C# attribute IVT target extracted'
+Assert-Equal 'My.App'   ((Get-AddedIvtTargets @('+    <InternalsVisibleTo Include="My.App" />')) -join ',')  'csproj IVT target extracted'
+Assert-Equal 'My.Tests' ((Get-AddedIvtTargets @('+[assembly: System.Runtime.CompilerServices.InternalsVisibleToAttribute("My.Tests, PublicKey=00ab")]')) -join ',') 'qualified + Attribute + PublicKey form extracted (name before comma)'
+Assert-Equal ''         ((Get-AddedIvtTargets @('-[assembly: InternalsVisibleTo("My.Tests")]')) -join ',')    'a REMOVED IVT is not an added target'
+Assert-Equal ''         ((Get-AddedIvtTargets @('+// [assembly: InternalsVisibleTo("My.App")]')) -join ',')    'a commented-out IVT (not at line start) is NOT captured (anchored after +)'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.Tests')        'Foo.Tests is a test assembly'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.UnitTests')    'Foo.UnitTests is a test assembly'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.TestUtilities') 'Foo.TestUtilities is a test assembly'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.Specs')        'Foo.Specs (SpecFlow) is a test assembly'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.Fakes')        'Foo.Fakes is a test assembly'
+Assert-True  (Test-IsTestAssemblyName 'Contoso.Benchmarks')   'Foo.Benchmarks is a test assembly'
+Assert-False (Test-IsTestAssemblyName 'Contoso.Attestation')  'Attestation (lowercase test) is NOT a test assembly'
+Assert-False (Test-IsTestAssemblyName 'Contoso.App')          'Foo.App is NOT a test assembly'
+Assert-Equal 'Contoso.App' (Test-NonTestIvtSignal @('+[assembly: InternalsVisibleTo("Contoso.App")]'))   'non-test IVT target fires the gated signal'
+Assert-True  ($null -eq (Test-NonTestIvtSignal @('+[assembly: InternalsVisibleTo("Contoso.Tests")]')))   'a test IVT target does NOT fire the gated signal'
 
 Write-Host '=== Test-FieldJustified (present-with-justified-value; bare/uncited N/A rejected) ==='
 Assert-True  (Test-FieldJustified 'ran (3 placements checked, 0 misplaced)')   'ran (...) is justified'
@@ -103,6 +128,18 @@ $thisPrNameStatus = @("A`tscripts/lib/hygiene-signals.psm1", "A`tscripts/tests/h
 $thisPrDiff = @('diff --git a/docs/x.md b/docs/x.md', '+++ b/docs/x.md', '+services.AddSingleton example in prose', '+public internal in prose')
 $v4 = @(Get-StructuralHygieneViolations -NameStatusLines $thisPrNameStatus -DiffLines $thisPrDiff -LedgerLines @('build: passed'))
 Assert-True ($v4.Count -eq 0) 'a docs/scripts-only diff (this PR) does NOT fire any signal (no self-trigger)'
+# GATED non-test IVT: adding a production friend-grant requires the production-ivt recorded decision
+$ivtName = @("M`tsrc/App.csproj")
+$nonTestIvtDiff = @('diff --git a/src/App.csproj b/src/App.csproj', '+++ b/src/App.csproj', '@@ -1,1 +1,2 @@', '+    <InternalsVisibleTo Include="Other.App" />')
+$v5 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (reviewed)'))
+Assert-True ($v5.Count -ge 1) 'added non-test IVT + touched-file-LPA WITHOUT a production-ivt marker -> violation'
+$v6 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (production-ivt: DI-seam unsuitable for the app-composition head)'))
+Assert-True ($v6.Count -eq 0) 'added non-test IVT + touched-file-LPA ran (production-ivt: <reason>) -> clean'
+$v6b = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: N/A - least-privilege-audit.md:44 production-ivt: foo'))
+Assert-True ($v6b.Count -ge 1) 'a cited N/A that merely embeds the production-ivt token (not ran (...)) is REJECTED for a non-test IVT'
+$testIvtDiff = @('diff --git a/src/App.csproj b/src/App.csproj', '+++ b/src/App.csproj', '@@ -1,1 +1,2 @@', '+    <InternalsVisibleTo Include="App.Tests" />')
+$v7 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $testIvtDiff -LedgerLines @('    touched-file-LPA: ran (test friend-grant)'))
+Assert-True ($v7.Count -eq 0) 'a TEST-target IVT + a justified touched-file-LPA (no production-ivt marker required) -> clean'
 
 Write-Host ''
 if ($script:Fail -gt 0) { Write-Host "Failures: $script:Fail" -ForegroundColor Red; exit 1 }
