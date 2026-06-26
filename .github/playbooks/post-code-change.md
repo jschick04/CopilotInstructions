@@ -187,7 +187,7 @@ appendix=none
 
 Here `appendix=none` is valid because `delta-g` sites (the value after `/`) and `comment` failed-sites are both 0. When either is >0, `appendix=none` is INVALID (§2B rule 6): emit the canonical structured `delta-g-sweeps` site sub-block + `comment` failed-site bullets (from the schema above) in its place, NOT pipe-compressed. The `pre-impl-trigger-detections`/`pre-impl-playbook-decisions`/`playbook-invocations` sub-blocks always follow in their structured form.
 
-**Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` on a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` on test files OR any SUT modification (private-only branches included). See `pr-quality-gate/pattern-catalog.md` for full audit methods.
+**Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` on a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` on test files OR any SUT modification (private-only branches included). See `.github/pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 The pre-commit gate (step 4 in `pre-commit.md`) consumes `core_rules_acknowledged` and re-validates against the staged diff before commit. The two emissions can differ if the agent edits between post-code-change and pre-commit; the pre-commit version is authoritative.
 

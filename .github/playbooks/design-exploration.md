@@ -31,7 +31,7 @@ Companion playbook for performance-driven exploration: `performance-comparison.m
   - `prototype-imported-by-production` (HIGH, tree-scoped rg) - multi-language import-statement detection (C# `using`, TS/JS `import`/`require`, Python `import`/`from`, Rust `use`, Go `import`, Java/Kotlin `import`, C++ `#include`) for any production-code reference to `prototypes/`. Excludes prototype subtree via `--glob '!prototypes/**'`. Word-boundary anchored to avoid `myprototypes`/`prototypes2` false positives.
   - `prototype-file-missing-throwaway-marker` (MEDIUM, review-pass-only) - fires when diff adds a NEW file under `prototypes/` without the canonical `THROWAWAY: <name>` header (or sibling README marker for non-commentable files).
   
-  See `pr-quality-gate/pattern-catalog.md` for full audit methods.
+  See `.github/pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 ## Phase enforcement
 

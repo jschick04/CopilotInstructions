@@ -70,7 +70,7 @@ CopilotInstructions/
 │           ├── current-state-survey.md
 │           ├── design-change-request.md
 │           └── dev-design-spec.md
-├── pr-quality-gate/                                    # catalog + ack-gate + drift safeguard (rule enforcement during code review)
+├── .github/pr-quality-gate/                                    # catalog + ack-gate + drift safeguard (rule enforcement during code review)
 │   ├── pattern-catalog.md                              # canonical rule catalog (132 data rows; 47 HIGH-tier slugs requiring per-commit ack)
 │   ├── HIGH-TIER-SLUGS.md                              # GENERATED - derived from pattern-catalog.md; ack-required slug list
 │   ├── panel-policy.md                                 # convergence model + per-rule ack schema + catalog-edit invariant

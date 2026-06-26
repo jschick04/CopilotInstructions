@@ -30,7 +30,7 @@ Additional hard gates for performance work:
   - `prototype-file-missing-throwaway-marker` (MEDIUM, review-pass-only) - inherited from design-exploration; flags new `prototypes/` files without the `THROWAWAY:` header.
   - `perf-claim-without-environment-capture` (MEDIUM, review-pass-only) - specific to performance work. Fires when PR description / commit message / code comment makes a QUANTITATIVE perf claim (e.g., `30% faster`, `5x throughput`, `15ms latency`, `300μs faster`, `N% lower CPU`) WITHOUT environment-capture fields (machine / OS / runtime / warmup / sample size) or a link to a documented benchmark artifact. Casual qualitative claims (`"faster"`, `"more efficient"`) with no number do NOT fire.
   
-  See `pr-quality-gate/pattern-catalog.md` for full audit methods.
+  See `.github/pr-quality-gate/pattern-catalog.md` for full audit methods.
 
 ## Phase enforcement
 

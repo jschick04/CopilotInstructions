@@ -1,6 +1,6 @@
 # QUALITY GATE block - canonical composite schema
 
-This file is the **single source of truth** for the `QUALITY GATE` block: the unified publish-gate artifact that consolidates the mechanical pattern floor (gate-runner) with the multi-model panel sign-off. It is the G6 forbidden-tools prerequisite for PR-creation / draft-state mutation, emitted in the same turn as the tool call. `pr-quality-gate/README.md` §1B and the `Publish gate` section of `review-workflow-gates-sweeps.md` (§2D anchor) POINT here; they do not redefine the schema.
+This file is the **single source of truth** for the `QUALITY GATE` block: the unified publish-gate artifact that consolidates the mechanical pattern floor (gate-runner) with the multi-model panel sign-off. It is the G6 forbidden-tools prerequisite for PR-creation / draft-state mutation, emitted in the same turn as the tool call. `.github/pr-quality-gate/README.md` §1B and the `Publish gate` section of `review-workflow-gates-sweeps.md` (§2D anchor) POINT here; they do not redefine the schema.
 
 ## Honest ceiling (read first)
 

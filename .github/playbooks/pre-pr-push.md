@@ -190,7 +190,7 @@ For every review-targeting push (any of the in-scope rows above - first-review p
 
 > `.github/playbooks/pre-pr-creation-review.md`
 
-...and run the mandatory publish gate (gate-runner full-mode + the multi-model panel) on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. The PR-creation tools enumerated in the publish gate's G6 require `READY-re-emitted-after-user-approval` SPECIFICALLY in the current turn - the initial `READY-pending-user-approval` is pre-approval only and does NOT unblock G6 (user-approval + same-state re-check have not happened) - see `pre-pr-creation-review.md` G3 + `pr-quality-gate/quality-gate-block.md` for the same-turn enforcement.
+...and run the mandatory publish gate (gate-runner full-mode + the multi-model panel) on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. The PR-creation tools enumerated in the publish gate's G6 require `READY-re-emitted-after-user-approval` SPECIFICALLY in the current turn - the initial `READY-pending-user-approval` is pre-approval only and does NOT unblock G6 (user-approval + same-state re-check have not happened) - see `pre-pr-creation-review.md` G3 + `.github/pr-quality-gate/quality-gate-block.md` for the same-turn enforcement.
 
 This step is the SINGLE SOURCE OF TRUTH for "should the publish gate fire now?" - the gate itself does not re-classify whether the push is review-targeting; it reads from the phase-state record that this step writes.
 
