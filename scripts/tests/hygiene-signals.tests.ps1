@@ -137,9 +137,60 @@ $v6 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $no
 Assert-True ($v6.Count -eq 0) 'added non-test IVT + touched-file-LPA ran (production-ivt: <reason>) -> clean'
 $v6b = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: N/A - least-privilege-audit.md:44 production-ivt: foo'))
 Assert-True ($v6b.Count -ge 1) 'a cited N/A that merely embeds the production-ivt token (not ran (...)) is REJECTED for a non-test IVT'
+$v6c = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $nonTestIvtDiff -LedgerLines @('    touched-file-LPA: ran (production-ivt:)'))
+Assert-True ($v6c.Count -ge 1) 'an EMPTY production-ivt marker (no reason) is REJECTED for a non-test IVT'
 $testIvtDiff = @('diff --git a/src/App.csproj b/src/App.csproj', '+++ b/src/App.csproj', '@@ -1,1 +1,2 @@', '+    <InternalsVisibleTo Include="App.Tests" />')
 $v7 = @(Get-StructuralHygieneViolations -NameStatusLines $ivtName -DiffLines $testIvtDiff -LedgerLines @('    touched-file-LPA: ran (test friend-grant)'))
 Assert-True ($v7.Count -eq 0) 'a TEST-target IVT + a justified touched-file-LPA (no production-ivt marker required) -> clean'
+
+Write-Host '=== Completeness sweep: REAL git-diff fixtures (New-TestGitRepository) across the change taxonomy ==='
+function Invoke-GitOk {
+    param([string] $Repo, [Parameter(ValueFromRemainingArguments)] [string[]] $GitArgs)
+    $out = git -C $Repo @GitArgs 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') failed in ${Repo}: $out" }
+    return $out
+}
+function New-B1SweepRepo {
+    $repo = New-TestGitRepository -Prefix 'b1-sweep'
+    Invoke-GitOk $repo config core.autocrlf false | Out-Null
+    Invoke-GitOk $repo config core.filemode false | Out-Null
+    return $repo
+}
+function Get-B1StagedDiff {
+    param([string] $Repo)
+    Invoke-GitOk $Repo add -A | Out-Null
+    return @(git -C $Repo -c core.quotePath=false diff --cached -U0 --no-color)
+}
+function Assert-B1Viz {
+    param([string] $Repo, [bool] $ExpectFire, [string] $Name)
+    $diff = Get-B1StagedDiff $Repo
+    Assert-True ($diff.Count -gt 0) "$Name [anti-vacuous: the change produced a real staged diff]"
+    Assert-True ((Test-VisibilityDeltaSignal (Get-VisibilityRelevantDiffLines -DiffLines $diff)) -eq $ExpectFire) $Name
+}
+
+$r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r 'Foo.cs') -Value 'public class Foo { }'
+Assert-B1Viz $r $true  'taxonomy ADD: a new .cs with public -> widening fires'
+$r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Bar.cs' -Content "internal class Bar { }`n" -Message seed | Out-Null; Set-Content -LiteralPath (Join-Path $r 'Bar.cs') -Value "internal class Bar { }`npublic int N;`n"
+Assert-B1Viz $r $true  'taxonomy MODIFY: adding a public member -> widening fires'
+$r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Baz.cs' -Content "public class Baz { }`n" -Message seed | Out-Null; Set-Content -LiteralPath (Join-Path $r 'Baz.cs') -Value "internal class Baz { }`n"
+Assert-B1Viz $r $true  'taxonomy MODIFY ->internal narrowing still fires via the +internal line (disclosed residual)'
+$r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Del.cs' -Content "public class Del { }`n" -Message seed | Out-Null; Remove-Item -LiteralPath (Join-Path $r 'Del.cs')
+Assert-B1Viz $r $false 'taxonomy DELETE: removing a .cs with public -> does NOT fire (narrowing)'
+$r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Ren.cs' -Content "public class Ren { }`n" -Message seed | Out-Null; Invoke-GitOk $r mv 'Ren.cs' 'Ren2.cs' | Out-Null
+Assert-B1Viz $r $false 'taxonomy RENAME (pure): -> does NOT fire (no added widening content)'
+$r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r 'App.csproj') -Value "<Project>`n  <ItemGroup>`n    <InternalsVisibleTo Include=`"Prod.App`" />`n  </ItemGroup>`n</Project>`n"
+$ivtDiff = Get-B1StagedDiff $r
+Assert-True ($ivtDiff.Count -gt 0) 'taxonomy ADD csproj IVT [anti-vacuous: real staged diff]'
+Assert-Equal 'Prod.App' (Test-NonTestIvtSignal (Get-VisibilityRelevantDiffLines -DiffLines $ivtDiff)) 'taxonomy ADD csproj non-test IVT (own line) -> gated signal fires with the target'
+$r = New-B1SweepRepo; [System.IO.File]::WriteAllText((Join-Path $r 'NoNl.cs'), 'public class NoNl { }')
+Assert-B1Viz $r $true  'taxonomy NO-NEWLINE-AT-EOF: a .cs with public and no trailing newline -> fires'
+$r = New-B1SweepRepo; [System.IO.File]::WriteAllBytes((Join-Path $r 'blob.cs'), ([byte[]](0,1,2,3,255,254,0,10,13)))
+Assert-B1Viz $r $false 'taxonomy BINARY: a binary .cs (git "Binary files differ") -> does NOT fire (no text content)'
+$r = New-B1SweepRepo; New-TestCommit -Directory $r -File 'Mode.cs' -Content "public class Mode { }`n" -Message seed | Out-Null; Invoke-GitOk $r update-index --chmod=+x 'Mode.cs' | Out-Null
+Assert-B1Viz $r $false 'taxonomy MODE-ONLY: a chmod with no content change -> does NOT fire'
+$r = New-B1SweepRepo; Set-Content -LiteralPath (Join-Path $r 'Doc.md') -Value 'the word public appears here'
+Assert-B1Viz $r $false 'taxonomy ADD docs (.md): -> does NOT fire (docs excluded from the visibility scope)'
+Remove-TestTempDirectories
 
 Write-Host ''
 if ($script:Fail -gt 0) { Write-Host "Failures: $script:Fail" -ForegroundColor Red; exit 1 }
