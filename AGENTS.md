@@ -267,7 +267,7 @@ These standards apply to **every** code change, in every language. Reviewers rej
 
 > **C# adds:** XML doc comment rules. See `csharp.instructions.md`.
 
-General coding standards live in two auto-loaded files: `coding-standards.instructions.md` (universal, every edit) covers naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text; `coding-standards-code.instructions.md` (code edits) covers tests, performance, state predicates, deferred mutations, recurring smells, project/folder structure.
+General coding standards §3.2-§3.13 live in two auto-loaded files - `coding-standards.instructions.md` (universal) and `coding-standards-code.instructions.md` (code edits); the [Topic-specific files](#topic-specific-files) table below maps both files' sections and load globs.
 
 ### 3.14 No em-dashes or smart punctuation (HARD BAN)
 
