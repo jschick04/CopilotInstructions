@@ -45,6 +45,10 @@ Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles $providerDir).Fired 'esta
 Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/WevtReader.cs','a/WevtWriter.cs')).Fired '2 files below the >=3 threshold do not fire'
 # 3 role-named files with no shared domain token -> no fire (disclosed false-negative)
 Assert-False (Test-CohesiveSliceSignal -AddedCodeFiles @('a/Handler.cs','a/Command.cs','a/Result.cs')).Fired '3 pure-role-named files (no shared domain token) do not fire (disclosed FN)'
+# repo-root cohesive slice: 3 files with no directory -> fires AND reports Dir normalized to '.' (not an empty string)
+$rootSlice = Test-CohesiveSliceSignal -AddedCodeFiles @('WidgetReader.cs','WidgetWriter.cs','WidgetParser.cs')
+Assert-True  $rootSlice.Fired                    'a repo-root cohesive slice (3 Widget-token files, no directory) fires'
+Assert-Equal '.' $rootSlice.Dir                  'a repo-root slice normalizes the empty directory to . for a clear violation message (not an empty string)'
 
 Write-Host '=== Test-VisibilityDeltaSignal (WIDENING-only: added exposed decl / added IVT; narrowing does NOT fire) ==='
 Assert-True  (Test-VisibilityDeltaSignal @('+    public sealed class Foo'))       'added public class is a widening'
