@@ -18,13 +18,13 @@ $script:Pass = 0
 $script:Fail = 0
 
 $scriptsDir = Split-Path -Parent $PSScriptRoot
-$checkers = @(Get-ChildItem -LiteralPath $scriptsDir -Filter 'check-*.ps1')
+$checkers = @(Get-ChildItem -LiteralPath $scriptsDir -Filter 'check-*.ps1' -File)
 Assert-True ($checkers.Count -ge 10) "found the scripts/check-*.ps1 cohort [anti-vacuous: $($checkers.Count)]"
 
 # The single path-matching diff that injects the flag for its callers - assert that injection so the helper-fed
 # call sites below are genuinely covered, not silently skipped.
 $helper = Get-Content -LiteralPath (Join-Path $scriptsDir 'lib/read-receipt-helpers.psm1') -Raw
-Assert-True ($helper.Contains('@(''-c'', ''core.quotePath=false'') + $DiffArgs')) 'Get-MatchedGatedFiles prepends -c core.quotePath=false to its caller DiffArgs (helper-fed sites are covered)'
+Assert-True ($helper -match '@\(\s*''-c''\s*,\s*''core\.quotePath=false''\s*\)\s*\+\s*\$DiffArgs') 'Get-MatchedGatedFiles prepends -c core.quotePath=false to its caller DiffArgs (helper-fed sites are covered)'
 
 $totalScanned = 0
 $violations = @()
@@ -79,7 +79,7 @@ Assert-True ($gateRunnerViolations.Count -eq 0) ('every path-parsing diff in the
 # Sub-convention B: every `+++ b/` path-CAPTURE regex must stop at the disambiguation tab (`[^\t]`, not greedy
 # `.+`). Scanned across lib/*.psm1 + check-*.ps1; the Substring(...).Trim() form (check-no-machine-paths) is
 # tab-safe and uses no `b/(` capture, so it is not matched here.
-$parserFiles = @(Get-ChildItem -LiteralPath (Join-Path $scriptsDir 'lib') -Filter '*.psm1') + $checkers
+$parserFiles = @(Get-ChildItem -LiteralPath (Join-Path $scriptsDir 'lib') -Filter '*.psm1' -File) + $checkers
 $plusParsers = 0
 $greedyParsers = @()
 foreach ($parserFile in $parserFiles) {
