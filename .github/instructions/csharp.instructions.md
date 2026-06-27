@@ -162,7 +162,7 @@ When any of those conditions fails, **keep two files** in the same feature folde
 - **MAUI heads:** `Layout/` (MainLayout, exception handler), `Panels/` or feature-named folders for major UI sections; avoid wrapping everything in a `Components/` parent.
 - **Console / CLI tools:** `Commands/` for command handlers, `Sources/` or feature folders for data sources; `Program.cs` at root.
 
-**`InternalsVisibleTo` placement:** in csproj (the preferred .NET 5+ `<InternalsVisibleTo Include="..." />` item - see the **C#-specific friend-assembly mechanism** under *Access modifiers* above; csproj keeps the friend-asm policy visible alongside dependencies and survives reorgs), not `Properties/AssemblyInfo.cs`; delete a near-empty `AssemblyInfo.cs` whose only content was IVT.
+**`InternalsVisibleTo` placement:** in csproj (the preferred .NET 5+ `<InternalsVisibleTo Include="..." />` item - see the **C#-specific friend-assembly mechanism** under *Access modifiers* above; csproj keeps the friend-asm policy visible alongside dependencies and survives reorgs), not `Properties/AssemblyInfo.cs`; delete that file only if IVT was its sole content, otherwise just remove the IVT line.
 
 **Naming conventions for utility classes:**
 - Extension method classes: `<TypeName>Extensions` (e.g., `StringExtensions`, `LogEntryExtensions`), not `<TypeName>Methods`.
