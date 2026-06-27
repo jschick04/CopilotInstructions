@@ -13,7 +13,7 @@ applyTo: "**/*.cs,**/*.csx,**/*.csproj,**/*.razor,**/*.razor.cs,**/*.cshtml,**/*
 ---
 ## Comments - XML doc additions (extends [Core / Comments](../../AGENTS.md#31-comments))
 
-The universal comment rules in `AGENTS.md` (three-step comment protocol - clarity check → rename check → step-3 `ask_user` comment-approval gate; canonical exempt categories; no comments that restate code; no narration; no future-tense speculation; no TODO/FIXME/HACK; mandatory self-review pass with `approval_turn:` citation) all apply here unchanged. The bullets below are the C#-specific additions for XML doc comments.
+The universal `AGENTS.md` §3.1 comment rules apply here unchanged; the bullets below are the C#-specific additions for XML doc comments.
 
 - **No XML doc comments (`/// <summary>...`) on `private` members.** Period. Not on private fields, not on private methods, not on private nested types. The XML-doc-on-private-field is the most common violation. If the field needs explanation, the *name* needs work.
 - XML docs that restate the method signature are forbidden the same way prose comments that restate code are: `/// <summary>Copies text to the clipboard.</summary>` on `Task CopyTextAsync(string text)` says nothing the signature doesn't.
@@ -162,13 +162,7 @@ When any of those conditions fails, **keep two files** in the same feature folde
 - **MAUI heads:** `Layout/` (MainLayout, exception handler), `Panels/` or feature-named folders for major UI sections; avoid wrapping everything in a `Components/` parent.
 - **Console / CLI tools:** `Commands/` for command handlers, `Sources/` or feature folders for data sources; `Program.cs` at root.
 
-**`InternalsVisibleTo` placement:** in csproj, not `Properties/AssemblyInfo.cs`. Csproj keeps the friend-asm policy visible alongside dependencies, survives reorgs, and avoids a near-empty `AssemblyInfo.cs` whose only contents are IVT directives. Use:
-```xml
-<ItemGroup>
-  <InternalsVisibleTo Include="OtherAssembly" />
-</ItemGroup>
-```
-Delete `Properties/AssemblyInfo.cs` if IVT was its only content.
+**`InternalsVisibleTo` placement:** in csproj (the preferred .NET 5+ `<InternalsVisibleTo Include="..." />` item - see *Access modifiers - C#-specific friend-assembly mechanism* above; csproj keeps the friend-asm policy visible alongside dependencies and survives reorgs), not `Properties/AssemblyInfo.cs`; delete a near-empty `AssemblyInfo.cs` whose only content was IVT.
 
 **Naming conventions for utility classes:**
 - Extension method classes: `<TypeName>Extensions` (e.g., `StringExtensions`, `LogEntryExtensions`), not `<TypeName>Methods`.
