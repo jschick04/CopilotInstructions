@@ -116,6 +116,9 @@ function Test-IsNewCommentLine {
     $normalizedPath = $FilePath -replace '\\', '/'
     if ($normalizedPath -cmatch '^\.github/pr-quality-gate/pattern-catalog\.md$' -or
         $normalizedPath -cmatch '^\.github/pr-quality-gate/pattern-catalog\.sources/[^/]*\.md$') { return $false }
+    # HIGH-TIER-SLUGS.md is a generated projection of (already-excluded) pattern-catalog.md; its comment-audit
+    # exemption holds only while catalog-sync-check + sync -Verify enforce byte-identity (see comment-protocol.md).
+    if ($normalizedPath -cmatch '^\.github/pr-quality-gate/HIGH-TIER-SLUGS\.md$') { return $false }
     $extension = [System.IO.Path]::GetExtension($FilePath).TrimStart('.').ToLowerInvariant()
     $trimmed = $Content -replace '^\s+', ''
     if ($extension -in @('md','markdown') -and $trimmed -cmatch '^<!--\s*read-receipt-token:\s*[0-9a-f]{8}\s*-->\s*$') { return $false }
