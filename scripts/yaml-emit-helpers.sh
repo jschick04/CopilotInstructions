@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# YAML single-quote scalar helper -- byte-identical twin of scripts/lib/yaml-emit-helpers.psm1 (see it for rationale).
+# YAML single-quote scalar helper -- bash twin of scripts/lib/yaml-emit-helpers.psm1 with byte-identical output (see it for rationale).
 # Renders a free-text value (pr_ref, prior_slugs) as a single-line scalar so it cannot reshape gate-runner.sh's
 # contract block. Parity pinned by scripts/tests/yaml-emit-helpers.tests.ps1.
 yaml_sq() {
