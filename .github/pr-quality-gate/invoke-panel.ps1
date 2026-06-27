@@ -14,6 +14,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+Import-Module (Join-Path $PSScriptRoot '../../scripts/lib/yaml-emit-helpers.psm1') -Force
+
 function Write-Err  { param([string] $Msg) [Console]::Error.WriteLine("[invoke-panel ERROR] $Msg") }
 function Exit-Launcher { param([int] $Code, [string] $Reason) if ($Reason) { Write-Err $Reason }; exit $Code }
 
@@ -150,9 +152,9 @@ if ($PrRef) {
         $priorRows = Import-Csv -LiteralPath $panelMissesCsvPath -Encoding UTF8 | Where-Object { $_.pr_ref -eq $PrRef }
         $priorSlugs = @($priorRows | ForEach-Object { $_.proposed_catalog_slug } | Sort-Object -Unique | Where-Object { $_ })
         if ($priorSlugs.Count -gt 0) {
-            $antiRecidivismLines += "pr_ref: $PrRef"
+            $antiRecidivismLines += "pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)"
             $antiRecidivismLines += "prior_slugs:"
-            foreach ($s in $priorSlugs) { $antiRecidivismLines += "  - $s" }
+            foreach ($s in $priorSlugs) { $antiRecidivismLines += "  - $(ConvertTo-YamlSingleQuotedScalar $s)" }
             $antiRecidivismLines += "reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
         }
     }
@@ -169,7 +171,7 @@ if ($Mode -eq 'triage') {
 PANEL LAUNCH CONTRACT (triage)
   panel_mode: triage
   active_profile: $activeProfile
-  pr_ref: $PrRef
+  pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)
   required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
     reviewer_count: 1
@@ -214,7 +216,7 @@ if ($Mode -eq 'lite') {
 PANEL LAUNCH CONTRACT (lite)
   panel_mode: lite
   active_profile: $activeProfile
-  pr_ref: $PrRef
+  pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)
   required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
     reviewer_count: 3
@@ -266,7 +268,7 @@ PANEL LAUNCH CONTRACT (lite)
 PANEL LAUNCH CONTRACT (full)
   panel_mode: full
   active_profile: $activeProfile
-  pr_ref: $PrRef
+  pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)
   required_rule_ack: [$(($requiredRuleAckSlugs) -join ', ')]
   slate_floor_required:
     reviewer_count: 4-6
