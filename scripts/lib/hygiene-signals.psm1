@@ -90,7 +90,7 @@ function Test-CohesiveSliceSignal {
     param([string[]] $AddedCodeFiles)
     $result = [pscustomobject]@{ Fired = $false; Dir = $null; Files = 0; Token = $null }
     if (-not $AddedCodeFiles -or $AddedCodeFiles.Count -lt 3) { return $result }
-    $byDir = $AddedCodeFiles | Group-Object { ([System.IO.Path]::GetDirectoryName($_) -replace '\\', '/') }
+    $byDir = $AddedCodeFiles | Group-Object { $dir = ([System.IO.Path]::GetDirectoryName($_) -replace '\\', '/'); if ($dir) { $dir } else { '.' } }
     foreach ($group in $byDir) {
         if ($group.Count -lt 3) { continue }
         $tokenCounts = @{}
