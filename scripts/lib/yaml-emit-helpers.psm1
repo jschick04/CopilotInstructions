@@ -2,7 +2,7 @@
 # Renders a free-text CSV value (pr_ref, prior_slugs) as a single-line scalar so a colon-space or leading indicator
 # cannot reshape the LLM-consumed contract block into a mapping. Structural disambiguation for the reader only --
 # no strict YAML parser is downstream, so this is not strict-parse or injection safety.
-# Byte-identical bash twin: scripts/yaml-emit-helpers.sh; parity pinned by scripts/tests/yaml-emit-helpers.tests.ps1.
+# Bash twin with byte-identical output: scripts/yaml-emit-helpers.sh; parity pinned by scripts/tests/yaml-emit-helpers.tests.ps1.
 
 Set-StrictMode -Version Latest
 
