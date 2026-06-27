@@ -64,6 +64,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'panel-artifact scan';         Script = 'scripts/check-no-panel-artifacts.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-artifact unit tests';   Script = 'scripts/tests/check-no-panel-artifacts.tests.ps1'; LocalArgs = @();                  EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-misses enum sync tests'; Script = 'scripts/tests/panel-misses-classification-sync.tests.ps1'; LocalArgs = @();          EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'yaml-emit helper tests';       Script = 'scripts/tests/yaml-emit-helpers.tests.ps1';      LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'pr-text leakage scan';        Script = 'scripts/check-pr-text.ps1';                     LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'pr-text unit tests';          Script = 'scripts/tests/check-pr-text.tests.ps1';         LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'machine-path scan';           Script = 'scripts/check-no-machine-paths.ps1';            LocalArgs = @('-BaseRef', $baseRef);    EnvSkippable = $false }

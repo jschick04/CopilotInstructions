@@ -19,6 +19,8 @@ $ErrorActionPreference = 'Stop'
 $script:RunnerVersion = '0.1.0'
 $script:ExitCode = 0
 
+Import-Module (Join-Path $PSScriptRoot '../../scripts/lib/yaml-emit-helpers.psm1') -Force
+
 function Write-Diag { param([string] $Msg) Write-Host -ForegroundColor Yellow "[gate-runner] $Msg" -NoNewline; Write-Host '' }
 function Write-Err  { param([string] $Msg) [Console]::Error.WriteLine("[gate-runner ERROR] $Msg") }
 
@@ -277,15 +279,15 @@ QUALITY GATE
   head_sha: $HeadSha
   diff_scope: $diffLine
   patterns_run: $($entries.Count)
-  pr_ref: $PrRef
+  pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)
   required_rule_ack: [$(($requiredRuleAckSlugs | ForEach-Object { $_ }) -join ', ')]
 "@
 
 if ($antiRecidivismSlugs.Count -gt 0) {
     "  anti_recidivism_preamble:"
-    "    pr_ref: $PrRef"
+    "    pr_ref: $(ConvertTo-YamlSingleQuotedScalar $PrRef)"
     "    prior_slugs:"
-    foreach ($s in $antiRecidivismSlugs) { "      - $s" }
+    foreach ($s in $antiRecidivismSlugs) { "      - $(ConvertTo-YamlSingleQuotedScalar $s)" }
     "    reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
 }
 

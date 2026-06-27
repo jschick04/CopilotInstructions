@@ -16,6 +16,8 @@ PROJECT_ROOT="$(pwd)"
 VERIFY=0
 PR_REF=''
 
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../../scripts/yaml-emit-helpers.sh"
+
 # ===== CLI parsing =====
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -308,7 +310,7 @@ QUALITY GATE
   head_sha: $HEAD_SHA
   diff_scope: $BASE_SHA..$HEAD_SHA ($FILE_COUNT files)
   patterns_run: $PATTERNS_RUN
-  pr_ref: $PR_REF
+  pr_ref: $(yaml_sq "$PR_REF")
 EOF
 
 # Build required_rule_ack list (review-pass-only HIGH-tier slugs filtered by mode)
@@ -341,9 +343,9 @@ print("\n".join(sorted(seen)))
 ' "$PANEL_MISSES_CSV" "$PR_REF" 2>/dev/null || true)"
         if [[ -n "$PRIOR_SLUGS" ]]; then
             echo "  anti_recidivism_preamble:"
-            echo "    pr_ref: $PR_REF"
+            echo "    pr_ref: $(yaml_sq "$PR_REF")"
             echo "    prior_slugs:"
-            while IFS= read -r s; do [[ -n "$s" ]] && echo "      - $s"; done <<< "$PRIOR_SLUGS"
+            while IFS= read -r s; do [[ -n "$s" ]] && echo "      - $(yaml_sq "$s")"; done <<< "$PRIOR_SLUGS"
             echo "    reviewer_action_required: 'For each prior_slug, emit verified-no-recurrence: <slug> with fix_evidence (commit_sha or diff_hunk).'"
         fi
     fi
