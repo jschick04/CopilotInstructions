@@ -8,7 +8,7 @@ After implementation, run the import/using hygiene pass, the touched-file recurr
 ## Hard gates (also in `AGENTS.md` - repeated here for context)
 
 - Touched-file imports/usings sorted and unused removed.
-- **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility/export/mutability surface delta** - adds a public/exported type or member; widens visibility; removes `sealed`/`final`/closed-extension; adds or widens a constructor/member/setter; exposes a field; changes package/module exports. Do NOT trigger on body-only edits to an already-public type that change no surface.
+- **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility/export/mutability surface delta** (enumerated, with the body-only-edit carve-out, in step 2).
 - **Touched-file review-recurring-pattern sweep run with explicit findings count reported** (see step 2.5). MANDATORY on every commit-bound change - silent skip is the failure mode this gate exists to prevent.
 - **§3.1 comment audit evidence-gate output emitted** (see step 2.6) before the diff is shown - structured chat block enumerating every NEW comment line with one-line justifications per the §3.1 self-review pass rule.
 - Multi-model reviewer panel run via `multi-model-review.md` (utility-called by this phase) with `unanimous` convergence model; cumulative log shows convergence reached with 0 unaddressed blocking findings and `subagent_ask_user_calls=0` per round.
