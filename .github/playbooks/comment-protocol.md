@@ -196,7 +196,7 @@ A bullet missing the `approval_turn:` field, citing an exempt category not in th
 
 ---
 
-Each commit in THIS repo authors a receipt at `.github/pr-quality-gate/audits/last.md` (relative to the repo root) containing the §2.6 comment-audit block verbatim plus a `parent_sha:` header line. The receipt is overwritten per commit; the `post-commit` hook flushes it into the commit's note and removes it. The note is the persistent record the local `pre-push` gate reads to verify the comment audit.
+Each commit's receipt at `.github/pr-quality-gate/audits/last.md` contains the §2.6 comment-audit block plus a `parent_sha:` header line.
 
 **Format** (literal text, with no leading prose):
 
