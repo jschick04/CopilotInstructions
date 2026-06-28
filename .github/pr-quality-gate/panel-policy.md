@@ -42,7 +42,7 @@ Floor is verified from the slate enumeration. Mid-launch substitutions are allow
 - light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per `multi-model-review/current-model-registry.md`); heavy-tier NOT required
 - `convergence_model: unanimous` (lite cuts reviewer COUNT + tier, NOT the convergence bar); slate recorded in the `CODE-REVIEW PANEL CONVERGED` `slate` + `profile` fields
 
-**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips panels. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not agent `-Profile`; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. `Test-PanelLedger` mechanically validates BOTH panels against `$script:PanelSlateFloor` (always full here): post via `panel-transcript:` (`CODE_REVIEW_READY`), pre via `pre-panel-transcript:` (`DESIGN_READY`); `user-waived` needs `"panel-waive-acknowledged" ref:<call-ref>`; tier 2 (safety-critical) = both ran-only. See `review-workflow-gates-sweeps.md` §2B.
+**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips panels. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not agent `-Profile`; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. `Test-PanelLedger` mechanically validates BOTH panels against `$script:PanelSlateFloor` (always full here); the transcript formats, `user-waived` token, and tier-2 (safety-critical) both-ran-only rule are canonical in `review-workflow-gates-sweeps.md` §2B.
 
 ## Convergence model
 
@@ -86,7 +86,7 @@ For EACH external-reviewer finding on a PR with a converged pre-PR panel:
    - For each new or refined catalog rule proposed: append to `pattern-catalog.md` and run a panel on the change (full iteration discipline applies - no rule lands without convergence).
    - The agent MUST NOT close the PR loop without updating tracking. If tracking is deferred (e.g., user authorizes "fix-now-track-later"), the agent MUST surface it via same-turn `ask_user` with literal token `panel-miss-deferred`.
 
-3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum, classification enum, RFC 4180 quoting requirements, and append discipline. The schema formerly lived inline; single source of truth is now `data/README.md` to prevent drift.
+3. **`data/panel-misses.csv` schema**: see `data/README.md` §"panel-misses.csv" for the authoritative 10-field schema, status enum, classification enum, RFC 4180 quoting requirements, and append discipline.
 
 **Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot.
 
@@ -150,7 +150,7 @@ Each reviewer's prompt MUST include this preamble (alongside the same-state re-c
 
 > The agent's system prompt enforces style rules beyond the catalog. In particular: "Only comment code that needs a bit of clarification. Do not comment otherwise." Treat this as a gate rule even if not enumerated in `coding-preferences.md`. **Apply only to code newly added or modified in this PR (the `+` lines of the diff); do NOT flag pre-existing comments on baseline lines of modified files.** Flag: multi-line `<remarks>` XML doc blocks; inline comments narrating what (not why) the code does; comments referencing PR history, panel slots, round numbers, or planning artifacts. Brief one-line `<summary>` on public APIs and one-line *why*-comments for subtle behavior are fine.
 
-This is the catch-net for the gap between "rule exists in system prompt" and "rule is auto-detected by gate-runner". Without it, panel reviewers truthfully report "0 violations" against the catalog while system-prompt rules silently regress (the exact failure mode observed in a prior multi-PR review).
+This is the catch-net for the gap between "rule exists in system prompt" and "rule is auto-detected by gate-runner". Without it, panel reviewers truthfully report "0 violations" against the catalog while system-prompt rules silently regress.
 
 ## Reviewer same-state re-checks
 
