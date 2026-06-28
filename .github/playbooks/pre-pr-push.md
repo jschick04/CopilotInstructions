@@ -166,7 +166,7 @@ If the branch-wide sweep modifies any files, fetch:
 
 **Run AFTER Steps 2 + 3 are settled** (sweep changes committed / amended) so the audit sees the final branch state, not a sweep-mutated working tree.
 
-Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** - adds a public / exported type or member; widens visibility; removes `sealed` / `final` / closed-extension; adds or widens a constructor / member / setter; exposes a field; changes package / module exports; introduces an exported Go top-level identifier; widens Rust `pub(...)` to bare `pub`. Do NOT trigger on body-only edits to already-public types that change no surface.
+Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** - same definition (incl. the body-only-edit carve-out) as `post-code-change.md`'s touched-file gate, step 2.
 
 > `.github/playbooks/least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches)
 
