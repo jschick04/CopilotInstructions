@@ -91,7 +91,7 @@ Fetching review comments for 10 PRs is ~20 API calls. Use `gh api --paginate` on
 
 The pre-implementation phase has a single named certification block (`DESIGN PANEL CONVERGED` per §1A) whose presence is enforced by §1B  -  implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped  -  and the user has no easy way to detect it after the fact.
 
-This is the failure mode that landed on this branch: `DESIGN PANEL CONVERGED` was emitted once for the plan; subsequent implementation commits proceeded with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running. The user had previously waived the diff-approval `ask_user` step on an earlier commit; that single-step waiver was implicitly carried forward and treated as a blanket post-code-change waiver on later commits.
+This guards the failure mode where one plan-time `DESIGN PANEL CONVERGED`, or a single earlier diff-approval waiver, is treated as blanket post-code-change coverage  -  later implementation commits then proceed with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running.
 
 ### Rule
 
@@ -271,9 +271,7 @@ A gate row may be `N/A: <reason>` when:
 
 ### Why this exists
 
-The asymmetry with §1A produced the failure mode. §1A enforces "no implementation tools without `DESIGN PANEL CONVERGED`"; the absence of the certification block is itself the enforcement. §2B mirrors that pattern at the commit boundary: "no `git commit` without `POST-CODE-CHANGE LEDGER`". The literal block is the enforcement; absent block = forbidden tool call. This makes the rule self-policing in the same way §1A is.
-
-The ledger is also the audit trail: when a future review (post-merge, retrospective, or PR review on the open PR) discovers that a gate slipped, the ledger explicitly records *which* gate was skipped and *why*. No more reconstructing intent from chat history.
+The ledger is the audit trail: when a future review (post-merge, retrospective, or PR review on the open PR) discovers that a gate slipped, the ledger explicitly records *which* gate was skipped and *why*. No more reconstructing intent from chat history.
 
 ### Repeat failure escalation
 
