@@ -116,3 +116,32 @@ b858d5fbd58681df  checker bootstrap (check-no-automation-identity.ps1 vs check-c
 5214170777f3060c  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
 3961d16ce29875af  CI-wrapper bootstrap (run-quality-gate-ci.ps1 vs check-diff-consistency-ci.ps1; StrictMode + Import-Module + Resolve-RepoRoot fail-closed)
 404a92dea49772ab  gate-runner -Verify append block (mkdir moved inside rows>0 guard; heuristic flags the modified block as duplicating its pre-edit version - a modify, not a copy-paste)
+
+# check-instructions-refs.ps1 deliberately mirrors the proven check-playbook-refs.ps1 (the panel-endorsed
+# single-responsibility ref-checker pattern): the per-script bootstrap (CmdletBinding + param + Resolve-RepoRoot
+# try/catch), the per-script exit-code constants, the Write-Invocation/Write-Violation helpers, and the
+# violations-print-and-exit tail are idiomatic boilerplate shared by every check-*.ps1 and cannot be DRY-ed
+# without diverging from all siblings.
+a9d259f7512d204f  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; CmdletBinding + param + Resolve-RepoRoot)
+469c3daa323fa77a  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; CmdletBinding + param + Resolve-RepoRoot)
+11493ce129191f2f  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; CmdletBinding + param + Resolve-RepoRoot)
+4a60d4656286ce60  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+3c51911c3c6af7e0  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+86cd0bc351230e3d  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+c64c7289d16ad8b4  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+63c48c81b2980c0f  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+d052fafe0c7e4b9d  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+2e1cfc8f8ab2a98b  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+dbb84938c73b4548  checker bootstrap (check-instructions-refs.ps1 vs check-playbook-refs.ps1; exit-code constants + Write helpers)
+d8b8e1856de9802e  checker tail (check-instructions-refs.ps1 vs check-playbook-refs.ps1; violations-print-and-exit idiom)
+267b738064a3fefa  checker tail (check-instructions-refs.ps1 vs check-playbook-refs.ps1; violations-print-and-exit idiom)
+521af4e503998427  checker tail (check-instructions-refs.ps1 vs check-playbook-refs.ps1; violations-print-and-exit idiom)
+# check-instructions-refs.tests.ps1 shares the standalone self-test harness (New-*Repo / Add-RepoFile / Run
+# helpers) with check-playbook-refs.tests.ps1 - the established per-checker test scaffolding pattern.
+44ff9d169102b894  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+8db445a8f0b8a7da  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+efb9f3e6e6448420  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+4236c7e1abd8b853  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+89daab4c04509df1  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+3e62b8e8f0a4c966  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+cb1c6c6001680184  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
