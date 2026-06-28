@@ -35,6 +35,8 @@ $mirror = @(
     [pscustomobject]@{ Name = 'playbook-refs unit tests';    Script = 'scripts/tests/check-playbook-refs.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instruction file refs';       Script = 'scripts/check-instructions-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instructions-refs unit tests';Script = 'scripts/tests/check-instructions-refs.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'catalog cede refs';           Script = 'scripts/check-catalog-cede-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'catalog-cede-refs unit tests';Script = 'scripts/tests/check-catalog-cede-refs.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'comment-audit unit tests';    Script = 'scripts/tests/check-comment-audit.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-ledger unit tests';   Script = 'scripts/tests/check-post-code-change.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'hygiene-signals unit tests';Script = 'scripts/tests/hygiene-signals.tests.ps1';      LocalArgs = @();                     EnvSkippable = $false }
