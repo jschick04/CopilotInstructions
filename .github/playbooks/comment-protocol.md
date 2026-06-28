@@ -196,7 +196,7 @@ A bullet missing the `approval_turn:` field, citing an exempt category not in th
 
 ---
 
-Each commit's receipt at `.github/pr-quality-gate/audits/last.md` contains the §2.6 comment-audit block plus a `parent_sha:` header line.
+Each commit's receipt at `.github/pr-quality-gate/audits/last.md` contains the §2.6 comment-audit block plus `parent_sha:` and `commit_subject:` header lines.
 
 **Format** (literal text, with no leading prose):
 
