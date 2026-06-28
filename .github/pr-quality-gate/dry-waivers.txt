@@ -145,3 +145,32 @@ efb9f3e6e6448420  per-checker test scaffolding (check-instructions-refs.tests.ps
 89daab4c04509df1  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
 3e62b8e8f0a4c966  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
 cb1c6c6001680184  per-checker test scaffolding (check-instructions-refs.tests.ps1 vs check-playbook-refs.tests.ps1; self-test harness helpers)
+
+# check-catalog-fp-refs.ps1 shares the self-contained checker bootstrap (Resolve-RepoRoot sources anchor +
+# try/catch + sources-dir fail-closed validation) with check-catalog-cede-refs.ps1 - the same idiomatic
+# per-script boilerplate across the four sibling structural checkers; extracting it would couple
+# intentionally standalone checkers.
+0e1f80f4d9f60917  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+ad426923d8f06d2a  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+61af13ebbeeea701  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+a8c3512e2b1930ed  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+1d769ec479d2e1c9  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+58348664ec341f95  checker bootstrap (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; CmdletBinding param + Resolve-RepoRoot)
+5c248b86d69ac1cf  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+cc389200d50439fa  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+50154c1d6c11d7e9  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+d983c9b21c7e8d16  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+a329ccf6846f521f  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+2451ffbe1fc47be4  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+fb8118fdcff1d91b  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+813fc999a3781420  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+d1e03b367d2f5759  checker sources-dir fail-closed validation (check-catalog-fp-refs.ps1 vs check-catalog-cede-refs.ps1; Test-Path + Get-ChildItem)
+
+# check-catalog-fp-refs.tests.ps1 shares the standalone self-test harness (New-CatalogRepo / Add-CatalogFile /
+# Run helpers) with check-catalog-cede-refs.tests.ps1 - the established per-checker test scaffolding pattern.
+cb840765a49bd97b  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+2f3f07a85756f7f1  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+2f5c2c8fad21f7df  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+fadf0d6b0895c1f6  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+f782bafbf94c998b  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+9b0711c398d9f88a  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)

@@ -169,13 +169,13 @@ Single-row representation (no implicit row-pairing); `params` JSON shape determi
 | `review-pass-only` | `{}` (empty object - no rg discovery) | MUST be non-empty |
 | `checker-scoped` | `{"checker_id":"<id>"}` (script-mechanized; not rg-scanned or lens-forwarded; parity-gated by `check-checker-registry.ps1`) | MUST be empty |
 
-`fp_slug` non-empty → catalog file MUST contain a corresponding `### FP-<slug>` section; orphan = exit 2.
+`fp_slug` non-empty → the catalog MUST contain a corresponding `## FP-<N>:` section (`fp-1` maps to `## FP-1:`), and each `## FP-<N>:` section MUST be referenced by some row's `fp_slug`; `scripts/check-catalog-fp-refs.ps1` enforces both directions (orphan → exit 1, merge-blocking via `pr-gate-check.yml`).
 
 Violations of any cross-field constraint → exit 2 with stderr message naming line + which constraint failed.
 
 **No implicit row pairing**: every pattern is one row. Hybrid patterns carry their tree-scoped and diff-scoped queries in a single `params` JSON object (the `tree` and `diff` sub-objects). This eliminates the v7 ambiguity where "hybrid" could mean "two rows" OR "one row with scope_mode=hybrid" - only the latter is valid in v8.
 
-FP entries are sub-sections in the same catalog file, NOT a separate file. Format: `### FP-<N>: <slug>` with `Technical claim`, `Why FP`, `Recurrence pattern`, `Canonical dismissal template`, `Mitigation candidates` subsections (mirrors current v4 `known-false-positives.md` content, condensed inline).
+FP entries are sub-sections in the same catalog file, NOT a separate file. Format: `## FP-<N>: <slug>` with `Technical claim`, `Why FP`, `Recurrence pattern`, `Canonical dismissal template`, `Mitigation candidates` subsections (mirrors current v4 `known-false-positives.md` content, condensed inline).
 
 ## Idempotency contract
 
