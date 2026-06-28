@@ -166,7 +166,7 @@ If the branch-wide sweep modifies any files, fetch:
 
 **Run AFTER Steps 2 + 3 are settled** (sweep changes committed / amended) so the audit sees the final branch state, not a sweep-mutated working tree.
 
-Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** - same definition (incl. the body-only-edit carve-out) as `post-code-change.md`'s touched-file gate, step 2.
+Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability surface delta** - same definition (incl. the body-only-edit carve-out) as `post-code-change.md`'s touched-file gate.
 
 > `.github/playbooks/least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches)
 
