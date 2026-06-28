@@ -47,7 +47,7 @@ $refPattern = '[a-zA-Z0-9_.-]+\.instructions\.md'
 # NOT excluded - its instruction-file references must resolve, as check-playbook-refs validates playbook refs there.
 $excludeSpecs = @(':!**/HIGH-TIER-SLUGS.md', ':!*.lock', ':!**/*.csv', ':!scripts/tests/*', ':!scripts/check-instructions-refs.ps1')
 
-$refs = & git -C $RepoRoot grep -nE "$refPattern" -- $excludeSpecs 2>$null
+$refs = & git -C $RepoRoot grep -nzE "$refPattern" -- $excludeSpecs 2>$null
 # git grep: 0 = matches, 1 = no matches (legitimate), >1 = real error. A real failure must fail closed
 # (do not silently treat an errored grep as "no broken references").
 if ($LASTEXITCODE -gt 1) {
@@ -56,15 +56,18 @@ if ($LASTEXITCODE -gt 1) {
 }
 
 $violations = @()
-foreach ($line in $refs) {
-    # git grep -n emits "<path>:<lineno>:<content>"; scan only the content so a file NAMED *.instructions.md
-    # outside the folder is not mistaken for a citation via its own path prefix.
-    $content = $line -replace '^[^:]*:[0-9]+:', ''
-    foreach ($match in [regex]::Matches($content, $refPattern)) {
+foreach ($record in $refs) {
+    # git grep -nz emits NUL-delimited "<path>\0<lineno>\0<content>"; split on NUL (which cannot appear in a
+    # path) so a path containing ':' cannot corrupt parsing, and scan only the content so a file NAMED
+    # *.instructions.md outside the folder is not mistaken for a citation via its own path.
+    $fields = $record -split "`0", 3
+    if ($fields.Count -lt 3) { continue }
+    $citation = "$($fields[0]):$($fields[1]):$($fields[2])"
+    foreach ($match in [regex]::Matches($fields[2], $refPattern)) {
         $cited = $match.Value
         if ($exemptNames.Contains($cited)) { continue }
         if (-not $existingSet.Contains($cited)) {
-            $violations += "$line  (cited instruction file '$cited' does not resolve to .github/instructions/$cited)"
+            $violations += "$citation  (cited instruction file '$cited' does not resolve to .github/instructions/$cited)"
         }
     }
 }

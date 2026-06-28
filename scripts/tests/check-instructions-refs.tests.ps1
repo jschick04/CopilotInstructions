@@ -131,6 +131,21 @@ try {
     git -C $d13 add -A 2>$null; git -C $d13 commit -q -m init
     $r = Run $d13
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match "ghost-x\.instructions\.md' does not resolve" -and $r.Output -notmatch "active-profile\.instructions\.md' does not resolve") 'exempt + dangling on one line -> exit 1, flags only the dangling ref (active-profile exempt)'
+
+    Write-Host "`n=== a ':' in a file path does not corrupt NUL-delimited grep parsing (Linux/macOS only) ==="
+    $isWindowsOs = [System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform([System.Runtime.InteropServices.OSPlatform]::Windows)
+    if ($isWindowsOs) {
+        Write-Host "  [SKIP] colon-in-path test (Windows forbids ':' in file names)"
+    } else {
+        $d14 = New-InstrRepo
+        Add-RepoFile $d14 '.github/instructions/csharp.instructions.md' @('# csharp')
+        # The basename after the ':' (ghost.instructions.md) does not resolve; the OLD ':'-prefix strip would have
+        # parsed it out of the path and false-flagged it. The NUL split keeps the path in its own field, unscanned.
+        Add-RepoFile $d14 'docs/pfx:ghost.instructions.md' @('see csharp.instructions.md for the rules')
+        git -C $d14 add -A 2>$null; git -C $d14 commit -q -m init
+        $r = Run $d14
+        Assert-True ($r.ExitCode -eq 0) 'colon-in-path file with a valid content ref -> exit 0 (NUL split isolates the path field)'
+    }
 }
 finally { Remove-TestTempDirectories }
 
