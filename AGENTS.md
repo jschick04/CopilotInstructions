@@ -279,7 +279,7 @@ General coding standards §3.2-§3.13 live in two auto-loaded files - `coding-st
 
 Both **commit attribution** (`user.name`/`user.email`) AND `git push` **authentication** MUST belong to the human user, never a disallowed automation identity (case-insensitive). The `check-no-automation-identity` gate rejects the commit-side modeled set: `Copilot`, any `[bot]`-suffixed account, `github-actions`, the Copilot noreply, empty. Any other non-user service principal is prose-judgment, not gate-matched. A session authenticating as the human's own GitHub account is fine.
 
-Always-loaded. Procedure in `pre-commit.md` (§4.1) and `pre-pr-push.md` Pre-check 0 (§4.2).
+Always-loaded (applies to ad-hoc commits/pushes outside formal phases too). Procedure in `pre-commit.md` (§4.1) and `pre-pr-push.md` Pre-check 0 (§4.2).
 
 ### 4.1 Commit author identity - hard gates
 
@@ -296,12 +296,6 @@ Always-loaded. Procedure in `pre-commit.md` (§4.1) and `pre-pr-push.md` Pre-che
 - **No silent re-auth.** Never run `gh auth login/refresh/switch` or `git credential approve/fill/erase`.
 - **Push-ownership SEPARATE from commit-ownership.** Same actor labels. Display verified principal.
 - **Recorded as `pushCredentialsVerified`** (required predicate field): `yes`/`user-confirmed-unverifiable`/`blocked`. `blocked` = gate fails.
-
-### 4.3 Composition
-
-- §2 forbids `Co-authored-by` trailer (message-side mirror of §4.1).
-- `pre-commit.md` Step 3 applies §4.1. `pre-pr-push.md` Pre-check 0 applies §4.2.
-- **Always-loaded scope.** §4 applies to ad-hoc commits/pushes outside formal phases too.
 
 ---
 
