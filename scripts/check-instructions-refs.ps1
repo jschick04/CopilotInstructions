@@ -41,9 +41,10 @@ $exemptNames = [System.Collections.Generic.HashSet[string]]::new([System.StringC
 
 $refPattern = '[a-zA-Z0-9_.-]+\.instructions\.md'
 
-# Exclude generated catalog, lock/CSV data ledgers, scripts/tests/* (test suites embed synthetic fixture
-# instruction names that are not real references), and this checker's own source (its messages/comments
-# may carry example tokens that are not citations).
+# Exclude the generated HIGH-TIER-SLUGS.md projection, lock + CSV data ledgers, scripts/tests/* (test suites
+# embed synthetic fixture instruction names that are not real references), and this checker's own source (its
+# comments may carry example tokens that are not citations). The generated pattern-catalog.md is intentionally
+# NOT excluded - its instruction-file references must resolve, as check-playbook-refs validates playbook refs there.
 $excludeSpecs = @(':!**/HIGH-TIER-SLUGS.md', ':!*.lock', ':!**/*.csv', ':!scripts/tests/*', ':!scripts/check-instructions-refs.ps1')
 
 $refs = & git -C $RepoRoot grep -nE "$refPattern" -- $excludeSpecs 2>$null
