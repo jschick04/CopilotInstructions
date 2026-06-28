@@ -1,0 +1,77 @@
+[CmdletBinding()]
+param(
+    [string] $RepoRoot = ''
+)
+
+$ErrorActionPreference = 'Stop'
+Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+try {
+    $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('.github/instructions') -RequireGitWorkTree
+} catch {
+    Write-Host "::error::$($_.Exception.Message)"
+    exit 2
+}
+
+$script:ExitInvocation = 2
+$script:ExitViolation = 1
+$script:ExitOk = 0
+
+function Write-Invocation { param([string] $Msg) Write-Host "::error::INVOCATION_FAILED:$Msg" }
+function Write-Violation { param([string] $Msg) Write-Host "::error::VIOLATION:$Msg" }
+
+
+$instructionsFolder = Join-Path $RepoRoot '.github/instructions'
+if (-not (Test-Path -LiteralPath $instructionsFolder)) {
+    Write-Invocation "instructions folder not found: $instructionsFolder"
+    exit $script:ExitInvocation
+}
+
+$existingInstructions = Get-ChildItem -Path $instructionsFolder -Filter '*.instructions.md' -File |
+    ForEach-Object { $_.Name }
+
+# Case-sensitive (Ordinal) lookups: a wrong-case ref (CSharp.instructions.md) must NOT false-resolve on the
+# case-sensitive Linux CI filesystem (PowerShell hashtables are case-insensitive).
+$existingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($name in $existingInstructions) { [void]$existingSet.Add($name) }
+
+# active-profile.instructions.md is the gitignored, setup-generated per-machine profile selector: absent
+# by default (floor fail-closes to full-default per check-profile-invariants.ps1), so refs to it are valid.
+$exemptNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+[void]$exemptNames.Add('active-profile.instructions.md')
+
+$refPattern = '[a-zA-Z0-9_.-]+\.instructions\.md'
+
+# Exclude generated catalog, lock/CSV data ledgers, scripts/tests/* (test suites embed synthetic fixture
+# instruction names that are not real references), and this checker's own source (its messages/comments
+# may carry example tokens that are not citations).
+$excludeSpecs = @(':!**/HIGH-TIER-SLUGS.md', ':!*.lock', ':!**/*.csv', ':!scripts/tests/*', ':!scripts/check-instructions-refs.ps1')
+
+$refs = & git -C $RepoRoot grep -nE "$refPattern" -- $excludeSpecs 2>$null
+# git grep: 0 = matches, 1 = no matches (legitimate), >1 = real error. A real failure must fail closed
+# (do not silently treat an errored grep as "no broken references").
+if ($LASTEXITCODE -gt 1) {
+    Write-Invocation "git grep for instruction-file citations failed (exit $LASTEXITCODE); cannot validate references. Failing closed."
+    exit $script:ExitInvocation
+}
+
+$violations = @()
+foreach ($line in $refs) {
+    # git grep -n emits "<path>:<lineno>:<content>"; scan only the content so a file NAMED *.instructions.md
+    # outside the folder is not mistaken for a citation via its own path prefix.
+    $content = $line -replace '^[^:]*:[0-9]+:', ''
+    foreach ($match in [regex]::Matches($content, $refPattern)) {
+        $cited = $match.Value
+        if ($exemptNames.Contains($cited)) { continue }
+        if (-not $existingSet.Contains($cited)) {
+            $violations += "$line  (cited instruction file '$cited' does not resolve to .github/instructions/$cited)"
+        }
+    }
+}
+
+if ($violations) {
+    foreach ($v in ($violations | Sort-Object -Unique)) { Write-Violation $v }
+    exit $script:ExitViolation
+}
+
+Write-Host "All instruction-file references resolve. ($($existingInstructions.Count) instruction files scanned; active-profile.instructions.md exempt as the gitignored profile selector.)"
+exit $script:ExitOk
