@@ -164,6 +164,28 @@ try {
     git -C $d12 add -A 2>$null; git -C $d12 commit -q -m init
     $r = Run $d12
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'unclosed') 'unclosed code fence -> exit 1 (fail closed, names the open fence)'
+
+    Write-Host "`n=== a non-canonical fp_slug shape is caught ==="
+    $d13 = New-CatalogRepo
+    Add-CatalogFile $d13 '00-catalog.md' @(
+        (Rule 'citing-slug' 'A.' 'fp-one'),
+        '',
+        '## FP-ONE: matching-but-non-canonical'
+    )
+    git -C $d13 add -A 2>$null; git -C $d13 commit -q -m init
+    $r = Run $d13
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'non-canonical') 'fp_slug fp-one (non-numeric) -> exit 1 even with a matching mistyped heading'
+
+    Write-Host "`n=== a rule row missing its trailing delimiter is parsed by real cell count ==="
+    $d14 = New-CatalogRepo
+    Add-CatalogFile $d14 '00-catalog.md' @(
+        '| citing-slug | review-pass-only | {} | A prompt. | fp-1',
+        '',
+        '## FP-1: real-section'
+    )
+    git -C $d14 add -A 2>$null; git -C $d14 commit -q -m init
+    $r = Run $d14
+    Assert-True ($r.ExitCode -eq 0) 'row without a trailing pipe -> 5 cells read correctly, fp-1 resolves -> exit 0 (no misleading cell-count violation)'
 }
 finally { Remove-TestTempDirectories }
 

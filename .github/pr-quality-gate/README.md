@@ -171,7 +171,7 @@ Single-row representation (no implicit row-pairing); `params` JSON shape determi
 
 `fp_slug` non-empty → the catalog MUST contain a corresponding `## FP-<N>:` section (`fp-1` maps to `## FP-1:`), and each `## FP-<N>:` section MUST be referenced by some row's `fp_slug`; `scripts/check-catalog-fp-refs.ps1` enforces both directions (orphan → exit 1, merge-blocking via `pr-gate-check.yml`).
 
-Violations of any cross-field constraint → exit 2 with stderr message naming line + which constraint failed.
+Violations of any gate-runner-enforced cross-field constraint (the `scope_mode` / `params` / `review_pass_only_prompt` rules in the table above) → exit 2 with stderr message naming line + which constraint failed. The `fp_slug` referential rule is enforced separately by `scripts/check-catalog-fp-refs.ps1` at exit 1 (see above), not by gate-runner.
 
 **No implicit row pairing**: every pattern is one row. Hybrid patterns carry their tree-scoped and diff-scoped queries in a single `params` JSON object (the `tree` and `diff` sub-objects). This eliminates the v7 ambiguity where "hybrid" could mean "two rows" OR "one row with scope_mode=hybrid" - only the latter is valid in v8.
 

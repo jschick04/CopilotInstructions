@@ -66,10 +66,12 @@ foreach ($file in $sourceFiles) {
         $ruleRowCount++
         $slug = $matches[1]
         # Well-formed rows have 5 (legacy, no tier) or 6 cells; any other count means an unescaped '|' that would shift fp_slug out of cell 5.
-        $cells = @(($line -split '(?<!\\)\|'))
-        $inner = @($cells[1..($cells.Count - 2)] | ForEach-Object { $_.Trim() })
+        $rowBody = $line.Trim()
+        if ($rowBody.StartsWith('|')) { $rowBody = $rowBody.Substring(1) }
+        if ($rowBody.EndsWith('|')) { $rowBody = $rowBody.Substring(0, $rowBody.Length - 1) }
+        $inner = @($rowBody -split '(?<!\\)\|' | ForEach-Object { $_.Trim() })
         if ($inner.Count -lt 5 -or $inner.Count -gt 6) {
-            $violations += "${relPath}:${lineNo}: rule '$slug' has $($inner.Count) cells (expected 5 or 6); an unescaped '|' corrupts fp_slug parsing - escape inner pipes as '\|'"
+            $violations += "${relPath}:${lineNo}: rule '$slug' has $($inner.Count) cells (expected 5 or 6); an unescaped or missing '|' corrupts fp_slug parsing - escape inner pipes as '\|' and keep the row delimiters"
             continue
         }
         # A 6-cell row ends in the tier; a non-empty non-tier token there (an empty cell is the legacy form) means a 5-cell row gained a stray pipe, shifting fp_slug off cell 5.
@@ -81,6 +83,11 @@ foreach ($file in $sourceFiles) {
         if (-not $fp) { continue }
         $token = $fp.ToUpperInvariant()
         [void]$referencedFp.Add($token)
+        # fp_slug is canonically fp-<N> (numeric); a non-canonical token would otherwise resolve against an equally mistyped heading.
+        if ($fp -notmatch '^fp-[0-9]+$') {
+            $violations += "${relPath}:${lineNo}: rule '$slug' has a non-canonical fp_slug '$fp' (expected fp-<N>, e.g. fp-1)"
+            continue
+        }
         $fpRefs += [PSCustomObject]@{ Slug = $slug; Token = $token; Raw = $fp; Loc = "${relPath}:${lineNo}" }
     }
     if ($inFence) {
