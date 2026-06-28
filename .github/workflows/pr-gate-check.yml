@@ -56,6 +56,22 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-catalog-cede-refs.tests.ps1
 
+  catalog-fp-ref-check:
+    name: Verify catalog fp_slug references resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/check-catalog-fp-refs.ps1
+
+  catalog-fp-ref-tests:
+    name: catalog-fp-refs checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-catalog-fp-refs.tests.ps1
+
   script-tests:
     name: comment-audit module unit tests
     runs-on: ubuntu-latest
