@@ -90,7 +90,7 @@ For EACH external-reviewer finding on a PR with a converged pre-PR panel:
 
 **Why this loop matters**: the pre-PR panel is the agent's quality gate. When an external reviewer finds something the panel missed, that's evidence of a blind spot. Without converting blind spots into catalog rules, the next PR has the same blind spot.
 
-**How to detect a process violation**: if a PR has external-reviewer findings AND the agent has amended/follow-up-committed AND there is NO corresponding entry in `data/panel-misses.csv`, the loop was bypassed. The user can call this out at any point and the agent MUST classify + record before further work.
+**How to detect a process violation**: if a PR has external-reviewer findings AND the agent has amended/follow-up-committed AND there is NO corresponding entry in `data/panel-misses.csv`, the loop was bypassed. The user can call this out at any point and the agent MUST classify + record before further work. A `process-violation` row carries `status=pending` while the gap is open and `status=catalog-updated` once the gap is mechanized into a gate/instruction (mirrors a remediated miss).
 
 ## Iteration discipline (panel re-convergence) - MANDATORY
 
