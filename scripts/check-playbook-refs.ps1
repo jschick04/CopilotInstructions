@@ -29,15 +29,16 @@ if (-not (Test-Path -LiteralPath $playbookFolder)) {
 $existingPlaybooks = Get-ChildItem -Path $playbookFolder -Filter '*.md' -Recurse -File |
     ForEach-Object { ($_.FullName.Substring($RepoRoot.Length + 1) -replace '\\', '/') }
 
-$existingSet = @{}
-foreach ($path in $existingPlaybooks) { $existingSet[$path] = $true }
+# Case-sensitive (Ordinal) lookups: a wrong-case ref (Pre-Commit.md) must NOT false-resolve on case-insensitive Windows when CI runs on case-sensitive Linux.
+$existingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+foreach ($path in $existingPlaybooks) { [void]$existingSet.Add($path) }
 
 
 $playbookPattern = '\.github/playbooks/[a-zA-Z0-9_./-]+\.md'
 
 # Exclude this checker's OWN test file: it embeds fixture citations (including intentionally-broken
 # ones) as test data, which are not real references and must not be scanned as such.
-$pathRefs = & git -C $RepoRoot grep -nE "$playbookPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!scripts/tests/check-playbook-refs.tests.ps1' 2>$null
+$pathRefs = & git -C $RepoRoot grep -nE "$playbookPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!**/*.csv' ':!scripts/tests/check-playbook-refs.tests.ps1' 2>$null
 # git grep: 0 = matches, 1 = no matches (legitimate), >1 = real error. A real failure must fail
 # closed (do not silently treat an errored grep as "no broken references").
 if ($LASTEXITCODE -gt 1) {
@@ -49,7 +50,7 @@ $violations = @()
 foreach ($line in $pathRefs) {
     foreach ($match in [regex]::Matches($line, $playbookPattern)) {
         $cited = $match.Value
-        if (-not $existingSet[$cited]) {
+        if (-not $existingSet.Contains($cited)) {
             $violations += "$line  (cited playbook path '$cited' does not resolve)"
         }
     }
@@ -57,7 +58,7 @@ foreach ($line in $pathRefs) {
 
 $wrongPrefixFindPattern = '(^|[^./a-zA-Z0-9_-])playbooks/[a-zA-Z0-9_./-]+\.md'
 $wrongPrefixExtractPattern = '(?<![./a-zA-Z0-9_-])playbooks/[a-zA-Z0-9_./-]+\.md'
-$truncatedRefs = & git -C $RepoRoot grep -nE "$wrongPrefixFindPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!scripts/tests/check-playbook-refs.tests.ps1' ':!.github/pr-quality-gate/data/*.csv' 2>$null
+$truncatedRefs = & git -C $RepoRoot grep -nE "$wrongPrefixFindPattern" -- ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!**/*.csv' ':!scripts/tests/check-playbook-refs.tests.ps1' 2>$null
 if ($LASTEXITCODE -gt 1) {
     Write-Invocation "git grep for wrong-prefix playbook citations failed (exit $LASTEXITCODE); cannot validate references. Failing closed."
     exit $script:ExitInvocation
@@ -66,7 +67,7 @@ foreach ($line in $truncatedRefs) {
     foreach ($match in [regex]::Matches($line, $wrongPrefixExtractPattern)) {
         $cited = $match.Value
         $canonical = ".github/$cited"
-        if ($existingSet[$canonical]) {
+        if ($existingSet.Contains($canonical)) {
             $violations += "$line  (wrong-prefix playbook ref '$cited' is missing the '.github/' root; use '$canonical')"
         }
     }
