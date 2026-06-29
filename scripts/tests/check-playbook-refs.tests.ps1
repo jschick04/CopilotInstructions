@@ -104,6 +104,14 @@ try {
     git -C $d10 add -A 2>$null; git -C $d10 commit -q -m init
     $r = Run $d10
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('.github/playbooks/sub/deep.md')) 'nested wrong-prefix playbooks/sub/deep.md -> exit 1 (caught at depth)'
+
+    Write-Host "`n=== a wrong-CASE citation is caught (Ordinal set; would false-resolve on a case-insensitive hashtable) ==="
+    $d11 = New-PlaybookRepo
+    Add-RepoFile $d11 '.github/playbooks/pre-commit.md' @('# the real playbook')
+    Add-RepoFile $d11 'note.md' @('see .github/playbooks/Pre-Commit.md for the gate')
+    git -C $d11 add -A 2>$null; git -C $d11 commit -q -m init
+    $r = Run $d11
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('Pre-Commit.md')) 'wrong-case Pre-Commit.md -> exit 1 (case-sensitive, no Linux fail-open)'
 }
 finally { Remove-TestTempDirectories }
 
