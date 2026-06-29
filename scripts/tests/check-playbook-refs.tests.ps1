@@ -112,6 +112,14 @@ try {
     git -C $d11 add -A 2>$null; git -C $d11 commit -q -m init
     $r = Run $d11
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('Pre-Commit.md')) 'wrong-case Pre-Commit.md -> exit 1 (case-sensitive, no Linux fail-open)'
+
+    Write-Host "`n=== a wrong-prefix AND wrong-case citation is caught (case-insensitive wrong-prefix scan) ==="
+    $d12 = New-PlaybookRepo
+    Add-RepoFile $d12 '.github/playbooks/pre-commit.md' @('# the real playbook')
+    Add-RepoFile $d12 'README.md' @('see playbooks/Pre-Commit.md for the gate')
+    git -C $d12 add -A 2>$null; git -C $d12 commit -q -m init
+    $r = Run $d12
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('Pre-Commit.md')) 'wrong-prefix + wrong-case playbooks/Pre-Commit.md -> exit 1 (does not slip through)'
 }
 finally { Remove-TestTempDirectories }
 

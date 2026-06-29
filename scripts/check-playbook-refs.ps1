@@ -32,6 +32,9 @@ $existingPlaybooks = Get-ChildItem -Path $playbookFolder -Filter '*.md' -Recurse
 # Case-sensitive (Ordinal) lookups: a wrong-case ref (Pre-Commit.md) must NOT false-resolve on case-insensitive Windows when CI runs on case-sensitive Linux.
 $existingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 foreach ($path in $existingPlaybooks) { [void]$existingSet.Add($path) }
+# Case-insensitive view: the wrong-prefix scan flags a ref whose canonical path resolves in ANY case (wrong-prefix + wrong-case is still broken).
+$existingSetCI = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+foreach ($path in $existingPlaybooks) { [void]$existingSetCI.Add($path) }
 
 
 $playbookPattern = '\.github/playbooks/[a-zA-Z0-9_./-]+\.md'
@@ -67,7 +70,7 @@ foreach ($line in $truncatedRefs) {
     foreach ($match in [regex]::Matches($line, $wrongPrefixExtractPattern)) {
         $cited = $match.Value
         $canonical = ".github/$cited"
-        if ($existingSet.Contains($canonical)) {
+        if ($existingSetCI.Contains($canonical)) {
             $violations += "$line  (wrong-prefix playbook ref '$cited' is missing the '.github/' root; use '$canonical')"
         }
     }
