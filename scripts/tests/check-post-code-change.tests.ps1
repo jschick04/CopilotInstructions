@@ -242,12 +242,34 @@ Assert-True ($pp -match "$($floor.MinHeavy)\s+heavy-tier")                "floor
 
 Write-Host ""
 Write-Host "=== KV v1 keyset sync (2B grammar <-> worked example) ===" -ForegroundColor Cyan
-$sweepsRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
-$pccRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md') -Raw
-foreach ($k in @('profile=', 'prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=', 'purge=', 'difit=')) {
-    Assert-True ($sweepsRaw -match [regex]::Escape($k)) "2B KV grammar contains '$k'"
-    Assert-True ($pccRaw -match [regex]::Escape($k)) "post-code-change.md worked KV example contains '$k' (no drift)"
+function Get-KvLedgerBlock {
+    param([string] $Path)
+    $raw = Get-Content (Join-Path $PSScriptRoot $Path) -Raw
+    $m = [regex]::Match($raw, '(?ms)^```\r?\nPOST-CODE-CHANGE LEDGER \(KV v1\)\r?\n(.*?)\r?\n```')
+    if (-not $m.Success) { return $null }
+    return $m.Groups[1].Value
 }
+function Get-KvKeySet {
+    param([string] $Block)
+    $keys = [ordered]@{}
+    foreach ($line in ($Block -split "\r?\n")) {
+        if ($line -notmatch '^(core|gates)\|') { continue }
+        foreach ($segment in ($line -split '\|')) {
+            if ($segment -match '^([a-z][a-z0-9-]*)=') { $keys[$matches[1] + '='] = $true }
+        }
+    }
+    return @($keys.Keys)
+}
+$kvV1FrozenKeys = @('profile=', 'commit=', 'files=', 'hygiene=', 'lpa=', 'vsa=', 'difit=', 'emdash=', 'purge=', 'recurring=', 'priorpr=', 'dry=', 'prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=', 'panel=', 'itd=', 'delta-g=', 'comment=', 'build=', 'tests=', 'diff=', 'msg=')
+$kvV1Expected = ($kvV1FrozenKeys | Sort-Object) -join ','
+$grammarBlock = Get-KvLedgerBlock '../../.github/playbooks/review-workflow-gates-sweeps.md'
+$exampleBlock = Get-KvLedgerBlock '../../.github/playbooks/post-code-change.md'
+Assert-True ($null -ne $grammarBlock) 'KV v1 grammar block extracted from review-workflow-gates-sweeps.md'
+Assert-True ($null -ne $exampleBlock) 'KV v1 worked-example block extracted from post-code-change.md'
+$grammarActual = (Get-KvKeySet $grammarBlock | Sort-Object) -join ','
+$exampleActual = (Get-KvKeySet $exampleBlock | Sort-Object) -join ','
+Assert-True ($grammarActual -eq $kvV1Expected) "2B KV v1 grammar keyset equals the frozen 26-key contract (got: $grammarActual)"
+Assert-True ($exampleActual -eq $kvV1Expected) "post-code-change.md worked KV example keyset equals the frozen 26-key contract (got: $exampleActual)"
 
 Write-Host ""
 Write-Host "=== Governance tier classifier (T2 equivalence + tier-2 self-protection) ===" -ForegroundColor Cyan
