@@ -241,7 +241,7 @@ Assert-True ($pp -match "$($floor.MinCodeReview)\s+\x60?code-review")     "floor
 Assert-True ($pp -match "$($floor.MinHeavy)\s+heavy-tier")                "floor MinHeavy=$($floor.MinHeavy) matches panel-policy.md"
 
 Write-Host ""
-Write-Host "=== KV v1 keyset includes the pre fields (2B grammar + worked example sync) ===" -ForegroundColor Cyan
+Write-Host "=== KV v1 keyset sync (2B grammar <-> worked example) ===" -ForegroundColor Cyan
 $sweepsRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
 $pccRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md') -Raw
 foreach ($k in @('profile=', 'prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=', 'purge=', 'difit=')) {
