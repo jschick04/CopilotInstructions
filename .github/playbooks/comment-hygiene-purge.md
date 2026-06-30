@@ -98,7 +98,7 @@ Deleting exported doc comments can break a build that REQUIRES docs.
 
 ## Recording (single authority - no double-bookkeeping)
 
-Purge DELETIONS are attested ONLY as a COUNT on the new `comment-hygiene-purge` ledger row. They are NOT additionally emitted as §2.6 `n/a - exempt: deletion` bullets (the `deletion` exempt category remains for non-purge, edit-time removals). Any one-line REPLACEMENT the agent adds is a new comment line and IS recorded by §2.6 through the add-gate. When the purge removed comments but added no new/rewritten lines, §2.6 reports `ran, 0 new-or-rewritten` (NOT N/A - comments WERE removed). This keeps one per-site authority (§2.6 for added/rewritten) and one sweep attestation (the purge row for removals); the two never record the same site.
+Purge DELETIONS are attested ONLY as a COUNT on the new `comment-hygiene-purge` ledger row. They are NOT additionally emitted as §2.6 `n/a - exempt: deletion` bullets (the `deletion` exempt category remains for non-purge, edit-time removals). Any one-line REPLACEMENT the agent adds is a new comment line and IS recorded by §2.6 through the add-gate. When the purge removed comments but added no new/rewritten lines, the §2.6 comment-audit output records 0 new-or-substantively-rewritten comment lines and the `comment-audit-§3.1` ledger row stays `ran` (NOT `N/A` - comments WERE removed). This keeps one per-site authority (§2.6 for added/rewritten) and one sweep attestation (the purge row for removals); the two never record the same site.
 
 POST-CODE-CHANGE LEDGER `comment-hygiene-purge` gate row (canonical schema + KV field in `review-workflow-gates-sweeps.md` §2B, placed adjacent to `emdash-scan`):
 
@@ -120,7 +120,7 @@ The post-code-change panel target is `diff`, but the purge governs pre-existing 
 
 - NEW `.github/playbooks/comment-hygiene-purge.md` (this file).
 - AGENTS.md §3.1: terse pointer bullet; workflow-router AUTO-FIRE row.
-- post-code-change.md: step 2.4 (before §2.6 + panel); add `purge=` to the worked KV example; the §2.6 / hard-gates note that deletion-only purge yields §2.6 `ran, 0`.
+- post-code-change.md: step 2.4 (before §2.6 + panel); add `purge=` to the worked KV example; the §2.6 / hard-gates note that deletion-only purge yields a §2.6 count of 0 new-or-substantively-rewritten comment lines while `comment-audit-§3.1` stays `ran`.
 - review-workflow-gates-sweeps.md §2B: `comment-hygiene-purge` ledger row adjacent to `emdash-scan`; `purge=` in the KV v1 grammar; a `comment-hygiene-purge` bullet in the §"Skip conditions" list with the two N/A reasons; reconcile `comment-audit-§3.1` deletion wording.
 - comment-protocol.md: one-line note that purge removals are attested on the purge row (the `deletion` exempt category stays for non-purge edit-time removals).
 - pattern-catalog.sources/00-catalog.md: NEW `comment-hygiene-purge-survivor` review-pass-only slug (tier MEDIUM) carrying the full-file survivor instruction + the held-doc carve-out; then regenerate (`generate-pattern-catalog.ps1`), verify (`verify-pattern-catalog.ps1`), sync (`sync-critical-rules.ps1`).
