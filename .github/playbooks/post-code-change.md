@@ -3,7 +3,7 @@
 
 ## Purpose
 
-After implementation, run the import/using hygiene pass, the touched-file recurring-pattern sweep, the multi-model reviewer panel (via `multi-model-review.md`), the verify-fix check, and the affected builds + tests. Fires after code edits land, before showing the diff. Output: a green build with the panel converged and the diagnosis-verifying metric/test passing.
+After implementation: import/using hygiene, the comment-hygiene purge, the recurring-pattern sweep, the multi-model panel (via `multi-model-review.md`), verify-fix, and affected builds + tests. Fires after edits land, before the diff. Output: green build, panel converged, diagnosis-verifying metric/test passing.
 
 ## Hard gates (also in `AGENTS.md` - repeated here for context)
 
@@ -40,7 +40,7 @@ Restrict to using/qualifier hygiene diagnostics - do **not** run blanket `dotnet
 | Python | `ruff check --select I --fix` or `isort` |
 | Java / Kotlin | IntelliJ "Optimize Imports" |
 
-After cleanup, run the verify-no-changes form (`dotnet format --verify-no-changes` for .NET) - if it reports work, iterate. Then run build + tests; the cleanup should be functionally inert.
+After cleanup, run the verify-no-changes form (`dotnet format --verify-no-changes` for .NET); if it reports work, iterate. Then build + tests; cleanup should be functionally inert.
 
 Never commit a file with unsorted, duplicated, unused, or over-qualified imports.
 
@@ -53,6 +53,10 @@ Run on touched-file scope before showing the diff. Procedure: **`.github/playboo
 Apply all 6 axes (per the playbook): type access, sealing/final, ctor visibility, member visibility, setter, field hygiene. Use the language's best source-search tool (`rg`, compiler index, language-server symbol search).
 
 Skip when the diff has no visibility/export/mutability surface delta. Record explicitly which condition justified the skip.
+
+### 2.4 Comment-hygiene purge (touched file, before the panel)
+
+Whole-touched-file DELETE-only comment sweep (every comment, new + pre-existing): strip restatement / narration + XML-doc novels; hold a kept why to one line. Runs before §2.6 + the panel. Rubric / never-purge / build-safety / recording: **`.github/playbooks/comment-hygiene-purge.md`**. Emit the `comment-hygiene-purge` ledger row (`purge=` KV).
 
 ### 2.5 Touched-file review-recurring-pattern sweep - MANDATORY, no silent skip
 
@@ -121,7 +125,7 @@ Step 2.5 sweep: ran, <N> findings.
 
 ### 2.6 §3.1 Comment audit evidence gate
 
-Run the §3.1 comment-audit evidence gate before the panel (step 3), BEFORE the diff is shown (per §3.1's self-review-before-diff rule). WHEN/HOW comments may be added lives in `comment-protocol.md`; this step records the OUTCOME.
+Run the §3.1 comment-audit evidence gate before the panel, BEFORE the diff is shown. WHEN/HOW comments may be added lives in `comment-protocol.md`; this step records the OUTCOME.
 
 **Note on scope**: this gate is chat audit output ABOUT comments, NOT the §3.1-governed source-code comments themselves; the two never collide.
 
@@ -183,7 +187,7 @@ POST-CODE-CHANGE LEDGER
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|commit="Guard against null tag list in filter dropdown"|files=2(+31/-6)
-gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=na:no-comments-touched|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|purge=ran:3/0|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=ran:0|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
 appendix=none
 ```
 
@@ -237,7 +241,7 @@ Run the panel via `multi-model-review.md` with these invocation parameters:
   Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.
 - **critique focus areas** - see *Anti-anchoring focus areas* below.
 
-Panel procedure (parallel launch, synthesis, loop-vs-escalate, evidence-gate output) lives in `multi-model-review/procedure.md` + `multi-model-review/evidence-gate-spec.md`. Do not duplicate here.
+Panel procedure (launch, synthesis, loop-vs-escalate, evidence-gate) lives in `multi-model-review/procedure.md` + `multi-model-review/evidence-gate-spec.md`.
 
 ### 4. Anti-anchoring focus areas to pass to the panel
 
@@ -253,7 +257,7 @@ Specific reviewer-prompt requirements (from recurring failure modes):
 
 ### 5. Done when panel converges
 
-When `multi-model-review.md` returns CONVERGED, the multi-model hard gate is passed. Verify the cumulative log per `multi-model-review/evidence-gate-spec.md` *Verification* section (>=1 round; convergence outcome emitted; 0 unaddressed blocking findings; `subagent_ask_user_calls=0` on every round). Proceed to step 6+.
+When `multi-model-review.md` returns CONVERGED, verify the cumulative log per `multi-model-review/evidence-gate-spec.md` *Verification* section (>=1 round; convergence outcome emitted; 0 unaddressed blocking findings; `subagent_ask_user_calls=0` on every round).
 
 Sub-agent findings outside immediate scope are routed via `ask_user` per the *Pre-existing issues / `ask_user` is mandatory* cross-cutting rule - `multi-model-review/evidence-gate-spec.md` `C2 findings audit format` is the canonical disposition format.
 

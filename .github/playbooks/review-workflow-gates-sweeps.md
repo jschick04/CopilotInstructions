@@ -111,6 +111,8 @@ POST-CODE-CHANGE LEDGER
     dependency-injection-fit: <ran (new injectable: static-utility|owned-disposable|service) | N/A - <playbook>:<line>>
       # DI-shape only; visibility+IVT under touched-file-LPA (B1-forced on a DI signal).
     emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>
+    comment-hygiene-purge: <ran, N removed, H held | N/A: no comments in touched files | N/A: only generated/vendored files touched>
+      # step 2.4 purge; removals counted here ONLY. See comment-hygiene-purge.md.
     recurring-pattern-sweep: <ran, N findings>
       - <pattern>: <N matches | no matches>
       - ...
@@ -202,7 +204,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
-gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|purge=<ran:N/H|na:no-comments-in-touched-files|na:generated-vendored-only>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 
 **Rules:**
@@ -256,7 +258,8 @@ A gate row may be `N/A: <reason>` when:
 - **recurring-pattern-sweep**: no pattern's trigger condition definitionally applies (e.g. no test files in diff for test-name patterns). "I don't think it applies" is NOT acceptable.
 - **prior-PR-review-sweep**: the repo has no prior merged PRs AND no current PR thread, OR the change has no production-code edits.
 - **post-code-change-panel**: pure re-commit / rebase with zero behavioral delta vs. the previously-panelled artifact (e.g. style-only amendments to an already-reviewed commit). The ledger MUST justify this explicitly: `N/A: pure re-commit of already-reviewed content, 0 behavioral delta`.
-- **comment-audit-§3.1**: no comments added, removed, or modified in the diff. `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which forbids the commit per `comment-protocol.md` §Recording. In **this instructions repo** (per `comment-protocol.md` §Persisted audit record), a missing/stale git note ALSO produces `failed` at the `pre-push` note gate. On **consuming repos**, the receipt is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block; missing-receipt is NOT a failure in that mode.
+- **comment-hygiene-purge**: no comments in any touched file, OR only generated/vendored files touched. Purge removals are counted here, never as §2.6 bullets; if the purge removed comments but added none, `comment-audit-§3.1` is `ran, 0 new-or-rewritten` (NOT N/A).
+- **comment-audit-§3.1**: no comments added, modified, or removed in the diff (purge-only removals do NOT qualify - they force `ran, 0 new-or-rewritten`). `failed: <site list>` is NEVER waivable: any bullet with invalid/missing `approval_turn:` in the §2.6 ledger produces `failed`, which forbids the commit per `comment-protocol.md` §Recording. In **this instructions repo** (per `comment-protocol.md` §Persisted audit record), a missing/stale git note ALSO produces `failed` at the `pre-push` note gate. On **consuming repos**, the receipt is intentionally absent and tracking happens INLINE via `PRE-COMMIT GATE PASSED`'s `comment_audit` block; missing-receipt is NOT a failure in that mode.
 - **delta-g-sweeps**: N/A only via recorded zero-result `discovery_query` at HEAD. The
   `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every file
   in the commit's diff (extract from `git diff --name-only <merge-base>..HEAD`; repo-root

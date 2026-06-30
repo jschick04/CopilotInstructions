@@ -476,6 +476,19 @@ playbooks:
       - "tracer bullet"
     status: active
 
+  - name: comment-hygiene-purge
+    path: .github/playbooks/comment-hygiene-purge.md
+    classification: sub-step
+    description: >-
+      Phase-sub-step that auto-fires in post-code-change as step 2.4, BEFORE the §2.6 comment
+      audit and the multi-model panel (peer of the em-dash scan). Mechanical whole-touched-file
+      DELETE-only sweep over every comment (new + pre-existing): removes restatement / narration
+      comments and XML-doc novels; a kept load-bearing why is held to one terse line (re-added via
+      comment-protocol.md's add-gate). Recorded on the `comment-hygiene-purge` ledger row; survivors
+      enforced by the `comment-hygiene-purge-survivor` catalog slug.
+    triggers: []
+    status: active
+
   # ─── Utility (callable by other playbooks; also trigger-fired domain) ───
 
   - name: multi-model-review
