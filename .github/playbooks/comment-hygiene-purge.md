@@ -11,7 +11,7 @@ triggers: []
 
 Auto-fires as post-code-change step 2.4, AFTER edits land and BEFORE the §2.6 comment audit and the multi-model panel (step 3). It is a genuinely new procedure step (the em-dash scan is the closest analog, but that is a CI / `emdash-scan` ledger check with no procedure step). Scope is the **whole of every touched file**, not just the diff lines: a touched file's pre-existing comments are in scope alongside the ones the diff added.
 
-The sweep's own action is **DELETE-only**: enumerate every comment in each touched file, classify it, and DELETE the ones that fail the rubric. Removal needs no per-comment `ask_user` because `comment-protocol.md`'s `deletion` is already an exempt category (removing a comment never enters the add-gate) - that exempt rule, NOT "mechanicalness," is why the sweep skips step 3. The CLASSIFY decision is semantic judgment; the ACTION is deletion.
+The sweep's own action is **DELETE-only**: enumerate every comment in each touched file, classify it, and DELETE the ones that fail the rubric. Removal needs no per-comment `ask_user` because a deletion never enters `comment-protocol.md`'s add-gate (its step 3 gates ADDING a comment, not removing one) - that, NOT "mechanicalness," is why the sweep skips the add-gate. Purge removals are attested as a count on the `comment-hygiene-purge` ledger row, not under comment-protocol.md's `deletion` exempt category. The CLASSIFY decision is semantic judgment; the ACTION is deletion.
 
 ### Scope - which files, which comments
 
