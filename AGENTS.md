@@ -115,7 +115,7 @@ Gate blocks depending on an on-demand file include a `reads=<file>@<token>` fiel
 | Strong cross-file-bug-investigation trigger | OFFER `cross-file-bug-investigation.md` |
 | Test-writing context within pre-implementation / post-code-change | AUTO-FIRE `intent-driven-testing.md` |
 | About to add/rewrite a comment | AUTO-FIRE `comment-protocol.md` |
-| comment-hygiene-purge (before panel) | AUTO-FIRE `comment-hygiene-purge.md` |
+| Comment-hygiene-purge (before panel) | AUTO-FIRE `comment-hygiene-purge.md` |
 | Editing any file in the instruction-set repo | `instruction-set-maintenance.md` |
 
 All playbook paths are under `.github/playbooks/`. Domain triggers always confirmed via `ask_user`; phase triggers are mandatory. Phrase examples are illustrative; route by intent shape. Per-playbook frontmatter and `manifest.yaml` are discoverability aids only.

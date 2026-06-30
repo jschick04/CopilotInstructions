@@ -24,7 +24,7 @@ The sweep's own action is **DELETE-only**: enumerate every comment in each touch
 A comment whose ABSENCE breaks a compiler, linter, type-checker, coverage tool, or runtime framework - or that carries semantic DATA a tool requires - is functional, not explanatory; leave it. **When unsure whether a comment is consumed, KEEP it.** (Narrative doc prose is NOT auto-exempt merely because a doc generator would render it: a restatement `<summary>` still follows the Delete/Keep rubric below, and is only HELD - not "never purged" - when the build-safety pre-check finds a docs-required-at-error signal.) Non-exhaustive functional set:
 
 - **Shebangs** (`#!/usr/bin/env ...`).
-- **Build / codegen directives**: Go `//go:build`, `// +build`, `//go:embed`, `//go:generate`; C# `#pragma`, `#region`/`#endregion`.
+- **Build / codegen directives**: Go `//go:build`, `// +build`, `//go:embed`, `//go:generate`; C# `#pragma`.
 - **Suppression / lint directives**: `// eslint-disable*`, `// @ts-ignore` / `@ts-expect-error`, `// prettier-ignore`, `/* istanbul ignore next */`, `# noqa`, `# type: ignore`, `# pylint: disable`, `# pragma: no cover`, `//nolint`, `# rubocop:disable`, `// NOSONAR`, C# `[SuppressMessage]` / analyzer-suppression comments.
 - **Runtime/compile-consumed docstrings**: Python docstrings surfaced as CLI/API help (argparse / click / Typer / FastAPI), Elixir `@doc` / `@moduledoc`, and any docstring read as data at runtime or compile time.
 - **Copyright / license headers** and the canonical `THROWAWAY: <prototype-name>` header on files under `prototypes/<name>/` (per `comment-protocol.md` §Scope-exempt).
