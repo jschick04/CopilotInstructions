@@ -268,8 +268,8 @@ Assert-True ($null -ne $grammarBlock) 'KV v1 grammar block extracted from review
 Assert-True ($null -ne $exampleBlock) 'KV v1 worked-example block extracted from post-code-change.md'
 $grammarActual = (Get-KvKeySet $grammarBlock | Sort-Object) -join ','
 $exampleActual = (Get-KvKeySet $exampleBlock | Sort-Object) -join ','
-Assert-True ($grammarActual -eq $kvV1Expected) "2B KV v1 grammar keyset equals the frozen 26-key contract (got: $grammarActual)"
-Assert-True ($exampleActual -eq $kvV1Expected) "post-code-change.md worked KV example keyset equals the frozen 26-key contract (got: $exampleActual)"
+Assert-True ($grammarActual -eq $kvV1Expected) "2B KV v1 grammar core|/gates| pipe-keyset equals the frozen 26-key contract (got: $grammarActual)"
+Assert-True ($exampleActual -eq $kvV1Expected) "post-code-change.md worked KV example core|/gates| pipe-keyset equals the frozen 26-key contract (got: $exampleActual)"
 
 Write-Host ""
 Write-Host "=== Governance tier classifier (T2 equivalence + tier-2 self-protection) ===" -ForegroundColor Cyan
