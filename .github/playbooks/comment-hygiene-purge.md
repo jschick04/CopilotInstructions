@@ -25,7 +25,7 @@ A comment whose ABSENCE breaks a compiler, linter, type-checker, coverage tool, 
 
 - **Shebangs** (`#!/usr/bin/env ...`).
 - **Build / codegen directives**: Go `//go:build`, `// +build`, `//go:embed`, `//go:generate`; C# `#pragma`.
-- **Suppression / lint directives**: `// eslint-disable*`, `// @ts-ignore` / `@ts-expect-error`, `// prettier-ignore`, `/* istanbul ignore next */`, `# noqa`, `# type: ignore`, `# pylint: disable`, `# pragma: no cover`, `//nolint`, `# rubocop:disable`, `// NOSONAR`, C# `[SuppressMessage]` / analyzer-suppression comments.
+- **Suppression / lint directives**: `// eslint-disable*`, `// @ts-ignore` / `@ts-expect-error`, `// prettier-ignore`, `/* istanbul ignore next */`, `# noqa`, `# type: ignore`, `# pylint: disable`, `# pragma: no cover`, `//nolint`, `# rubocop:disable`, `// NOSONAR`, C# `// ReSharper disable`/`restore` / analyzer-suppression comments.
 - **Runtime/compile-consumed docstrings**: Python docstrings surfaced as CLI/API help (argparse / click / Typer / FastAPI), Elixir `@doc` / `@moduledoc`, and any docstring read as data at runtime or compile time.
 - **Copyright / license headers** and the canonical `THROWAWAY: <prototype-name>` header on files under `prototypes/<name>/` (per `comment-protocol.md` §Scope-exempt).
 
