@@ -186,8 +186,8 @@ POST-CODE-CHANGE LEDGER
 
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
-core|commit="Guard against null tag list in filter dropdown"|files=2(+31/-6)
-gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|emdash=clean|purge=ran:3/0|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=ran:0|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+core|profile=full-default|commit="Guard against null tag list"|files=2(+31/-6)
+gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|difit=na:no-di|emdash=clean|purge=ran:3/0|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=ran:0|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
 appendix=none
 ```
 
