@@ -115,6 +115,7 @@ Gate blocks depending on an on-demand file include a `reads=<file>@<token>` fiel
 | Strong cross-file-bug-investigation trigger | OFFER `cross-file-bug-investigation.md` |
 | Test-writing context within pre-implementation / post-code-change | AUTO-FIRE `intent-driven-testing.md` |
 | About to add/rewrite a comment | AUTO-FIRE `comment-protocol.md` |
+| Post-code-change comment-purge (before panel) | AUTO-FIRE `comment-hygiene-purge.md` |
 | Editing any file in the instruction-set repo | `instruction-set-maintenance.md` |
 
 All playbook paths are under `.github/playbooks/`. Domain triggers always confirmed via `ask_user`; phase triggers are mandatory. Phrase examples are illustrative; route by intent shape. Per-playbook frontmatter and `manifest.yaml` are discoverability aids only.
@@ -260,6 +261,7 @@ These standards apply to **every** code change, in every language. Reviewers rej
 - **Hard prohibitions** (no exceptions):
   - No comments restating code. No "why we're about to do this" narration. No multi-line `//` design-decision prose. No speculation about future callers/surfaces. No restating contract terms encoded in naming/signature. No `TODO`/`FIXME`/`HACK`/`XXX`. No panel-artifact references (`Slot N`, `Round N`, etc.). No test section-separator banners. No comments restating a test's name.
 - **Allowed** (rare; short + load-bearing + not inferable): non-obvious algorithmic invariant; external-constraint workaround; deliberate trade-off.
+- **Whole-file comment purge** (post-code-change, before the panel): mechanically DELETE restatement / narration + XML-doc novels across every comment (new + pre-existing) in touched files; a kept why is held to one line. See `.github/playbooks/comment-hygiene-purge.md`.
 - **Self-review pass:** every new/rewritten comment must have valid `approval_turn:` citation; missing -> delete.
 - **Remove stale comments** when touching surrounding code.
 

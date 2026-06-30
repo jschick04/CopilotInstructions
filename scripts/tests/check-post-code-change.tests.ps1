@@ -244,7 +244,7 @@ Write-Host ""
 Write-Host "=== KV v1 keyset includes the pre fields (2B grammar + worked example sync) ===" -ForegroundColor Cyan
 $sweepsRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/review-workflow-gates-sweeps.md') -Raw
 $pccRaw = Get-Content (Join-Path $PSScriptRoot '../../.github/playbooks/post-code-change.md') -Raw
-foreach ($k in @('prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=')) {
+foreach ($k in @('prepanel=', 'diag=', 'g3=', 'g5=', 'g6=', 'impl=', 'purge=')) {
     Assert-True ($sweepsRaw -match [regex]::Escape($k)) "2B KV grammar contains '$k'"
     Assert-True ($pccRaw -match [regex]::Escape($k)) "post-code-change.md worked KV example contains '$k' (no drift)"
 }

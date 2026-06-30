@@ -26,6 +26,7 @@ file
 .github/playbooks/pre-pr-creation-review.md
 .github/playbooks/pre-pr-push.md
 .github/playbooks/comment-protocol.md
+.github/playbooks/comment-hygiene-purge.md
 .github/playbooks/pre-implementation.md
 .github/playbooks/post-pr-review.md
 .github/playbooks/multi-model-review.md
