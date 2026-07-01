@@ -105,8 +105,25 @@ parse_slugs() {
         if (scope != "review-pass-only") next
         # Restore escaped pipes in prompt
         gsub(/\001/, "|", prompt)
-        # Extract first sentence (up to first ". " or 200 chars)
-        sentence_end = index(prompt, ". ")
+        # Find the first REAL sentence break (a ". " that is not the trailing period of a known
+        # abbreviation or a numeric list marker); kept byte-identical to the PowerShell twin.
+        sentence_end = 0
+        search_from = 1
+        while (1) {
+            rel = index(substr(prompt, search_from), ". ")
+            if (rel == 0) break
+            abs = search_from + rel - 1
+            if (abs == 1) { search_from = abs + 2; continue }
+            last = substr(prompt, abs - 1, 1)
+            pre3 = substr(prompt, abs - 3, 3)
+            pre2 = substr(prompt, abs - 2, 2)
+            if (last ~ /[0-9]/ || pre3 == "e.g" || pre3 == "i.e" || pre3 == "etc" || pre2 == "vs" || pre2 == "cf") {
+                search_from = abs + 2
+                continue
+            }
+            sentence_end = abs
+            break
+        }
         if (sentence_end > 0) {
             trigger = substr(prompt, 1, sentence_end - 1)
         } else {
