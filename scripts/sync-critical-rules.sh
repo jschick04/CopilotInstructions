@@ -106,7 +106,7 @@ parse_slugs() {
         # Restore escaped pipes in prompt
         gsub(/\001/, "|", prompt)
         # Find the first REAL sentence break (a ". " that is not the trailing period of a known
-        # abbreviation or a numeric list marker); kept byte-identical to the PowerShell twin.
+        # abbreviation or a numeric list marker); mirrors the PowerShell twin so both generators emit byte-identical output.
         sentence_end = 0
         search_from = 1
         while (1) {

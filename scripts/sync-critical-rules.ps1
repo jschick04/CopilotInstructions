@@ -80,7 +80,7 @@ foreach ($line in $lines) {
     $prompt = $prompt -replace '\\\|', '|'
     # Find the first REAL sentence break (a ". " that is not the trailing period of a known
     # abbreviation or a numeric list marker), so a leading "e.g. " / "etc. " / "rule 3. " does
-    # not truncate the derived summary. Portable index/substr loop kept byte-identical to the awk twin.
+    # not truncate the derived summary. Portable index/substr loop mirroring the awk twin so both generators emit byte-identical output.
     $sentenceEnd = -1
     $searchFrom = 0
     while ($true) {
