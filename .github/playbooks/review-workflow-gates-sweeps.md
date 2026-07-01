@@ -113,7 +113,7 @@ POST-CODE-CHANGE LEDGER
     emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>
     comment-hygiene-purge: <ran, N removed, H held | N/A: no comments in touched files | N/A: only generated/vendored files touched>
       # step 2.4 purge; removals counted here ONLY. See comment-hygiene-purge.md.
-    recurring-pattern-sweep: <ran, N findings>
+    recurring-pattern-sweep: <ran, N findings | N/A: reason>
       - <pattern>: <N matches | no matches>
       - ...
     prior-PR-review-sweep: <ran, M patterns checked, N findings | N/A: no prior merged PRs / no production-code edits>
@@ -204,7 +204,7 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
 core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
-gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|purge=<ran:N/H|na:no-comments-in-touched-files|na:generated-vendored-only>|recurring=ran:N|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|purge=<ran:N/H|na:no-comments-in-touched-files|na:generated-vendored-only>|recurring=<ran:N|na:CODE>|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
 ```
 
 **Rules:**
@@ -212,7 +212,7 @@ gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<r
 2. N/A codes name the trigger absence: `na:no-visibility-delta`, etc.
 3. Every `gates|` key MUST appear with status+metric (`=none` for empty triggers, never blank).
 4. Catalog sub-blocks (`pre-impl-trigger-detections`, `pre-impl-playbook-decisions`, `playbook-invocations`) stay in EXISTING STRUCTURED form below KV (dot-path parsers depend on structure).
-5. APPENDIX (only when count>0): emit the canonical structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
+5. APPENDIX (only when count>0): emit the structured sub-blocks above (`delta-g-sweeps` site block + `comment-audit` bullets) verbatim, NOT pipe-compressed; else `appendix=none`. `recurring`/`priorpr` collapse to counts.
 6. This instructions repo: full schema to the receipt (flushed to a note), appendix optional in chat. Consuming repos: when `delta-g` sites or `comment` failed-sites >0 the structured appendix MUST appear in chat (`appendix=none` INVALID then).
 7. §0 SENTINEL, `PRE-COMMIT GATE PASSED`, `core_rules_acknowledged`, and the `QUALITY GATE` block emit the caveman chat-emission form defined in each block's home section, NOT verbose YAML.
 
