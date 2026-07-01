@@ -129,9 +129,24 @@ parse_slugs() {
         } else {
             trigger = prompt
         }
-        if (length(trigger) > 200) {
-            trigger = substr(trigger, 1, 197) "..."
+        ellipsis = ""
+        if (length(trigger) > 200) { trigger = substr(trigger, 1, 197); ellipsis = "..." }
+        # Cut the summary back if truncation left it ending inside an unclosed inline-code span (matching backtick-run delimiters), so GitHub Markdown never renders a stray delimiter. Mirrors the PowerShell twin for byte-identical output.
+        open_run_start = 0
+        open_run_len = 0
+        k = 1
+        tlen = length(trigger)
+        while (k <= tlen) {
+            if (substr(trigger, k, 1) == "`") {
+                run_start = k
+                while (k <= tlen && substr(trigger, k, 1) == "`") { k++ }
+                run_len = k - run_start
+                if (open_run_len == 0) { open_run_len = run_len; open_run_start = run_start }
+                else if (run_len == open_run_len) { open_run_len = 0; open_run_start = 0 }
+            } else { k++ }
         }
+        if (open_run_len != 0) { trigger = substr(trigger, 1, open_run_start - 1) }
+        trigger = trigger ellipsis
         print slug "\t" scope "\t" trigger
     }
     '

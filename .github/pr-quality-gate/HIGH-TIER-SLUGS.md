@@ -70,7 +70,7 @@ Canonical rule definition: see `pattern-catalog.md` row `user-facing-text-fragme
 
 ### `callback-swallows-exception-the-caller-expects-to-propagate`
 
-For every NEW or modified callback IMPLEMENTATION (lambda / local function / method passed as `Func<...>` / `Action<...>` / custom delegate) in the diff whose body contains `catch (XException) { re...
+For every NEW or modified callback IMPLEMENTATION (lambda / local function / method passed as `Func<...>` / `Action<...>` / custom delegate) in the diff whose body contains ...
 
 Canonical rule definition: see `pattern-catalog.md` row `callback-swallows-exception-the-caller-expects-to-propagate`.
 
@@ -106,7 +106,7 @@ Canonical rule definition: see `pattern-catalog.md` row `fire-and-forget-discard
 
 ### `task-completedtask-from-async-named-method`
 
-For every NEW method in the diff whose declaration returns `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>` AND whose body returns `Task.CompletedTask` / `Task.FromResult(...)` / `ValueTask.Comple...
+For every NEW method in the diff whose declaration returns `Task` / `Task<T>` / `ValueTask` / `ValueTask<T>` AND whose body returns `Task.CompletedTask` / `Task.FromResult(...)` / ...
 
 Canonical rule definition: see `pattern-catalog.md` row `task-completedtask-from-async-named-method`.
 
@@ -166,25 +166,25 @@ Canonical rule definition: see `pattern-catalog.md` row `guard-predicate-incompl
 
 ### `user-facing-message-content-regression-after-callback-extraction`
 
-For every NEW or modified call site in the diff that REPLACES a caller-supplied delegate (`Func<bool, ...> confirmAsync`, `Action<DialogContext>`, etc.) with a static/no-op delegate (`(_, _) => Tas...
+For every NEW or modified call site in the diff that REPLACES a caller-supplied delegate (`Func<bool, ...> confirmAsync`, `Action<DialogContext>`, etc.) with a static/no-op delegate (...
 
 Canonical rule definition: see `pattern-catalog.md` row `user-facing-message-content-regression-after-callback-extraction`.
 
 ### `failure-detail-collected-but-not-surfaced`
 
-For every NEW or modified method in the diff that collects per-item failure information into a list / dictionary (`List<(string, string)> failed`, `Dictionary<string, Exception> errors`, `IReadOnly...
+For every NEW or modified method in the diff that collects per-item failure information into a list / dictionary (`List<(string, string)> failed`, `Dictionary<string, Exception> errors`, ...
 
 Canonical rule definition: see `pattern-catalog.md` row `failure-detail-collected-but-not-surfaced`.
 
 ### `post-refactor-state-tracking-loss-of-sticky-flag`
 
-For every refactor / extraction in the diff that REPLACES a previously-monolithic UI component's state-tracking with a derived signal (e.g., session-scoped `_settingsDirty` flag replaced with `HasD...
+For every refactor / extraction in the diff that REPLACES a previously-monolithic UI component's state-tracking with a derived signal (e.g., session-scoped `_settingsDirty` flag replaced with ...
 
 Canonical rule definition: see `pattern-catalog.md` row `post-refactor-state-tracking-loss-of-sticky-flag`.
 
 ### `parent-prop-narrowing-occludes-component-wide-signal`
 
-For every NEW or modified parent-to-child component parameter binding in the diff that PASSES a NARROWED version of a component/session-wide signal (e.g., `IsActionBlocked="@(IsActionBlocked && !Co...
+For every NEW or modified parent-to-child component parameter binding in the diff that PASSES a NARROWED version of a component/session-wide signal (e.g., ...
 
 Canonical rule definition: see `pattern-catalog.md` row `parent-prop-narrowing-occludes-component-wide-signal`.
 
@@ -208,13 +208,13 @@ Canonical rule definition: see `pattern-catalog.md` row `razor-css-isolation-cro
 
 ### `aria-disabled-without-disabled-attribute`
 
-For every NEW or modified interactive element (`<button>`, `<a>`, `<input>`, `<select>`, `<textarea>`, custom Razor button component) in `.razor` / `.html` / `.cshtml` files that has `aria-disabled...
+For every NEW or modified interactive element (`<button>`, `<a>`, `<input>`, `<select>`, `<textarea>`, custom Razor button component) in `.razor` / `.html` / `.cshtml` files that has ...
 
 Canonical rule definition: see `pattern-catalog.md` row `aria-disabled-without-disabled-attribute`.
 
 ### `readonly-interface-leaks-backing-mutable-collection`
 
-For every NEW or modified public/internal API surface in the diff that exposes a property, return value, event-args field, or test-fake-stored value typed as a read-only collection interface (`IRea...
+For every NEW or modified public/internal API surface in the diff that exposes a property, return value, event-args field, or test-fake-stored value typed as a read-only collection interface (...
 
 Canonical rule definition: see `pattern-catalog.md` row `readonly-interface-leaks-backing-mutable-collection`.
 
@@ -226,13 +226,13 @@ Canonical rule definition: see `pattern-catalog.md` row `interface-event-non-nul
 
 ### `razor-empty-css-selector-foiled-by-whitespace-text-nodes`
 
-For every NEW or modified `.razor.css` / `.css` file in the diff that uses the `:empty` pseudo-class selector (e.g., `.toolbar-leading:empty { display: none; }` or `.filter-error:empty { display: n...
+For every NEW or modified `.razor.css` / `.css` file in the diff that uses the `:empty` pseudo-class selector (e.g., `.toolbar-leading:empty { display: none; }` or ...
 
 Canonical rule definition: see `pattern-catalog.md` row `razor-empty-css-selector-foiled-by-whitespace-text-nodes`.
 
 ### `razor-button-missing-type-defaults-to-submit`
 
-For every NEW or modified `<button>` element rendered inside a Blazor `<EditForm>` or a raw HTML `<form>` in a `.razor` file - OR any `<button>` that newly falls inside a NEW or modified `<EditForm...
+For every NEW or modified `<button>` element rendered inside a Blazor `<EditForm>` or a raw HTML `<form>` in a `.razor` file - OR any `<button>` that newly falls inside a NEW or modified ...
 
 Canonical rule definition: see `pattern-catalog.md` row `razor-button-missing-type-defaults-to-submit`.
 
@@ -298,13 +298,13 @@ Canonical rule definition: see `pattern-catalog.md` row `implementation-phase-mi
 
 ### `library-restructure-required-on-folder-namespace-move-in-diff`
 
-**PROCESS RULE.** POST-IMPL companion to rule 3. For every commit whose `git diff <base>..HEAD` shows file moves / renames across folders OR namespace changes (added lines containing `namespace X.Y...
+**PROCESS RULE.** POST-IMPL companion to rule 3. For every commit whose `git diff <base>..HEAD` shows file moves / renames across folders OR namespace changes (added lines containing ...
 
 Canonical rule definition: see `pattern-catalog.md` row `library-restructure-required-on-folder-namespace-move-in-diff`.
 
 ### `implementation-planning-required-on-nontrivial-final-diff`
 
-**PROCESS RULE.** POST-IMPL companion to rule 2. For every commit whose `git diff <base>..HEAD` (final state) is non-trivial per the closed-enumeration triviality criterion in `pre-implementation.m...
+**PROCESS RULE.** POST-IMPL companion to rule 2. For every commit whose `git diff <base>..HEAD` (final state) is non-trivial per the closed-enumeration triviality criterion in ...
 
 Canonical rule definition: see `pattern-catalog.md` row `implementation-planning-required-on-nontrivial-final-diff`.
 
@@ -334,7 +334,7 @@ Canonical rule definition: see `pattern-catalog.md` row `pr-creation-or-push-wit
 
 ### `loop-silently-drops-failed-items`
 
-For every NEW `foreach` / `for` / `for..of` / `.map` / `.filter` loop in the diff that builds a result collection from already-validated input AND skips an element on a sub-step failure via `contin...
+For every NEW `foreach` / `for` / `for..of` / `.map` / `.filter` loop in the diff that builds a result collection from already-validated input AND skips an element on a sub-step failure via ...
 
 Canonical rule definition: see `pattern-catalog.md` row `loop-silently-drops-failed-items`.
 

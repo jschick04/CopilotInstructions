@@ -97,7 +97,23 @@ foreach ($line in $lines) {
         break
     }
     if ($sentenceEnd -ge 0) { $trigger = $prompt.Substring(0, $sentenceEnd) } else { $trigger = $prompt }
-    if ($trigger.Length -gt 200) { $trigger = $trigger.Substring(0, 197) + '...' }
+    $ellipsis = ''
+    if ($trigger.Length -gt 200) { $trigger = $trigger.Substring(0, 197); $ellipsis = '...' }
+    # Cut the summary back if truncation left it ending inside an unclosed inline-code span (matching backtick-run delimiters), so GitHub Markdown never renders a stray delimiter. Mirrors the awk twin for byte-identical output.
+    $openRunStart = -1
+    $openRunLen = 0
+    $k = 0
+    while ($k -lt $trigger.Length) {
+        if ($trigger[$k] -eq '`') {
+            $runStart = $k
+            while ($k -lt $trigger.Length -and $trigger[$k] -eq '`') { $k++ }
+            $runLen = $k - $runStart
+            if ($openRunLen -eq 0) { $openRunLen = $runLen; $openRunStart = $runStart }
+            elseif ($runLen -eq $openRunLen) { $openRunLen = 0; $openRunStart = -1 }
+        } else { $k++ }
+    }
+    if ($openRunLen -ne 0) { $trigger = $trigger.Substring(0, $openRunStart) }
+    $trigger = $trigger + $ellipsis
     $highTierSlugs += [pscustomobject]@{
         Slug = $slug
         Scope = $scope
