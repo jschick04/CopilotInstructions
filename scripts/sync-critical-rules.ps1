@@ -78,7 +78,25 @@ foreach ($line in $lines) {
     # Unescape `\|` placeholder back to literal `|` - matches the bash twin's awk \001 round-trip
     # so HIGH-TIER-SLUGS.md is byte-identical regardless of which generator wrote it.
     $prompt = $prompt -replace '\\\|', '|'
-    $trigger = ($prompt -split '\. ', 2)[0]
+    # Find the first REAL sentence break (a ". " that is not the trailing period of a known
+    # abbreviation or a numeric list marker), so a leading "e.g. " / "etc. " / "rule 3. " does
+    # not truncate the derived summary. Portable index/substr loop kept byte-identical to the awk twin.
+    $sentenceEnd = -1
+    $searchFrom = 0
+    while ($true) {
+        $dot = $prompt.IndexOf('. ', $searchFrom)
+        if ($dot -lt 0) { break }
+        if ($dot -eq 0) { $searchFrom = 2; continue }
+        $pre = $prompt.Substring(0, $dot)
+        $last = $pre[$pre.Length - 1]
+        if (($last -ge '0' -and $last -le '9') -or $pre.EndsWith('e.g') -or $pre.EndsWith('i.e') -or $pre.EndsWith('etc') -or $pre.EndsWith('vs') -or $pre.EndsWith('cf')) {
+            $searchFrom = $dot + 2
+            continue
+        }
+        $sentenceEnd = $dot
+        break
+    }
+    if ($sentenceEnd -ge 0) { $trigger = $prompt.Substring(0, $sentenceEnd) } else { $trigger = $prompt }
     if ($trigger.Length -gt 200) { $trigger = $trigger.Substring(0, 197) + '...' }
     $highTierSlugs += [pscustomobject]@{
         Slug = $slug
