@@ -1,5 +1,5 @@
 # Playbook: Publish gate - pre-PR-creation review
-<!-- read-receipt-token: b339bc16 -->
+<!-- read-receipt-token: 8b41e2f6 -->
 
 ## Purpose
 
@@ -29,6 +29,8 @@ Because the AGENTS `gh pr create` flow requires an intervening `ask_user` for ti
 2. **Re-emitted** (turn N+1): in the PR-creation tool-call turn, after user-approval `ask_user` returns, with same-state re-check (`git rev-parse HEAD` matches `panelHeadSha`; `git merge-base --is-ancestor <panelHeadSha> HEAD` true; `git rev-parse <baseRef>` matches `panelBaseSha`). Any check fails: restart at Step 2. Status: `READY-re-emitted-after-user-approval`.
 
 Absence of block in PR-creation turn -> all G6 tools forbidden. Block in earlier turn does NOT satisfy.
+
+**Companion mechanical backstop.** After the block reaches READY, write the `publish_gate_ready` receipt for the pushed tip (schema: `../pr-quality-gate/publish-gate-receipt.md`); the pre-push hook `check-publish-gate-prepush.ps1` independently blocks the push without a fresh receipt bound to this remote/branch/commit (honest ceiling: it enforces receipt PRESENCE at push, not that the panel ran - same modeled ceiling as this block).
 
 ### G4. `routed-deferred-with-tracker-and-ask_user` requires both:
 
@@ -71,6 +73,8 @@ PR is BOOTSTRAP-EXEMPT from the publish gate only if ALL of:
 3. PR includes ALL companion edits for gate to be operative post-merge.
 
 PRs that modify/tighten/loosen/refactor an existing gate are NOT bootstrap-exempt. If token removed from PR body before merge, exemption revoked; subsequent pushes trigger the gate normally.
+
+The pre-push publish-gate receipt (`check-publish-gate-prepush.ps1`) is a BACKSTOP of THIS existing publish gate, not itself a bootstrap-eligible new gate: a bootstrap-exempt PR still writes a `publish_gate_ready` / `sandbox_push_declared` receipt for its pushed tip (the receipt gates the PUSH; `BOOTSTRAP-EXEMPTION` waives the panel/`QUALITY GATE` block, not the receipt).
 
 ## Waive matrix
 

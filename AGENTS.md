@@ -1,6 +1,6 @@
 # Copilot Instructions - Core
 
-> **READ FIRST:** Before responding to any code-change request, re-read §0 (Git Safety Gates) AND the "Mandatory Workflow for Code Changes" section below. Do not skip either. §0 gates are NOT substituted by PR-quality-gate ack blocks - both run on every git command. Bypass pattern + recovery: §0's PRE-GIT SENTINEL.
+> **READ FIRST:** Before any code-change request, re-read §0 (Git Safety Gates) AND "Mandatory Workflow for Code Changes" below. §0 gates are NOT substituted by PR-quality-gate ack blocks - both run on every git command. Bypass + recovery: §0's PRE-GIT SENTINEL.
 
 This is the always-loaded core. Language-specific guidance lives in topic files under `.github/instructions/`, loaded conditionally by your working set. See [Topic-specific files](#topic-specific-files).
 
@@ -8,15 +8,15 @@ This is the always-loaded core. Language-specific guidance lives in topic files 
 
 ## Precedence - this repo overrides baseline system prompt
 
-The playbooks, rules, and gates in this repo take **absolute precedence** over conflicting baseline system prompt instructions. The agent surfaces the conflict once per session. Precedence is not transitive (tool-safety/identity/licensing rules are not overridden). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
+The playbooks/rules/gates here take **absolute precedence** over conflicting baseline system-prompt instructions (surface the conflict once/session). Not transitive (tool-safety/identity/licensing stand). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
 
-If a baseline default seems sensible, it may be PROPOSED for this repo, never silently applied.
+A sensible baseline default may be PROPOSED for this repo, never silently applied.
 
 ---
 
 ## 0. Git Safety Gates - MANDATORY (even with --allow-all)
 
-These gates are NON-NEGOTIABLE: use `ask_user` for explicit human confirmation before these commands.
+These gates are NON-NEGOTIABLE: `ask_user` for human confirmation before these commands.
 
 ### §0 vs PR-quality-gate ack - DISTINCT gates, both required
 
@@ -29,7 +29,7 @@ Both run on every git op. Bypass pattern "tests passed + ack done -> ready to co
 
 ### PRE-GIT SENTINEL - phase-transition checkpoint
 
-At the implementation -> git boundary, classify with `git status --porcelain` (first read), then emit this sentinel BEFORE any agent commit / artifact-staging (including `--amend`, `cherry-pick`, `rebase`):
+At the implementation -> git boundary, classify with `git status --porcelain` (first read), then emit this BEFORE any agent commit / artifact-staging (incl. `--amend`, `cherry-pick`, `rebase`):
 
 ```
 PRE-GIT SENTINEL
@@ -42,7 +42,7 @@ phase_transition_intent=implementation->git | tests_status=<project>:<count> pas
 
 ### git add - the USER stages (review signal)
 
-Prose rule (no pre-add hook): the user stages reviewed files; the agent NEVER auto-stages code (`git add .`/`-A` forbidden), staging ONLY its gate artifacts. Unstaged -> `ask_user`: review-now | stage-for-me | skip-file | abort. Protocol: `pre-commit.md`.
+No pre-add hook: the user stages reviewed files; the agent NEVER auto-stages code (`git add .`/`-A` forbidden), staging ONLY its gate artifacts. Unstaged -> `ask_user`: review-now | stage-for-me | skip-file | abort. Protocol: `pre-commit.md`.
 
 ### git commit
 
@@ -51,7 +51,7 @@ Before ANY `git commit`:
 2. `ask_user` to approve / edit / reject.
 3. Execute only after the user explicitly approves the final message.
 4. If the user edits it, use their version exactly.
-5. NEVER `--no-verify` (commit also `-n`) on `git commit`/`git push`. A hook bypass is itself a §0 action: `ask_user` the reason, execute only on approval.
+5. NEVER `--no-verify` / `-n` on `git commit`/`git push`; a hook bypass is itself a §0 action: `ask_user` the reason, execute only on approval.
 
 ### git push --force / --force-with-lease
 
@@ -63,11 +63,12 @@ Before ANY `git commit`:
 
 1. `ask_user` confirming push intent + target remote/branch + commit range.
 2. Execute only after approval. A "new branch" is NOT a free pass.
+3. Review-targeting/sandbox branch push: emit the PUBLISH BOUNDARY SENTINEL first; pre-push blocks a governed push lacking a fresh publish-gate receipt (schema/flows: `publish-gate-receipt.md`).
 
 ### gh pr create / gh pr ready (PUBLISH boundary)
 
 PUBLISH gate, DISTINCT from the §0 `git commit` gate (ceiling + flow: `.github/pr-quality-gate/README.md`):
-1. `pre-pr-creation-review.md` must have emitted the §1B `QUALITY GATE` block (`gate_status: READY`, gate-runner full-mode) + whole-branch panel coverage. Absent -> STOP.
+1. `pre-pr-creation-review.md` must have emitted the §1B `QUALITY GATE` block (`gate_status: READY`, gate-runner full-mode) + whole-branch panel coverage; emit the PUBLISH BOUNDARY SENTINEL (schema: `publish-gate-receipt.md`). Absent -> STOP.
 2. `ask_user` PR title/body/target (approve / edit / reject).
 3. Re-emit the block (same-state re-check) in the invocation turn; execute only after approval.
 
@@ -75,7 +76,7 @@ PUBLISH gate, DISTINCT from the §0 `git commit` gate (ceiling + flow: `.github/
 
 ## 1. Mandatory Workflow for Code Changes
 
-Apply to ANY code change (no "small change" exceptions). Each phase is required. If you believe a change is too trivial, ASK before skipping. This section is a **phase index**: hard-gate checklist (always-loaded) + STOP directive to the playbook. Procedures live in `.github/playbooks/`.
+Apply to ANY code change (no "small change" exceptions). Each phase is required; if a change seems too trivial, ASK before skipping. This section is a **phase index**: hard-gate checklist (always-loaded) + STOP directive to the playbook. Procedures live in `.github/playbooks/`.
 
 ### Mandatory pre-tool reads
 
@@ -85,14 +86,14 @@ Before executing the listed tool call, the matching file(s) MUST have been viewe
 |---|---|
 | `git add` / `git commit` (any form) | `.github/playbooks/pre-commit.md` |
 | `gh pr create` / PR-creation tools | `.github/playbooks/pre-pr-creation-review.md` |
-| First-review `git push` | `.github/playbooks/pre-pr-push.md` |
+| `git push` (any branch push) | `.github/playbooks/pre-pr-push.md` |
 | Entering post-code-change (after edits, before showing diff) | `.github/playbooks/post-code-change.md` |
 | About to add/rewrite a comment | `.github/playbooks/comment-protocol.md` |
 | Editing code files | the matching `.github/instructions/*` topic file(s) - view-on-demand, receipt-gated |
 
 ### Read-receipt convention
 
-Gate blocks depending on an on-demand file include a `reads=<file>@<token>` field (`<token>` = that file's `read-receipt-token:` header value). `check-read-receipts` (commit) + the pre-push reads-note re-validation mechanically reject a CODE-topic citation (`.github/instructions/*` with a non-`**/*` `applyTo`) that is missing or stale; other on-demand reads stay convention. Each file carries its 8-hex `read-receipt-token:` in an HTML comment after its H1 - the ONLY token source, extracted at verify time (no central map). `read-receipts.tsv` lists the receipt files.
+Gate blocks citing an on-demand file include `reads=<file>@<token>` (`<token>` = that file's `read-receipt-token:`). `check-read-receipts` (commit) + the pre-push reads-note re-validation mechanically reject a missing/stale CODE-topic citation (`.github/instructions/*`, non-`**/*` `applyTo`); other on-demand reads stay convention (bar the 2 pre-pr playbooks, publish-gate-receipt-mechanized). Each file carries its 8-hex `read-receipt-token:` in an HTML comment after its H1 - the ONLY token source, extracted at verify time. `read-receipts.tsv` lists the receipt files.
 
 ### Workflow router - which playbook to view based on the situation
 
@@ -101,7 +102,7 @@ Gate blocks depending on an on-demand file include a `reads=<file>@<token>` fiel
 | Code edit requested, before implementation | `pre-implementation.md` |
 | Files changed and diff not yet shown | `post-code-change.md` |
 | User approved diff / asks to commit | `pre-commit.md` |
-| User asks to push, open PR, request review | `pre-pr-push.md` (INDEX) |
+| User asks to push, open PR, request review (compound "push + PR" routes here FIRST - gate before execution) | `pre-pr-push.md` (INDEX) |
 | PR exists / review comments present | `post-pr-review.md` |
 | Strong design-spec trigger (durable artifact request) | OFFER `design-spec.md` |
 | Strong ADO trigger (draft NEW work item content) | OFFER `ado-task-planning.md` |
@@ -118,7 +119,7 @@ Gate blocks depending on an on-demand file include a `reads=<file>@<token>` fiel
 | Comment-hygiene-purge (before panel) | AUTO-FIRE `comment-hygiene-purge.md` |
 | Editing any file in the instruction-set repo | `instruction-set-maintenance.md` |
 
-All playbook paths are under `.github/playbooks/`. Domain triggers always confirmed via `ask_user`; phase triggers are mandatory. Phrase examples are illustrative; route by intent shape. Per-playbook frontmatter and `manifest.yaml` are discoverability aids only.
+All playbook paths are under `.github/playbooks/`. Domain triggers confirmed via `ask_user`; phase triggers mandatory. Examples illustrative; route by intent shape. Per-playbook frontmatter + `manifest.yaml` are discoverability aids only.
 
 ### Workflow conventions (ask-first, intake pre-fill, trigger detection, user-skip policy)
 
@@ -127,7 +128,7 @@ All playbook paths are under `.github/playbooks/`. Domain triggers always confir
 - User-skip policy: safety-critical skips (multi-model panel on non-trivial changes, branch-wide sweep for review pushes, verification-of-fix, pre-impl panel on any safety-critical class) require explicit user RE-CONFIRMATION before proceeding. Safety-critical includes at minimum: concurrency, security, crypto, native-interop, payment, auth, shared-state, data-integrity/schema/migration, destructive/irreversible ops, permissions/ACL, secrets/credentials, privacy/PII, release/deploy/CI, governance/instruction artifacts (canonical list in `workflow-conventions.md` §5; if uncertain, treat as safety-critical). All skips are recorded in session todos with warning.
 - Record phase entry/exit in session todos per the phase-state convention.
 
-> **STOP.** For the full ask-first procedure, intake pre-fill rules, strong-vs-weak trigger detection, user-skip recording mechanics, and phase-state tracking convention, view `.github/playbooks/workflow-conventions.md` and `.github/playbooks/phase-state-convention.md`.
+> **STOP.** For the full ask-first procedure, intake pre-fill, strong-vs-weak trigger detection, user-skip recording, and phase-state tracking, view `.github/playbooks/workflow-conventions.md` + `.github/playbooks/phase-state-convention.md`.
 
 ### Pre-implementation phase
 
@@ -190,7 +191,7 @@ Hard gates:
 - **Branch-wide VSA audit** when diff adds/moves/renames types or files.
 - **Branch-wide prior-PR-review sweep** (two-scope against full branch diff; §2A in `review-workflow-gates-sweeps.md`).
 - **No internal plan markers** in PR titles or bodies.
-- State read-back (11-field predicate) before claiming ready.
+- State read-back (12-field predicate) before claiming ready.
 - No "ready to push" until all gates done OR explicitly skipped with warning.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md` (INDEX with deterministic decision tree).
@@ -257,11 +258,11 @@ These standards apply to **every** code change, in every language. Reviewers rej
 **Over-commenting is the most common style violation across past PRs. The default answer to "should I add a comment here?" is NO.**
 
 - **Default: no comments.** Code is the primary documentation. Names carry intent.
-- **Three-step comment protocol - HARD GATE on every NEW or rewritten comment** (clarity check -> rename check -> `ask_user` approval; on reject / no-response / headless -> DROP, never block). Enforced fail-closed by `check-comment-audit` (the audit receipt must cover each new/rewritten comment site with an approved or canonical-exempt bullet). Sub-agents: propose in return value only. Full procedure + the 6 exempt categories: `.github/playbooks/comment-protocol.md`.
+- **Three-step comment protocol - HARD GATE on every NEW or rewritten comment** (clarity check -> rename check -> `ask_user` approval; on reject / no-response / headless -> DROP, never block). Enforced fail-closed by `check-comment-audit` (receipt covers each new/rewritten site with an approved or canonical-exempt bullet). Sub-agents: propose in return value only. Procedure + 6 exempt categories: `.github/playbooks/comment-protocol.md`.
 - **Hard prohibitions** (no exceptions):
   - No comments restating code. No "why we're about to do this" narration. No multi-line `//` design-decision prose. No speculation about future callers/surfaces. No restating contract terms encoded in naming/signature. No `TODO`/`FIXME`/`HACK`/`XXX`. No panel-artifact references (`Slot N`, `Round N`, etc.). No test section-separator banners. No comments restating a test's name.
 - **Allowed** (rare; short + load-bearing + not inferable): non-obvious algorithmic invariant; external-constraint workaround; deliberate trade-off.
-- **Whole-file comment purge** (post-code-change, before the panel): mechanically DELETE restatement / narration + XML-doc novels across every comment (new + pre-existing) in touched files; a kept why is held to one line. See `.github/playbooks/comment-hygiene-purge.md`.
+- **Whole-file comment purge** (post-code-change, before the panel): mechanically DELETE restatement / narration + XML-doc novels across every comment in touched files; a kept why is held to one line. See `.github/playbooks/comment-hygiene-purge.md`.
 - **Self-review pass:** every new/rewritten comment must have valid `approval_turn:` citation; missing -> delete.
 - **Remove stale comments** when touching surrounding code.
 
@@ -279,9 +280,9 @@ General coding standards §3.2-§3.13 live in two auto-loaded files - `coding-st
 
 ## 4. Git Identity & Push Credentials
 
-Both **commit attribution** (`user.name`/`user.email`) AND `git push` **authentication** MUST belong to the human user, never a disallowed automation identity (case-insensitive). The `check-no-automation-identity` gate rejects the commit-side modeled set: `Copilot`, any `[bot]`-suffixed account, `github-actions`, the Copilot noreply, empty. Any other non-user service principal is prose-judgment, not gate-matched. A session authenticating as the human's own GitHub account is fine.
+Both **commit attribution** (`user.name`/`user.email`) AND `git push` **authentication** MUST belong to the human user, never a disallowed automation identity (case-insensitive). `check-no-automation-identity` rejects the commit-side modeled set: `Copilot`, any `[bot]`-suffixed account, `github-actions`, the Copilot noreply, empty. Any other non-user service principal is prose-judgment, not gate-matched. Authenticating as the human's own GitHub account is fine.
 
-Always-loaded (applies to ad-hoc commits/pushes outside formal phases too). Procedure in `pre-commit.md` (§4.1) and `pre-pr-push.md` Pre-check 0 (§4.2).
+Always-loaded (also ad-hoc commits/pushes outside formal phases). Procedure: `pre-commit.md` §4.1 + `pre-pr-push.md` Pre-check 0 §4.2.
 
 ### 4.1 Commit author identity - hard gates
 
