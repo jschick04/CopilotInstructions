@@ -1,7 +1,8 @@
 # Registry of on-demand instruction files eligible for a read-receipt citation (documentation-only;
 # scripts/check-read-receipts.ps1 derives its gated set from applyTo-structure, NOT this file).
 # The 16 code-topic files below (.github/instructions/* with a non-**/* applyTo) are MECHANICALLY gated
-# at commit + push time; the playbooks are convention-only (not yet mechanized).
+# at commit + push time; the playbooks are convention-only EXCEPT pre-pr-push.md + pre-pr-creation-review.md,
+# which the publish-gate receipt (scripts/check-publish-gate-prepush.ps1) mechanically gates at push.
 file
 .github/instructions/coding-standards-code.instructions.md
 .github/instructions/csharp.instructions.md

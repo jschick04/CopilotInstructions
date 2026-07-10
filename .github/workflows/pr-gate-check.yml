@@ -198,6 +198,14 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-signoff.tests.ps1
 
+  publish-gate-prepush-tests:
+    name: publish-gate prepush checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-publish-gate-prepush.tests.ps1
+
   duplication-tests:
     name: duplication checker unit tests
     runs-on: ubuntu-latest

@@ -1,5 +1,5 @@
 # Playbook: Pre-PR-push phase (INDEX)
-<!-- read-receipt-token: d7154b3e -->
+<!-- read-receipt-token: 5c3d9a71 -->
 
 ## Purpose
 
@@ -16,14 +16,14 @@ Fires when the user is preparing to push for code review - opening a PR, request
 - **Branch-wide vertical-slice (VSA) audit** run when `git diff <base>..HEAD` adds / moves / renames any type or file, adds a root-level file to a folder-organized assembly, adds a new top-level type to an existing file, or introduces a multi-type file. Procedure: the vertical-slice lens of `.github/playbooks/codebase-architecture-audit.md` at branch-wide scope, re-grepped against the final branch state. Skipped only when the branch has no such structural delta, that fact recorded. A uniformly-flat small assembly is not folderized (see that playbook's scoped-invocation section for the objective bound); a documented prior CLEAN verdict stands unless the user overrides it.
 - **PR title + body free of internal plan markers** - mechanically enforced by `scripts/check-pr-text.ps1` (a CI `pull_request` backstop that scans the title + body, plus a pre-create agent run). Before `gh pr create` / `gh pr edit`, run it against the PROPOSED title + body and strip whatever it flags: plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`), session paths (`session-state` / `files/<x>.md` / `<id>/plan.md`), pre-rebase commit SHAs, stage / phase markers. The audience is the public repo, not the planning workspace - **use the SUT names, the behavior change, and the test-count delta, never the internal phase IDs.** (The gate raises the floor on MODELED markers - tier-1 hard-fail, tier-2 warn; it does not replace this judgment, and an unmodeled phrasing escapes.)
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
-- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim - structured chat block enumerating the 11-field state predicate + sandbox-confirmation informational field (12 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
+- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim - structured chat block enumerating the 12-field state predicate + sandbox-confirmation informational field (13 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
 - No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit plus branch-wide vertical-slice (VSA) audit (each when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
 ## Loop-tightener: run the local-CI mirror before pushing
 
-Run `pwsh -File scripts/run-local-ci.ps1` before a review push to execute every `.github/workflows/` check locally, so a CI-only failure (a generated file not regenerated, a markdown size-cap breach, a malformed commit message) is caught now instead of costing a CI round. The `.githooks/pre-push` hook runs it automatically (bypassable via `git push --no-verify`). This is convenience/loop-speed ONLY - CI is the authoritative gate; never treat a self-attested "I ran the mirror" as the gate. The mirror's own completeness is enforced mechanically by the `local-ci-coverage` CI job (`run-local-ci.ps1 -CoverageOnly`): every workflow check must be a mirrored `scripts/` invocation, so a new check cannot silently escape the mirror.
+Run `pwsh -File scripts/run-local-ci.ps1` before a review push to execute every `.github/workflows/` check locally, so a CI-only failure (a generated file not regenerated, a size-cap breach, a malformed commit message) is caught now instead of a CI round. The `.githooks/pre-push` hook runs it automatically (bypassable via `git push --no-verify`). Convenience/loop-speed ONLY - CI is the authoritative gate; never treat a self-attested "I ran the mirror" as the gate. The mirror's completeness is enforced by the `local-ci-coverage` CI job (`run-local-ci.ps1 -CoverageOnly`): every workflow check must be a mirrored `scripts/` invocation, so a new check cannot escape the mirror.
 
-**Portability - consuming repos without the mirror.** `scripts/run-local-ci.ps1` ships in this instructions repo; a consuming repo may lack it (e.g. only a `PullRequest.yml` workflow and no `scripts/` mirror). When the mirror script is absent: (1) run the repo's OWN build + test (per its README / `*.csproj` / `package.json` / pipeline definition) so obvious breakage is caught locally; (2) if the repo has no local-CI harness that mirrors its checks, defer to the PR's CI as the authoritative gate. NEVER claim or record a local-CI mirror run that did not happen - state `local-CI mirror: absent - deferred to PR CI`, never assert a green local run that was not executed.
+**Portability - consuming repos without the mirror.** `scripts/run-local-ci.ps1` ships here; a consuming repo may lack it (e.g. only a `PullRequest.yml` workflow, no `scripts/` mirror). When absent: (1) run the repo's OWN build + test (per its README / `*.csproj` / `package.json` / pipeline) so obvious breakage is caught locally; (2) if it has no local-CI harness mirroring its checks, defer to the PR's CI. NEVER claim a local-CI mirror run that did not happen - state `local-CI mirror: absent - deferred to PR CI`, never assert a green local run that was not executed.
 
 ## Pre-check 0: Verify push credentials (always - runs BEFORE the sandbox pre-check)
 
@@ -96,13 +96,13 @@ Default to the user. The prompt MUST use the literal `the agent` / `you (the use
 Before consulting the truth table or fetching any sub-file, settle this single question via intake - **scoped to the current push, not the branch's eventual fate**: **will this specific push be used for review (by you or others) or pulled/inspected by anyone other than the user themselves?**
 
 - If **personal-sandbox / backup-only** (this push is for the user's own backup, cross-machine sync, or local dress-rehearsal - nobody else will pull this push for review):
-  1. **Record the phase-state record FIRST** per the *Sandbox-exit record* shape in `AGENTS.md` *Phase-state tracking convention* (`branchWideSweepStatus: not-applicable`, booleans recorded, predicate fields written as the literal `n/a-sandbox-exit` sentinel; this is a `done` phase-state record, not a "skipped" record - the playbook explicitly resolved as not-applicable for this push).
+  1. **Record the phase-state record FIRST** per the *Sandbox-exit record* shape in `AGENTS.md` *Phase-state tracking convention* (`branchWideSweepStatus: not-applicable`, booleans recorded, predicate fields written as the literal `n/a-sandbox-exit` sentinel; this is a `done` phase-state record, not a "skipped" record - the playbook explicitly resolved as not-applicable for this push). **Also write the `sandbox_push_declared` receipt** (schema: `publish-gate-receipt.md`) so the pre-push hook authorizes the sandbox push.
   2. Then emit this exact summary block to the user:
      > *"Out of pre-PR-push scope for this push - personal-sandbox / backup push, no sweep / hygiene checks run. Returning to ordinary push flow: confirm remote / branch and perform the push if you still want it; do not claim review-readiness. When this branch is later pushed for review (PR-opening, request-for-review, push to a shared branch others may pull), re-enter this playbook and intake will catch the prior sandbox exposure under `remoteExposureExists`."*
   3. **Override option:** if the user wants the review-readiness checks anyway (e.g. a deliberate dress-rehearsal sweep for upcoming review), they may say *"run pre-PR-push checks despite sandbox-only"* (or similar); treat the push as review-targeting from that point and continue to the booleans + truth table below.
 - If **review-targeting for this push cycle** (first review push, amend in response to PR review, post-merge / post-rebase push on a branch already under review, OR a follow-up commit landing on an open PR before review comments arrive), continue to the two state booleans + truth table below. *(A branch that may LATER become a PR but whose CURRENT push is sandbox-only takes the personal-sandbox branch above - re-enter this playbook on the future review push.)*
 
-This pre-check exists because the two state booleans alone cannot distinguish "sandbox-only repeat push" (out of scope) from "post-merge-rebase push or follow-up commit on a branch already under review" (in scope) - both are `(false, true)` - so per-push intent must be settled first. **Phrase the question as "this specific push", not "this branch eventually"**, so a branch that may *later* become a PR but whose *current* push is sandbox-only correctly exits.
+This pre-check exists because the two booleans alone cannot distinguish "sandbox-only repeat push" (out of scope) from "post-merge-rebase or follow-up commit on a branch already under review" (in scope) - both are `(false, true)` - so settle per-push intent first. **Phrase it as "this specific push", not "this branch eventually"**, so a branch that may *later* become a PR but whose *current* push is sandbox-only correctly exits.
 
 ## Two independent state booleans (record both at intake time)
 
@@ -134,11 +134,11 @@ Bundle these in one prompt. Q1 settles intent for the pre-check above; the boole
 
 ## Decision tree (deterministic - apply in order, sub-files COMPOSE)
 
-This is **not** "pick one playbook". The sub-files are sequential and conditional, and **multiple sub-files apply when multiple scenarios overlap** (e.g. an amend in response to PR review that also includes a rebase from base requires per-commit-micro-hygiene on the new commit AND when-to-re-run-sweep AND possibly cleanup-commit-buckets if the re-run sweep finds changes).
+This is **not** "pick one playbook". The sub-files are sequential and conditional, and **multiple apply when scenarios overlap** (e.g. an amend responding to PR review that also rebases from base needs per-commit-micro-hygiene on the new commit AND when-to-re-run-sweep AND possibly cleanup-commit-buckets if the re-run sweep finds changes).
 
 ### Step 1 - DEFAULT (when the playbook applies): per-commit micro-hygiene on every new / amended commit
 
-(This step is reached only when the pre-check above placed the push in scope. If the push is sandbox-only, the playbook already exited.) This is a **per-commit** rule, not a pre-push rule. It should already have run during each commit cycle (gated by `AGENTS.md` §3.1 - every new / modified comment in the diff gets the per-comment audit). At pre-PR-push time, verify it ran for **every** commit on the branch and **every** newly-amended commit since the last sweep - not just the most recent commit.
+(Reached only when the pre-check placed the push in scope; a sandbox-only push already exited.) This is a **per-commit** rule, not a pre-push rule - it should already have run each commit cycle (gated by `AGENTS.md` §3.1 - every new / modified comment gets the per-comment audit). At pre-PR-push time, verify it ran for **every** commit on the branch and **every** newly-amended commit since the last sweep - not just the most recent.
 
 If it didn't run for some commits (e.g. a fast WIP series with no per-commit audit, or a force-push amend where the audit was skipped), fetch:
 
@@ -170,7 +170,7 @@ Trigger: `git diff <base>..HEAD` shows any **visibility / export / mutability su
 
 > `.github/playbooks/least-privilege-audit.md` (branch-wide scope, restricted to the projects whose surface the branch touches)
 
-This catches the "many small commits each individually fine, but together leaking too-public surface" failure mode before reviewers see it. Per-commit `post-code-change.md` audits cover touched-file scope only - they don't see cross-commit accumulation. The branch-wide pass re-greps with the ACTUAL final state of the branch.
+This catches the "many small commits each fine, but together leaking too-public surface" failure mode before reviewers see it. Per-commit `post-code-change.md` audits cover touched-file scope only - not cross-commit accumulation. The branch-wide pass re-greps the ACTUAL final branch state.
 
 **Audit-fix commit grouping is NOT cleanup-commit-buckets.** Cleanup buckets classify rename / comment / hygiene churn from the branch-wide sweep; they don't classify API-surface tightening. If the audit recommends changes, group them per `least-privilege-audit.md`'s own commit-grouping section (per-type or per-axis), not per the cleanup-buckets file.
 
@@ -190,9 +190,11 @@ For every review-targeting push (any of the in-scope rows above - first-review p
 
 > `.github/playbooks/pre-pr-creation-review.md`
 
-...and run the mandatory publish gate (gate-runner full-mode + the multi-model panel) on the full branch diff (`<base>..HEAD`). The output of this step is `preCreationReviewStatus` (recorded in canonical session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. The PR-creation tools enumerated in the publish gate's G6 require `READY-re-emitted-after-user-approval` SPECIFICALLY in the current turn - the initial `READY-pending-user-approval` is pre-approval only and does NOT unblock G6 (user-approval + same-state re-check have not happened) - see `pre-pr-creation-review.md` G3 + `.github/pr-quality-gate/quality-gate-block.md` for the same-turn enforcement.
+...and run the mandatory publish gate (gate-runner full-mode + the multi-model panel) on the full branch diff (`<base>..HEAD`). The output is `preCreationReviewStatus` (in session todos): `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason>`. The PR-creation tools in the publish gate's G6 require `READY-re-emitted-after-user-approval` SPECIFICALLY in the current turn - the initial `READY-pending-user-approval` is pre-approval only and does NOT unblock G6 - see `pre-pr-creation-review.md` G3 + `.github/pr-quality-gate/quality-gate-block.md` for the same-turn enforcement.
 
 This step is the SINGLE SOURCE OF TRUTH for "should the publish gate fire now?" - the gate itself does not re-classify whether the push is review-targeting; it reads from the phase-state record that this step writes.
+
+**Write the receipt:** once the gate reaches `READY-*`, write the `publish_gate_ready` receipt for the pushed tip (schema: `publish-gate-receipt.md`); the pre-push hook blocks the push without a fresh receipt bound to this remote/branch/commit.
 
 ## State to record before declaring "ready to push"
 
@@ -207,12 +209,13 @@ Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical
 - `rerunConditionsChecked`- `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases - `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
 - `pushCredentialsVerified` - outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field - credentials must be verified for sandbox pushes too). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
 - `preCreationReviewStatus` - outcome of Step 5 above (the publish gate per `pre-pr-creation-review.md`). One of `READY-pending-user-approval` / `READY-re-emitted-after-user-approval` / `BLOCKED-<reason>` / `n/a-sandbox-exit` (when this push exited at the sandbox pre-check). A `BLOCKED-*` value fails the readiness gate AND blocks the PR-creation tools enumerated in the publish gate's G6.
+- `publishGateReceiptWritten` - the receipt row for the pushed tip (Step 5 / sandbox pre-check): `publish_gate_ready` / `sandbox_push_declared` / `no`. `no` fails the readiness gate AND is blocked by the pre-push hook. Schema: `publish-gate-receipt.md`.
 
 Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
 
 ### Evidence-gate output before declaring "ready"
 
-Print the state-predicate read-back as a structured chat block before claiming ready - the 11 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (12 lines total in the block; the field set is referred to as the "11-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational twelfth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` - state read-back prints state verbatim; there is no audit-count concept here).
+Print the state-predicate read-back as a structured chat block before claiming ready - the 12 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (13 lines total in the block; the field set is referred to as the "12-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational thirteenth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` - state read-back prints state verbatim; there is no audit-count concept here).
 
 ```
 Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
@@ -227,6 +230,7 @@ Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
 - rerunConditionsChecked: <true | false | n/a-first-push | n/a-sandbox-exit>
 - pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>
 - preCreationReviewStatus: <READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason> | n/a-sandbox-exit>
+- publishGateReceiptWritten: <publish_gate_ready | sandbox_push_declared | no>
 - sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
 ```
 

@@ -161,6 +161,19 @@ function Read-ReadsReceipt {
     return @{ ParentSha = $parent; Reads = $reads }
 }
 
+function ConvertFrom-ReadsLine {
+    param([Parameter(Mandatory)][AllowEmptyString()][string] $Line)
+    $l = ([string]$Line).TrimEnd("`r")
+    $m = [regex]::Match($l, $script:ReadsLineRx)
+    if ($m.Success) {
+        $file = $m.Groups['file'].Value.Trim()
+        if ($file) {
+            return [pscustomobject]@{ IsReadsLine = $true; Ok = $true; File = $file; Token = $m.Groups['token'].Value }
+        }
+    }
+    return [pscustomobject]@{ IsReadsLine = [regex]::IsMatch($l, '^\s*reads='); Ok = $false; File = $null; Token = $null }
+}
+
 Export-ModuleMember -Function Split-ApplyToTopLevel, Expand-Brace, Expand-ApplyToPatterns,
     Get-ApplyToFromContent, Get-TokenFromContent, Resolve-TopicGate, Get-GatedTopicsFromBlobs,
-    Get-WorktreeGatedTopicFiles, Get-MatchedGatedFiles, Read-ReadsReceipt
+    Get-WorktreeGatedTopicFiles, Get-MatchedGatedFiles, Read-ReadsReceipt, ConvertFrom-ReadsLine

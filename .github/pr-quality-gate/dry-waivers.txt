@@ -174,3 +174,20 @@ cb840765a49bd97b  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 
 fadf0d6b0895c1f6  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
 f782bafbf94c998b  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
 9b0711c398d9f88a  per-checker test scaffolding (check-catalog-fp-refs.tests.ps1 vs check-catalog-cede-refs.tests.ps1; self-test harness helpers)
+
+# fu publish-gate-prepush gate (scripts/check-publish-gate-prepush.ps1): shares the standard checker bootstrap
+# (StrictMode + $ErrorActionPreference + Import-Module repo-root/audit-note-helpers/read-receipt-helpers + Resolve-RepoRoot
+# + identity gate) with check-audit-notes-prepush.ps1 - the same self-contained-per-script idiom as the waivers above.
+671b541fd049b7a3  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+78725ff6cef4edc1  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+e86521799bd34a46  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+a55ba5b5c86c5986  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+17c2d21b856f7c2f  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+3ec767eab37ae6ff  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+3799bc6dd9958aa5  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+b4c7ece97f42854a  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+c95acd0c4c640ce0  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+eac634f48857f590  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+9505654c5da55e92  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+4b0891cb6dee6e49  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)
+a421a278f62df8e4  checker bootstrap (check-publish-gate-prepush.ps1 vs check-audit-notes-prepush.ps1; StrictMode + module imports + Resolve-RepoRoot)

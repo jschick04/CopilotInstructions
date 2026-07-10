@@ -57,6 +57,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'audit-notes prepush unit tests'; Script = 'scripts/tests/check-audit-notes-prepush.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'structural-conformance unit tests'; Script = 'scripts/tests/check-structural-conformance.tests.ps1'; LocalArgs = @();                  EnvSkippable = $false }
     [pscustomobject]@{ Name = 'signoff unit tests';       Script = 'scripts/tests/check-signoff.tests.ps1';              LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'publish-gate prepush unit tests'; Script = 'scripts/tests/check-publish-gate-prepush.tests.ps1'; LocalArgs = @();                EnvSkippable = $false }
     [pscustomobject]@{ Name = 'duplication unit tests';   Script = 'scripts/tests/check-duplication.tests.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'local-CI harness unit tests'; Script = 'scripts/tests/run-local-ci.tests.ps1';            LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'structural conformance';   Script = 'scripts/check-structural-conformance.ps1';           LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }

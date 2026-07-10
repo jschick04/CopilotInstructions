@@ -1,5 +1,5 @@
 # Playbook: Instruction-set maintenance
-<!-- read-receipt-token: 9b6c4476 -->
+<!-- read-receipt-token: 2d7f4c93 -->
 
 ## When this applies
 
@@ -64,7 +64,7 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 
 - **No banned smart punctuation** (§3.14): defer to `AGENTS.md` §3.14 for the full banned set (em/en-dashes, smart quotes, ellipsis, horizontal bar); plain symbols like `§` are fine. Scan added diff lines.
 - **Canonical-vs-chat split**: the audit-file/CI-consumed schema stays; chat emits the compressed caveman form defined in a separate subsection.
-- **Read-receipt tokens**: preserve the `read-receipt-token` HTML-comment marker near the top of files that carry one.
+- **Read-receipt tokens**: preserve the `read-receipt-token` HTML-comment marker near the top of files that carry one; **rotate it (a fresh random lowercase 8-hex) on a MATERIAL edit** so a receipt written against the pre-edit version cannot validate post-edit (freshness). The two pre-pr playbooks' tokens back the publish-gate receipt (`.github/pr-quality-gate/publish-gate-receipt.md`); the code-topic files' tokens back `check-read-receipts`.
 - **Comments**: structural section banners only; no narrative code comments without the §3.1 gate.
 - **Commit**: author per `AGENTS.md` §4 (human identity, not an automation identity); single-line imperative subject; no body/footer; no `Co-authored-by` trailer; no Conventional-Commit prefix.
 - **Active profile**: edit the git-tracked `profiles/<full|lite>/profile.template.md` templates, NEVER the gitignored generated `.github/instructions/active-profile.instructions.md` (the harness loads it; `invoke-panel.ps1` reads it as the floor). Re-run setup to regenerate.

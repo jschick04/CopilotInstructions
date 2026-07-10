@@ -2,18 +2,23 @@
 # Pre-push hook:
 #   1. Local audit-note gate (every pushed commit must carry a fresh valid note).
 #   2. Force-push sign-off: any non-fast-forward update requires a fresh tree-bound sign-off.
-#   3. Local-CI mirror (scripts/run-local-ci.ps1).
+#   3. Publish-gate receipt: a governed branch push must carry a fresh publish_gate_ready /
+#      sandbox_push_declared receipt bound to this exact remote + branch + tip.
+#   4. Local-CI mirror (scripts/run-local-ci.ps1).
 # Reads the pre-push ref-update list from stdin. Bypassable via `git push --no-verify`;
 # branch protection is the remote backstop and CI re-runs the mirrored local-CI checks, but the
-# panel/comment/reads audit notes are local-only (CI cannot read them) - zero-remote-footprint design.
+# panel/comment/reads audit notes and the publish-gate receipt are local-only (CI cannot read them) -
+# zero-remote-footprint design.
 #
 # Wired by core.hooksPath=.githooks (setup.ps1 / setup.sh). See pre-pr-push.md for rationale.
 
 set -e
 
 # Git passes the destination remote name as $1 (and its URL as $2); forward the name so the
-# note gate computes the correct new-branch range (rev-list --not --remotes=<remote>).
+# note gate computes the correct new-branch range (rev-list --not --remotes=<remote>). The URL
+# ($2) goes to the publish-gate receipt check so it binds the ACTUAL push location, not the alias.
 REMOTE_NAME="${1:-origin}"
+REMOTE_URL="${2:-}"
 
 # stdin (the ref-update lines) can be consumed only once; capture to a temp file so both the
 # note gate and the force-push loop can read it (a piped `while` runs in a subshell where its
@@ -61,7 +66,25 @@ if command -v pwsh >/dev/null 2>&1; then
         done < "$TMPREF"
     fi
 
-    # 3. local-CI mirror
+    # 3. publish-gate receipt (a governed branch push must carry a fresh receipt bound to this
+    #    exact remote + branch + tip). Adoption-gated + fail-closed if the committed checker is
+    #    removed (mirrors the pre-commit gates). Identity-gated in the script (no-op on a consumer).
+    if git cat-file -e HEAD:scripts/check-publish-gate-prepush.ps1 2>/dev/null || [ -f scripts/check-publish-gate-prepush.ps1 ]; then
+        if [ ! -f scripts/check-publish-gate-prepush.ps1 ]; then
+            echo "ERROR: scripts/check-publish-gate-prepush.ps1 is committed (publish-gate adopted) but absent from the working tree." >&2
+            echo "       Refusing to push with the enforcement removed (fail-closed)." >&2
+            exit 1
+        fi
+        if ! pwsh -NoProfile -File scripts/check-publish-gate-prepush.ps1 -RemoteName "$REMOTE_NAME" -RemoteUrl "$REMOTE_URL" < "$TMPREF"; then
+            echo "" >&2
+            echo "ERROR: this push publishes a branch with no fresh publish-gate receipt." >&2
+            echo "       Run the publish gate (pre-pr-creation-review.md) + write publish_gate_ready, or record" >&2
+            echo "       sandbox_push_declared (pre-pr-push.md sandbox pre-check), then push." >&2
+            exit 1
+        fi
+    fi
+
+    # 4. local-CI mirror
     if ! pwsh -NoProfile -File scripts/run-local-ci.ps1; then
         echo "" >&2
         echo "ERROR: the local-CI mirror (scripts/run-local-ci.ps1) reported a failing check." >&2
