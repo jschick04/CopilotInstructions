@@ -22,7 +22,8 @@ recall lift, not proof-of-panel. Bypass ceiling (documented, not closed): `git p
 absent** (every local pwsh gate skips; CI cannot reproduce this local-only receipt). `gh pr create` from an
 already-pushed tip is still NOT hook-gated (that boundary stays modeled: the SENTINEL below + the detective
 slug `pr-creation-or-push-without-quality-gate-block` + the CI `quality-gate-check.yml` rg-floor). The
-identity gate keys on `origin` only.
+identity gate keys on repo identity (`Test-IsInstructionsRepo`), not the remote alias; the receipt binds to
+the normalized `-RemoteUrl` push destination, falling back to `-RemoteName` (default `origin`).
 
 ## Which pushes are governed
 
