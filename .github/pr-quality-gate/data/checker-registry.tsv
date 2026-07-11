@@ -10,3 +10,4 @@ receipt-numeric-claim-drift	check-diff-consistency	scripts/check-diff-consistenc
 shell-sed-exit-zero-fallback-unreachable	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
 ci-shell-or-true-swallows-real-failures	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
 ci-jq-arg-literal-backslash-n	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
+edited-file-drops-non-ascii-encoding-loss	check-encoding-loss	scripts/check-encoding-loss.ps1	scripts/tests/check-encoding-loss.tests.ps1	hard-fail

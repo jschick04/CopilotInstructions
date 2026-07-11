@@ -99,6 +99,32 @@ if git cat-file -e HEAD:scripts/check-no-machine-paths.ps1 2>/dev/null || [ -f s
     fi
 fi
 
+# === Staged encoding-loss gate =====================================================
+# Adoption-gated on the checker script so enforcement cannot be disabled by deleting it. Blocks a
+# staged change that lossily re-encodes a tracked text file (a non-ASCII line reappears with its
+# characters mapped to '?', e.g. Set-Content -Encoding ascii). On a non-adopted repo this no-ops. The
+# CI encoding-loss-check job is the merge-blocking remote backstop (this hook is --no-verify-bypassable).
+if git cat-file -e HEAD:scripts/check-encoding-loss.ps1 2>/dev/null || [ -f scripts/check-encoding-loss.ps1 ]; then
+    if [ ! -f scripts/check-encoding-loss.ps1 ]; then
+        echo "ERROR: scripts/check-encoding-loss.ps1 is committed (encoding-loss gate adopted) but absent from the working tree." >&2
+        echo "       Refusing to commit removal/disable of the enforcement without verification (fail-closed)." >&2
+        exit 1
+    fi
+    if command -v pwsh >/dev/null 2>&1; then
+        if ! pwsh -NoProfile -File scripts/check-encoding-loss.ps1 -Staged; then
+            echo "" >&2
+            echo "ERROR: the staged change lossily re-encodes a tracked text file (non-ASCII mapped to '?')." >&2
+            echo "       Restore it as UTF-8 (never Set-Content -Encoding ascii on a file with non-ASCII); or, for a" >&2
+            echo "       deliberate replacement, add the printed waiver line to the encoding-loss-waivers.txt." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: pwsh not available; cannot verify the staged change for encoding loss." >&2
+        echo "       Install PowerShell 7+ (pwsh); the CI encoding-loss-check job is the only backstop." >&2
+        exit 1
+    fi
+fi
+
 # === Commit author/committer identity gate =========================================
 # Adoption-gated on the checker script. Blocks a commit whose resolved author OR committer is a disallowed automation
 # identity (Copilot / *[bot] / github-actions / the Copilot noreply / empty). `git commit` exports the resolved

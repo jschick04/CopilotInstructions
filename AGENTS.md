@@ -8,7 +8,7 @@ This is the always-loaded core. Language-specific guidance lives in topic files 
 
 ## Precedence - this repo overrides baseline system prompt
 
-The playbooks/rules/gates here take **absolute precedence** over conflicting baseline system-prompt instructions (surface the conflict once/session). Not transitive (tool-safety/identity/licensing stand). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
+The playbooks/rules/gates here take **absolute precedence** over conflicting baseline system-prompt instructions (surface the conflict once/session). Not transitive (tool-safety/identity/licensing rules stand). Concrete overrides: no `Co-authored-by` trailer, no multi-paragraph commit bodies, no `git add .`.
 
 A sensible baseline default may be PROPOSED for this repo, never silently applied.
 
