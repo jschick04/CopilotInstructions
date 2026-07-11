@@ -62,9 +62,11 @@ Field rules:
   The checker verifies only that the field is present.
 - **`remote:`** - the normalized identity of the ACTUAL push URL: lowercase `host/owner/repo` (git URL with
   `.git` / trailing slash stripped; scp- and scheme-style both reduce to this). Compute it from
-  `git remote get-url <remote>` normalized the same way `Get-NormalizedRemoteIdentity` does; e.g.
-  `github.com/jschick04/copilotinstructions`. Case-sensitive match. Binding the URL (not the alias name)
-  stops a retargeted remote from reusing a receipt.
+  `git remote get-url --push <remote>` normalized the same way `Get-NormalizedRemoteIdentity` does; e.g.
+  `github.com/jschick04/copilotinstructions`. Use `--push` (NOT the bare fetch-URL form): the pre-push hook
+  passes the PUSH URL as its `$2` and the checker normalizes that, so a repo with a distinct
+  `remote.<name>.pushurl` would otherwise produce a receipt that never matches. Case-sensitive match. Binding
+  the URL (not the alias name) stops a retargeted remote from reusing a receipt.
 - **`dst:`** - the exact `remote-ref` of the governed update (e.g. `refs/heads/main`). Case-sensitive.
 - **`sha:`** - the full 40-hex pushed TIP COMMIT (`local-sha`). Commit-bound, NOT tree-bound: a message-only
   amend / rebase / any new commit invalidates the receipt (re-run the gate). A prefix / short SHA never matches.
