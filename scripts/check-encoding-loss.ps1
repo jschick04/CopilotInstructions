@@ -13,8 +13,9 @@
   degrades it to D+A, unpaired); a new ASCII-saved file whose intended non-ASCII never reached base;
   a loss masked by a later commit at branch scope (-Staged validates each commit's exact content).
   FALSE POSITIVES (both waiver-able): a deliberate exact non-ASCII->'?' edit; an unrelated delete-of-L
-  plus add-of-fold(L) with matching counts. Bypass: `git commit/push --no-verify` (pre-commit only) or
-  pwsh-absent, same honest ceiling as the sibling hygiene gates.
+  plus add-of-fold(L) with matching counts. Bypass (honest ceiling, as the sibling hygiene gates):
+  `git commit --no-verify` / `git push --no-verify`; a pwsh-absent environment SKIPS the local pre-PUSH
+  scan (the pre-COMMIT hook instead FAIL-CLOSES with exit 1) - the CI encoding-loss-check job backstops.
 
   TWO GIT MODES (one scan path):
     -Staged        pre-commit: `git diff --raw -z --cached` (base = HEAD blob, head = index blob).
