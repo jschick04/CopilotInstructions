@@ -1,0 +1,12 @@
+# encoding-loss waivers - consumed by scripts/check-encoding-loss.ps1. Normally EMPTY.
+#
+# One waiver per line, TAB-separated, exactly:
+#   <repo-relative-path>\t<base-blob-oid>\t<head-blob-oid>\t<reason>
+# The checker skips a flagged file ONLY when (path, base-oid, head-oid) all match a line here. The
+# triple is content-addressed, so any later edit changes the head-oid and the waiver stops applying
+# (it self-stales - a genuine re-encode still fails). Use this ONLY for a DELIBERATE non-ASCII -> '?'
+# replacement; when the checker flags a file it prints the exact line to paste here. The waiver file is
+# read from the reviewed snapshot (the index in -Staged mode, HEAD in -BaseRef mode), never the
+# working tree, so a waiver must itself be part of the committed/staged change.
+#
+# Lines beginning with '#' and blank lines are ignored.

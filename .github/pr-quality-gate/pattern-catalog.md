@@ -251,6 +251,7 @@ These slugs are enforced by a script named in `data/checker-registry.tsv` (parit
 | shell-sed-exit-zero-fallback-unreachable | checker-scoped | {"checker_id":"check-diff-consistency"} |  |  | LOW |
 | ci-shell-or-true-swallows-real-failures | checker-scoped | {"checker_id":"check-diff-consistency"} |  |  | LOW |
 | ci-jq-arg-literal-backslash-n | checker-scoped | {"checker_id":"check-diff-consistency"} |  |  | LOW |
+| edited-file-drops-non-ascii-encoding-loss | checker-scoped | {"checker_id":"check-encoding-loss"} |  |  | LOW |
 
 ---
 
