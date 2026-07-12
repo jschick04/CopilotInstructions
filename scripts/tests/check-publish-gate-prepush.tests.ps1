@@ -80,7 +80,7 @@ try {
     Assert-True ($r.ExitCode -eq 0) 'refs/for/* is governed and authorized -> 0'
 
     Write-Host "`n=== remote URL with spaces (local path) ==="
-    Import-Module ./scripts/lib/audit-note-helpers.psm1 -Force
+    Import-Module (Join-Path $repoRoot 'scripts/lib/audit-note-helpers.psm1') -Force
     $spaceUrl = 'C:\my repo\backup'
     $spaceId = Get-NormalizedRemoteIdentity -Url $spaceUrl
     $d = New-PgRepo; $h = Head $d
