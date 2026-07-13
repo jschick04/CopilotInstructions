@@ -363,7 +363,7 @@ function Test-LedgerImplementationCheckpoint {
         $errs.Add("implementation-checkpoint missing 'diff_matches_design'")
     } elseif ($diffMatches -cmatch '^<.*>$') {
         $errs.Add("unsubstituted template placeholder in implementation-checkpoint 'diff_matches_design'")
-    } elseif ($diffMatches -cmatch '^diverged:\s*"([^"]*)"\s*$') {
+    } elseif ($diffMatches -cmatch '^diverged:\s*"(.*)"\s*$') {
         $note = $matches[1]
         if ([string]::IsNullOrWhiteSpace($note) -or ($note -cmatch '^\s*<[^>]*>\s*$')) {
             $errs.Add("implementation-checkpoint 'diff_matches_design' diverged note must be a non-empty real note, not a '<...>' placeholder (got '$diffMatches')")
@@ -678,7 +678,7 @@ function Test-PreCommitGateBlock {
     if (-not $subjectLine) {
         $result.Valid = $false; $result.Errors += "missing required 'subject|' line"
     } else {
-        if ($subjectLine -cmatch '\|proposed_subject="([^"]*)"') {
+        if ($subjectLine -cmatch '\|proposed_subject="(.*)"\|subject_approved=') {
             $ps = [string]$matches[1]
             if ([string]::IsNullOrWhiteSpace($ps) -or ($ps -cmatch '^\s*<')) {
                 $result.Valid = $false; $result.Errors += "subject 'proposed_subject' must be a non-empty real subject, not empty/placeholder (got: '$ps')"
