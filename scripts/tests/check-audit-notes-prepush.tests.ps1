@@ -59,7 +59,7 @@ function Write-PreCommitNote {
         'commit_subject: precommit commit',
         'PRE-COMMIT GATE PASSED',
         'gate|diff_shown=yes:t1|diff_approved=yes:t2|staged_diff_verified=yes:(1 files,+1/-0)matches|profile=full|author_identity=T <t@t.t>|commit_ownership=agent|rule_coverage_passed=true|pr_creation=deferred',
-        'subject|proposed_subject="precommit commit"|subject_approved=yes:t2|format_check=single_line:yes',
+        'subject|proposed_subject="precommit commit"|subject_approved=yes:t2|format_check=single_line:yes,co_authored_by_trailer:no,body:no,conventional_commit_prefix:no,subject_length_chars:16',
         'core_rules_acknowledged:',
         '  - slug:comment-necessity status:applied sites:[x:1] metric:rg=0/0 disp:keep',
         'staged_files:',

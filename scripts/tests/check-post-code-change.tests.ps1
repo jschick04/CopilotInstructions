@@ -487,6 +487,18 @@ try {
     Remove-Item Env:PANEL_GATE_AMEND
     Assert-Equal 0 $code 'staged amend (PANEL_GATE_AMEND=1): HEAD^ accepted'
 
+    TG reset --hard HEAD
+    $hHeadShort = $h.Substring(0, 8)
+    $hParentShort = $hParent.Substring(0, 8)
+    TG rm --cached --ignore-unmatch $AUDIT
+    Remove-Item -LiteralPath (Join-Path $tmp $AUDIT) -Force -ErrorAction SilentlyContinue
+    Write-RepoFile -Rel 'src/app.cs' -Lines @('class A { int R; }')
+    TG add src/app.cs
+    $env:PANEL_GATE_AMEND = '1'
+    $hintOut = (& pwsh -NoProfile -File $checkerPath -StagedMode -RepoRoot $tmp 2>&1) -join "`n"
+    Remove-Item Env:PANEL_GATE_AMEND
+    Assert-True ($hintOut -match $hParentShort -and $hintOut -notmatch $hHeadShort) 'missing-receipt hint under PANEL_GATE_AMEND shows HEAD^, not HEAD'
+
     $tmp2 = Join-Path ([System.IO.Path]::GetTempPath()) ("pcc-t2-" + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $tmp2 -Force | Out-Null
     function TG2 { & git -C $tmp2 @args 2>&1 | Out-Null; if ($LASTEXITCODE -ne 0) { throw "git2 failed: $($args -join ' ')" } }

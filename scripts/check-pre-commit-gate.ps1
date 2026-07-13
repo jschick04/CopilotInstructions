@@ -97,7 +97,10 @@ if ($StagedMode) {
             }
         }
     }
-    $hintParent = $acceptableParents[0]
+    # Hint the parent the receipt should bind: HEAD for a fresh commit, or the amend parent (HEAD^,
+    # or the empty-tree sentinel for a root-commit amend) when PANEL_GATE_AMEND is set - so the hint
+    # does not steer an amend receipt toward HEAD, which the note validator would later reject.
+    $hintParent = if ($amendAllowed -and $acceptableParents.Count -gt 1) { $acceptableParents[-1] } else { $acceptableParents[0] }
     $hintParentDisplay = if ($hintParent -eq $gitEmptyTreeSha) { 'EMPTY_TREE' } else { $hintParent.Substring(0, [Math]::Min(8, $hintParent.Length)) }
 
     if ($WorktreeReceipt) {
