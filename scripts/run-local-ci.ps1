@@ -41,6 +41,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'catalog-fp-refs unit tests';  Script = 'scripts/tests/check-catalog-fp-refs.tests.ps1';  LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'comment-audit unit tests';    Script = 'scripts/tests/check-comment-audit.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'panel-ledger unit tests';   Script = 'scripts/tests/check-post-code-change.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'pre-commit-gate unit tests'; Script = 'scripts/tests/check-pre-commit-gate.tests.ps1'; LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'hygiene-signals unit tests';Script = 'scripts/tests/hygiene-signals.tests.ps1';      LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'quotePath-convention guard';Script = 'scripts/tests/quotepath-convention.tests.ps1'; LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'read-receipts unit tests';  Script = 'scripts/tests/check-read-receipts.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }

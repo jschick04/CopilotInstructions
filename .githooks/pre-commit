@@ -49,6 +49,33 @@ if git cat-file -e HEAD:scripts/check-post-code-change.ps1 2>/dev/null || [ -f s
     fi
 fi
 
+# === Staged pre-commit-gate receipt (PRE-COMMIT GATE PASSED block) ==================
+# Adoption-gated on the checker script so enforcement cannot be disabled by deleting the receipt.
+# On a non-adopted repo this no-ops. Unlike the LEDGER, the PRE-COMMIT GATE PASSED block is a
+# user-approval artifact required on EVERY commit with a non-empty staged diff (no tier-0 skip; the
+# checker re-derives that). Bypassable via `git commit --no-verify` (which AGENTS.md §0 itself gates);
+# the pre-push note gate + CI are the backstops.
+if git cat-file -e HEAD:scripts/check-pre-commit-gate.ps1 2>/dev/null || [ -f scripts/check-pre-commit-gate.ps1 ]; then
+    if [ ! -f scripts/check-pre-commit-gate.ps1 ]; then
+        echo "ERROR: scripts/check-pre-commit-gate.ps1 is committed (pre-commit-gate adopted) but absent from the working tree." >&2
+        echo "       Refusing to commit removal/disable of the enforcement without verification (fail-closed)." >&2
+        exit 1
+    fi
+    if command -v pwsh >/dev/null 2>&1; then
+        if ! pwsh -NoProfile -File scripts/check-pre-commit-gate.ps1 -StagedMode -WorktreeReceipt; then
+            echo "" >&2
+            echo "ERROR: the staged change has no fresh PRE-COMMIT GATE PASSED receipt." >&2
+            echo "       Emit the PRE-COMMIT GATE PASSED block and write it to" >&2
+            echo "       .github/pr-quality-gate/audits/pre-commit-gate-last.md (gitignored; the post-commit hook records it as a note)." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: pwsh not available; cannot verify the staged PRE-COMMIT GATE PASSED receipt." >&2
+        echo "       Install PowerShell 7+ (pwsh); the pre-push note gate is the only backstop (these receipts live in unpushed git notes that CI cannot read)." >&2
+        exit 1
+    fi
+fi
+
 # === Staged comment-audit gate =====================================================
 # Adoption-gated on the comment-audit checker script so enforcement cannot be disabled
 # by deleting the receipt. On a non-adopted repo this no-ops. Site+wording bound: every

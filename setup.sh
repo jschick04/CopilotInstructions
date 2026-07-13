@@ -151,10 +151,10 @@ echo "=== Configuring local audit-note refs ==="
 if ! git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
     echo "WARNING: not a git repository. Skipping notes config."
 else
-    # The audit ledgers live in local git notes (never pushed). Three independent refs
-    # (panel + comment + reads) carried across amend/rebase via rewriteMode=overwrite; each note's
+    # The audit ledgers live in local git notes (never pushed). Four independent refs
+    # (panel + comment + reads + pre-commit) carried across amend/rebase via rewriteMode=overwrite; each note's
     # audited_tree + parent_sha bindings reject a stale carry onto an amended or rebased commit.
-    for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment refs/notes/copilot-audit-reads; do
+    for REF in refs/notes/copilot-audit-panel refs/notes/copilot-audit-comment refs/notes/copilot-audit-reads refs/notes/copilot-audit-precommit; do
         if ! git -C "$REPO_ROOT" config --local --get-all notes.rewriteRef 2>/dev/null | grep -qx "$REF"; then
             if ! git -C "$REPO_ROOT" config --local --add notes.rewriteRef "$REF"; then
                 echo "ERROR: failed to add notes.rewriteRef=$REF (check .git/config write permissions)." >&2
@@ -168,7 +168,7 @@ else
         echo "       Re-run this installer after resolving the git config write failure." >&2
         exit 1
     fi
-    echo "Configured notes.rewriteRef (panel + comment + reads) + notes.rewriteMode=overwrite (local only; notes are never pushed)."
+    echo "Configured notes.rewriteRef (panel + comment + reads + pre-commit) + notes.rewriteMode=overwrite (local only; notes are never pushed)."
 fi
 
 echo ""

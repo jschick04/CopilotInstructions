@@ -26,6 +26,7 @@ $gitArgs = @(
     "--notes=$(Get-PanelNoteRef)",
     "--notes=$(Get-CommentNoteRef)",
     "--notes=$(Get-ReadsNoteRef)",
+    "--notes=$(Get-PreCommitNoteRef)",
     '--format=%C(yellow)%h%C(reset) %s%n%C(dim)%an, %ar%C(reset)'
 )
 if ($Patch) { $gitArgs += '--patch' }

@@ -81,7 +81,7 @@ if ($violations) {
     exit $script:ExitViolation
 }
 
-$stagePattern = 'git add.{0,5}\.github/pr-quality-gate/audits/(last|post-code-change-last|read-receipts-last)\.md'
+$stagePattern = 'git add.{0,5}\.github/pr-quality-gate/audits/(last|post-code-change-last|read-receipts-last|pre-commit-gate-last)\.md'
 $stageHits = & git -C $RepoRoot grep -nE "$stagePattern" -- .github/playbooks 2>$null
 if ($LASTEXITCODE -gt 1) {
     Write-Invocation "git grep for the receipt-staging guard failed (exit $LASTEXITCODE); cannot verify no playbook stages a receipt. Failing closed."

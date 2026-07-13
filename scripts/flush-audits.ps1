@@ -48,6 +48,7 @@ $receipts = @(
     [PSCustomObject]@{ Kind = 'panel';   Ref = (Get-PanelNoteRef);   Path = '.github/pr-quality-gate/audits/post-code-change-last.md' }
     [PSCustomObject]@{ Kind = 'comment'; Ref = (Get-CommentNoteRef); Path = '.github/pr-quality-gate/audits/last.md' }
     [PSCustomObject]@{ Kind = 'reads';   Ref = (Get-ReadsNoteRef);   Path = '.github/pr-quality-gate/audits/read-receipts-last.md' }
+    [PSCustomObject]@{ Kind = 'precommit'; Ref = (Get-PreCommitNoteRef); Path = '.github/pr-quality-gate/audits/pre-commit-gate-last.md' }
 )
 
 $flushed = @()

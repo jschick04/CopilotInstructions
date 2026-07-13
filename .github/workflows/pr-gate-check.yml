@@ -88,6 +88,14 @@ jobs:
       - shell: pwsh
         run: ./scripts/tests/check-post-code-change.tests.ps1
 
+  pre-commit-gate-tests:
+    name: pre-commit-gate checker unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+      - shell: pwsh
+        run: ./scripts/tests/check-pre-commit-gate.tests.ps1
+
   hygiene-signals-tests:
     name: hygiene-signals (B1) unit tests
     runs-on: ubuntu-latest

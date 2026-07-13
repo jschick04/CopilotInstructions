@@ -546,4 +546,187 @@ function Test-PanelLedger {
     return $result
 }
 
-Export-ModuleMember -Function Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-LedgerG6, Test-LedgerImplementationCheckpoint, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha -Variable GitEmptyTreeSha
+function Get-BlockBulletChildren {
+    # Bounded sub-block scan: return the '- ' bullet child lines under a top-level 'HeaderKey:' line,
+    # stopping at the next top-level 'key:' line (so a later section's bullets can never satisfy an
+    # earlier empty header). Returns $null when the header is absent, else the (possibly empty) array.
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $Lines,
+        [Parameter(Mandatory)] [string] $HeaderKey
+    )
+    $ls = @($Lines)
+    $headerRx = '^\s*' + [regex]::Escape($HeaderKey) + ':\s*(#.*)?$'
+    $headerIdx = -1
+    for ($i = 0; $i -lt $ls.Count; $i++) {
+        if (([string]$ls[$i]) -cmatch $headerRx) { $headerIdx = $i; break }
+    }
+    if ($headerIdx -lt 0) { return $null }
+    $children = New-Object System.Collections.Generic.List[string]
+    for ($i = $headerIdx + 1; $i -lt $ls.Count; $i++) {
+        $ln = [string]$ls[$i]
+        if ($ln -match '^\s*$' -or $ln -cmatch '^\s*#') { continue }
+        if ($ln -cmatch '^\s*-\s') { $children.Add($ln); continue }
+        if ($ln -cmatch '^\s*[A-Za-z][\w-]*:') { break }
+    }
+    return , $children.ToArray()
+}
+
+function Test-PreCommitGateValue {
+    # Anchored placeholder check on an already-extracted value: after stripping quoted substrings,
+    # an unsubstituted '<...>' template token remains -> placeholder. Keeps a legit List<T> inside a
+    # quoted free-text field from false-matching.
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [AllowEmptyString()] [string] $Value)
+    return (($Value -replace '"[^"]*"', '""') -cmatch '<[^>]*>')
+}
+
+function Test-PreCommitGateBlock {
+    # Validator for the PRE-COMMIT GATE PASSED receipt/note body (the 4th audit receipt). Asserts only
+    # the load-bearing user-approval keys + parent_sha freshness (opaque to other rows, mirroring
+    # Test-PanelLedger). Slug enumeration is required only for a code/governance (tier>=1) commit; the
+    # user-approval fields (diff_approved / subject_approved / staged_diff_verified / commit_ownership /
+    # rule_coverage_passed) are required on EVERY commit.
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $BlockLines,
+        [Parameter(Mandatory)] [string] $ExpectedParentSha,
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+    )
+    $result = [PSCustomObject]@{ Valid = $true; Errors = @(); ParentSha = $null }
+    $lines = @($BlockLines)
+    if ($lines.Count -gt 0 -and $lines[0]) { $lines[0] = ([string]$lines[0]).TrimStart([char]0xFEFF) }
+    $tierRequiresSlugs = $GovernanceTier -ge 1
+
+    $parentShaLine = $lines | Where-Object { $_ -cmatch '^parent_sha:\s*(.+?)\s*$' } | Select-Object -First 1
+    if (-not $parentShaLine) {
+        $result.Valid = $false; $result.Errors += "missing required 'parent_sha:' header"; return $result
+    }
+    if ($parentShaLine -cmatch '^parent_sha:\s*<') {
+        $result.Valid = $false; $result.Errors += "unsubstituted template placeholder for parent_sha"; return $result
+    }
+    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40})\s*$') {
+        $result.ParentSha = $matches[1]
+        if ($ExpectedParentSha -eq $script:GitEmptyTreeSha) {
+            $result.Valid = $false
+            $result.Errors += "block declares hex parent_sha '$($result.ParentSha)' but expected root-commit empty-tree sentinel"
+        } elseif (-not $ExpectedParentSha.Equals($result.ParentSha, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $result.Valid = $false
+            $result.Errors += "block parent_sha '$($result.ParentSha)' does not match expected '$ExpectedParentSha' (stale block)"
+        }
+    } elseif ($parentShaLine -cmatch '^parent_sha:\s*(NONE|EMPTY_TREE)\s*$') {
+        if ($ExpectedParentSha -ne $script:GitEmptyTreeSha) {
+            $result.Valid = $false
+            $result.Errors += "block declares root-commit placeholder '$($matches[1])' but commit has a real parent '$ExpectedParentSha'"
+        } else {
+            $result.ParentSha = $matches[1]
+        }
+    } else {
+        $result.Valid = $false
+        $result.Errors += "block parent_sha value is invalid (must be a full 40-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
+        return $result
+    }
+
+    $commitSubjectLine = $lines | Where-Object { $_ -cmatch '^commit_subject:\s*(.+?)\s*$' } | Select-Object -First 1
+    if (-not $commitSubjectLine) {
+        $result.Valid = $false; $result.Errors += "missing required 'commit_subject:' header"
+    } elseif ($commitSubjectLine -cmatch '^commit_subject:\s*<') {
+        $result.Valid = $false; $result.Errors += "unsubstituted template placeholder for commit_subject"
+    }
+
+    if (-not ($lines | Where-Object { $_ -cmatch '^\s*PRE-COMMIT GATE PASSED\s*$' } | Select-Object -First 1)) {
+        $result.Valid = $false; $result.Errors += "missing required 'PRE-COMMIT GATE PASSED' header line"
+    }
+
+    $gateLine = $lines | Where-Object { $_ -cmatch '^\s*gate\|' } | Select-Object -First 1
+    if (-not $gateLine) {
+        $result.Valid = $false; $result.Errors += "missing required 'gate|' line"
+    } else {
+        foreach ($key in @('diff_approved', 'staged_diff_verified')) {
+            if ($gateLine -cmatch ('\|' + $key + '=([^|]*)')) {
+                $v = ([string]$matches[1]).Trim()
+                if ($v -cnotmatch '^yes\b') {
+                    $result.Valid = $false; $result.Errors += "gate '$key' must be an affirmative 'yes...' (got: '$v')"
+                }
+            } else {
+                $result.Valid = $false; $result.Errors += "gate line missing required key '$key'"
+            }
+        }
+        if ($gateLine -cmatch '\|commit_ownership=([^|]*)') {
+            $v = ([string]$matches[1]).Trim()
+            if ($v -cnotmatch '^(agent|user)$') {
+                $result.Valid = $false; $result.Errors += "gate 'commit_ownership' must be 'agent' or 'user' (got: '$v')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "gate line missing required key 'commit_ownership'"
+        }
+        if ($gateLine -cmatch '\|rule_coverage_passed=([^|]*)') {
+            $v = ([string]$matches[1]).Trim()
+            if ($v -cnotmatch '^(true|false)$') {
+                $result.Valid = $false; $result.Errors += "gate 'rule_coverage_passed' must be 'true' or 'false' (got: '$v')"
+            } elseif ($tierRequiresSlugs -and $v -cne 'true') {
+                $result.Valid = $false; $result.Errors += "gate 'rule_coverage_passed' must be 'true' for a code/governance (tier>=1) commit (got: '$v')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "gate line missing required key 'rule_coverage_passed'"
+        }
+    }
+
+    $subjectLine = $lines | Where-Object { $_ -cmatch '^\s*subject\|' } | Select-Object -First 1
+    if (-not $subjectLine) {
+        $result.Valid = $false; $result.Errors += "missing required 'subject|' line"
+    } else {
+        if ($subjectLine -cmatch '\|proposed_subject="([^"]*)"') {
+            $ps = [string]$matches[1]
+            if ([string]::IsNullOrWhiteSpace($ps) -or ($ps -cmatch '^\s*<')) {
+                $result.Valid = $false; $result.Errors += "subject 'proposed_subject' must be a non-empty real subject, not empty/placeholder (got: '$ps')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "subject line missing required quoted 'proposed_subject=`"...`"'"
+        }
+        if ($subjectLine -cmatch '\|subject_approved=([^|]*)') {
+            $v = ([string]$matches[1]).Trim()
+            if ($v -cnotmatch '^yes\b') {
+                $result.Valid = $false; $result.Errors += "subject 'subject_approved' must be an affirmative 'yes...' (got: '$v')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "subject line missing required key 'subject_approved'"
+        }
+    }
+
+    $craChildren = Get-BlockBulletChildren -Lines $lines -HeaderKey 'core_rules_acknowledged'
+    if ($null -eq $craChildren) {
+        $result.Valid = $false; $result.Errors += "missing required 'core_rules_acknowledged:' block"
+    } elseif ($tierRequiresSlugs) {
+        $slugBullets = @($craChildren | Where-Object { $_ -cmatch '^\s*-\s*slug:\S' })
+        if ($slugBullets.Count -lt 1) {
+            $result.Valid = $false; $result.Errors += "core_rules_acknowledged has no '- slug:<slug>' entries (required for a code/governance tier>=1 commit)"
+        }
+        foreach ($bullet in $craChildren) {
+            if (Test-PreCommitGateValue -Value $bullet) {
+                $result.Valid = $false; $result.Errors += "core_rules_acknowledged has an unsubstituted placeholder: $($bullet.Trim())"; break
+            }
+        }
+    }
+
+    $sfChildren = Get-BlockBulletChildren -Lines $lines -HeaderKey 'staged_files'
+    if ($null -eq $sfChildren) {
+        $result.Valid = $false; $result.Errors += "missing required 'staged_files:' block"
+    } else {
+        $pathBullets = @($sfChildren | Where-Object { $_ -cmatch '^\s*-\s*\S' })
+        if ($pathBullets.Count -lt 1) {
+            $result.Valid = $false; $result.Errors += "staged_files has no enumerated paths"
+        } else {
+            foreach ($bullet in $pathBullets) {
+                if (Test-PreCommitGateValue -Value $bullet) {
+                    $result.Valid = $false; $result.Errors += "staged_files has an unsubstituted placeholder: $($bullet.Trim())"; break
+                }
+            }
+        }
+    }
+
+    if (@($result.Errors).Count -gt 0) { $result.Valid = $false }
+    return $result
+}
+
+Export-ModuleMember -Function Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-LedgerG6, Test-LedgerImplementationCheckpoint, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha, Test-PreCommitGateBlock -Variable GitEmptyTreeSha
