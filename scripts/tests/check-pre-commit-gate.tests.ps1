@@ -122,6 +122,7 @@ $overread = @("parent_sha: $ValidParent", 'commit_subject: x', 'PRE-COMMIT GATE 
     'subject|proposed_subject="x"|subject_approved=yes', 'core_rules_acknowledged:', 'staged_files:', '  - a.cs')
 Assert-False ((Test-PreCommitGateBlock -BlockLines $overread -ExpectedParentSha $ValidParent -GovernanceTier 2).Valid) 'empty core_rules header cannot be satisfied by a later section bullet'
 Assert-True  (Test-Valid (New-Block -Slugs @('  - slug:x status:applied sites:[a.cs:1] metric:rg=0/0 disp:keep keep_reason:"guards List<T> path"'))) 'quoted List<T> in keep_reason does NOT false-trigger placeholder'
+Assert-False (Test-Valid (New-Block -Slugs @('  - slug:x status:applied sites:[a.cs:1] metric:rg=0/0 disp:keep keep_reason:"<rationale>"'))) 'unsubstituted keep_reason placeholder INSIDE quotes -> invalid (strip-quotes fail-open closed; PR#89 Copilot)'
 Assert-False (Test-Valid (New-Block -Staged @()))                        'empty staged_files -> invalid'
 Assert-False (Test-Valid (New-Block -Staged @('  - <path>')))            'placeholder staged path -> invalid'
 
