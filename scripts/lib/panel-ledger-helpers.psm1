@@ -256,8 +256,7 @@ function Test-LedgerDisclosureRow {
         return $errs.ToArray()
     }
     $val = ($line -replace ('^\s*' + [regex]::Escape($RowKey) + ':\s*'), '').Trim()
-    $placeholderScan = $val -replace '"[^"]*"', '""'
-    if (($placeholderScan -cmatch '<[^>]*>') -or ($val -cmatch '"\s*<[^>]*>\s*"')) {
+    if (Test-PreCommitGateValue -Value $val) {
         $errs.Add("unsubstituted template placeholder for $RowKey")
         return $errs.ToArray()
     }
@@ -573,12 +572,13 @@ function Get-BlockBulletChildren {
 }
 
 function Test-PreCommitGateValue {
-    # Anchored placeholder check on an already-extracted value: after stripping quoted substrings,
-    # an unsubstituted '<...>' template token remains -> placeholder. Keeps a legit List<T> inside a
-    # quoted free-text field from false-matching.
+    # Placeholder check on an already-extracted value: an unsubstituted '<...>' survives stripping quoted
+    # substrings (an unquoted placeholder), OR a quoted substring is itself a bare '<...>' placeholder
+    # (e.g. keep_reason:"<rationale>"). Stripping quoted content keeps legit angle-bracket syntax
+    # (List<T>, "handles <T>") from false-matching, matching Test-LedgerDisclosureRow's quote-aware guard.
     [CmdletBinding()]
     param([Parameter(Mandatory)] [AllowEmptyString()] [string] $Value)
-    return (($Value -replace '"[^"]*"', '""') -cmatch '<[^>]*>')
+    return ((($Value -replace '"[^"]*"', '""') -cmatch '<[^>]*>') -or ($Value -cmatch '"\s*<[^>]*>\s*"'))
 }
 
 function Test-PreCommitGateBlock {
