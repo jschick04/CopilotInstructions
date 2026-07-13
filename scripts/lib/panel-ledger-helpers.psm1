@@ -627,11 +627,13 @@ function Test-PreCommitGateBlock {
         return $result
     }
 
-    $commitSubjectLine = $lines | Where-Object { $_ -cmatch '^commit_subject:\s*(.+?)\s*$' } | Select-Object -First 1
+    $commitSubjectLine = $lines | Where-Object { $_ -cmatch '^commit_subject:' } | Select-Object -First 1
     if (-not $commitSubjectLine) {
         $result.Valid = $false; $result.Errors += "missing required 'commit_subject:' header"
     } elseif ($commitSubjectLine -cmatch '^commit_subject:\s*<') {
         $result.Valid = $false; $result.Errors += "unsubstituted template placeholder for commit_subject"
+    } elseif ($commitSubjectLine -cnotmatch '^commit_subject:\s*\S') {
+        $result.Valid = $false; $result.Errors += "'commit_subject:' header is empty/whitespace-only"
     }
 
     if (-not ($lines | Where-Object { $_ -cmatch '^\s*PRE-COMMIT GATE PASSED\s*$' } | Select-Object -First 1)) {
@@ -642,7 +644,7 @@ function Test-PreCommitGateBlock {
     if (-not $gateLine) {
         $result.Valid = $false; $result.Errors += "missing required 'gate|' line"
     } else {
-        foreach ($key in @('diff_approved', 'staged_diff_verified')) {
+        foreach ($key in @('diff_shown', 'diff_approved', 'staged_diff_verified')) {
             if ($gateLine -cmatch ('\|' + $key + '=([^|]*)')) {
                 $v = ([string]$matches[1]).Trim()
                 if ($v -cnotmatch '^yes\b') {
@@ -691,6 +693,51 @@ function Test-PreCommitGateBlock {
             }
         } else {
             $result.Valid = $false; $result.Errors += "subject line missing required key 'subject_approved'"
+        }
+        if ($subjectLine -cmatch '\|format_check=([^|]*)') {
+            $fc = [string]$matches[1]
+            # Genuine git reverts carry a git-generated body (single_line:no, body:yes); mirror
+            # check-commit-message.ps1's `^Revert "` exemption by relaxing only those two polarities.
+            $isRevert = $commitSubjectLine -and ($commitSubjectLine -cmatch '^commit_subject:\s*Revert "')
+            $expectedBools = [ordered]@{
+                'single_line'                = 'yes'
+                'co_authored_by_trailer'     = 'no'
+                'body'                       = 'no'
+                'conventional_commit_prefix' = 'no'
+            }
+            $relaxedKeys = if ($isRevert) { @('single_line', 'body') } else { @() }
+            $seen = @{}
+            $fcErrors = @()
+            foreach ($tok in ($fc -split ',')) {
+                if ($tok -cnotmatch '^([a-z_]+):(.+)$') { $fcErrors += "malformed subfield '$tok'"; continue }
+                $key = $matches[1]; $val = $matches[2]
+                if ($seen.ContainsKey($key)) { $fcErrors += "duplicate subfield '$key'"; continue }
+                $seen[$key] = $val
+                if ($key -eq 'subject_length_chars') {
+                    $lenVal = 0
+                    if (-not [int]::TryParse($val, [ref]$lenVal) -or $lenVal -lt 0) {
+                        $fcErrors += "subject_length_chars must be a non-negative integer (got '$val')"
+                    } elseif (-not $isRevert -and $lenVal -gt 72) {
+                        $fcErrors += "subject_length_chars must be <= 72 (got '$val')"
+                    }
+                } elseif ($expectedBools.Contains($key)) {
+                    if ($relaxedKeys -contains $key) {
+                        if ($val -cne 'yes' -and $val -cne 'no') { $fcErrors += "$key must be 'yes' or 'no' (got '$val')" }
+                    } elseif ($val -cne $expectedBools[$key]) {
+                        $fcErrors += "$key must be '$($expectedBools[$key])' (got '$val')"
+                    }
+                } else {
+                    $fcErrors += "unknown subfield '$key'"
+                }
+            }
+            foreach ($requiredKey in @($expectedBools.Keys) + 'subject_length_chars') {
+                if (-not $seen.ContainsKey($requiredKey)) { $fcErrors += "missing subfield '$requiredKey'" }
+            }
+            if ($fcErrors.Count -gt 0) {
+                $result.Valid = $false; $result.Errors += "subject 'format_check' invalid: $($fcErrors -join '; ') (got: '$fc')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "subject line missing required key 'format_check'"
         }
     }
 
