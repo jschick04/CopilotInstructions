@@ -86,6 +86,19 @@ if ($setupErrors.Count -gt 0) {
     exit $ExitViolation
 }
 
+# pre-commit-gate adoption is computed from the WHOLE pushed range (a fixed reference), so a
+# --no-verify commit that removes the checker from its own - or a following commit's - tree cannot
+# self-exempt: the oldest range commit's first-parent is the already-adopted push base, which still
+# carries the checker. Range-bounded (reuses $commitSet) with an early break.
+$precommitAdopted = $false
+foreach ($sha in $commitSet.Keys) {
+    if ((Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('cat-file', '-e', "${sha}:scripts/check-pre-commit-gate.ps1")).ExitCode -eq 0 -or
+        (Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('cat-file', '-e', "${sha}^:scripts/check-pre-commit-gate.ps1")).ExitCode -eq 0) {
+        $precommitAdopted = $true
+        break
+    }
+}
+
 $violations = @()
 $readsGitInvoke = { param($a) (Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs $a).Stdout }
 foreach ($sha in $commitSet.Keys) {
@@ -109,6 +122,14 @@ foreach ($sha in $commitSet.Keys) {
     if ($governanceTier -ge 1 -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
         $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier
         if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
+    }
+
+    # Pre-commit-gate note: required on EVERY commit in an adopted range (all tiers, merges included via
+    # the first-parent parent_sha inside Read-PreCommitGateNoteValidated); GovernanceTier only relaxes
+    # the code-slug sub-check.
+    if ($precommitAdopted) {
+        $pcv = Read-PreCommitGateNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier
+        if (-not $pcv.Valid) { foreach ($e in $pcv.Errors) { $violations += "commit ${short} (pre-commit-gate): $e" } }
     }
 
     $diffFull = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--no-renames', $parent, $sha)

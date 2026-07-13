@@ -356,7 +356,7 @@ Write-Heading "Configuring local audit-note refs"
 if ($LASTEXITCODE -ne 0) {
     Write-Host "WARNING: not inside a git work tree. Skipping notes config." -ForegroundColor Yellow
 } else {
-    $noteRefs = @('refs/notes/copilot-audit-panel', 'refs/notes/copilot-audit-comment', 'refs/notes/copilot-audit-reads')
+    $noteRefs = @('refs/notes/copilot-audit-panel', 'refs/notes/copilot-audit-comment', 'refs/notes/copilot-audit-reads', 'refs/notes/copilot-audit-precommit')
     $existingRefs = @(& git -C $repoRoot config --local --get-all notes.rewriteRef 2>$null) | ForEach-Object { ([string]$_).Trim() }
     $noteConfigFailures = @()
     foreach ($ref in $noteRefs) {
@@ -368,12 +368,13 @@ if ($LASTEXITCODE -ne 0) {
     & git -C $repoRoot config --local notes.rewriteMode overwrite 2>&1 | Out-Null
     if ($LASTEXITCODE -ne 0) { $noteConfigFailures += 'notes.rewriteMode=overwrite' }
     if ($noteConfigFailures.Count -eq 0) {
-        Write-Host "Configured notes.rewriteRef (panel + comment + reads) + notes.rewriteMode=overwrite (local only; notes are never pushed)." -ForegroundColor Green
+        Write-Host "Configured notes.rewriteRef (panel + comment + reads + pre-commit) + notes.rewriteMode=overwrite (local only; notes are never pushed)." -ForegroundColor Green
     } else {
         Write-Host "ERROR: could not write local notes config: $($noteConfigFailures -join '; '). The audit-note gate cannot carry notes across amend/rebase until this is set. Check .git/config write permissions and re-run, or set manually:" -ForegroundColor Red
         Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-panel" -ForegroundColor Red
         Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-comment" -ForegroundColor Red
         Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-reads" -ForegroundColor Red
+        Write-Host "       git -C `"$repoRoot`" config --local --add notes.rewriteRef refs/notes/copilot-audit-precommit" -ForegroundColor Red
         Write-Host "       git -C `"$repoRoot`" config --local notes.rewriteMode overwrite" -ForegroundColor Red
         exit 1
     }

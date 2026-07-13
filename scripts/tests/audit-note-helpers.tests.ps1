@@ -178,12 +178,24 @@ try {
     $fp = Get-CommitParentSha -RepoRoot $fr -CommitSha $fc
     Set-Content -LiteralPath (Join-Path $fr '.github/pr-quality-gate/audits/post-code-change-last.md') -Value ((New-PanelBody $fp) -join "`n")
     Set-Content -LiteralPath (Join-Path $fr '.github/pr-quality-gate/audits/last.md') -Value ((New-CommentBody $fp) -join "`n")
+    $pcBody = @(
+        "parent_sha: $fp", 'commit_subject: feat', 'PRE-COMMIT GATE PASSED',
+        'gate|diff_shown=yes|diff_approved=yes:t1|staged_diff_verified=yes:(1 files)matches|profile=full|author_identity=T <t@t.t>|commit_ownership=agent|rule_coverage_passed=true|pr_creation=deferred',
+        'subject|proposed_subject="feat"|subject_approved=yes:t1|format_check=single_line:yes',
+        'core_rules_acknowledged:', '  - slug:comment-necessity status:applied sites:[s:1] metric:rg=0/0 disp:keep',
+        'staged_files:', '  - src.txt'
+    )
+    Set-Content -LiteralPath (Join-Path $fr '.github/pr-quality-gate/audits/pre-commit-gate-last.md') -Value ($pcBody -join "`n")
     & (Join-Path $repoRoot 'scripts/flush-audits.ps1') -RepoRoot $fr -CommitSha HEAD -Quiet
     Assert-True ($null -ne (Read-RawAuditNote -RepoRoot $fr -NoteRef (Get-PanelNoteRef)   -CommitSha $fc)) 'flush wrote the panel note'
     Assert-True ($null -ne (Read-RawAuditNote -RepoRoot $fr -NoteRef (Get-CommentNoteRef) -CommitSha $fc)) 'flush wrote the comment note'
     Assert-True (-not (Test-Path (Join-Path $fr '.github/pr-quality-gate/audits/post-code-change-last.md'))) 'flush cleared the panel receipt'
     Assert-True (-not (Test-Path (Join-Path $fr '.github/pr-quality-gate/audits/last.md'))) 'flush cleared the comment receipt'
     Assert-True (Read-PanelNoteValidated -RepoRoot $fr -CommitSha $fc -GovernanceTier 1).Valid 'flushed panel note validates'
+    Assert-Equal 'refs/notes/copilot-audit-precommit' (Get-PreCommitNoteRef) 'pre-commit ref name' -CaseSensitive
+    Assert-True ($null -ne (Read-RawAuditNote -RepoRoot $fr -NoteRef (Get-PreCommitNoteRef) -CommitSha $fc)) 'flush wrote the pre-commit-gate note (4th receipt)'
+    Assert-True (-not (Test-Path (Join-Path $fr '.github/pr-quality-gate/audits/pre-commit-gate-last.md'))) 'flush cleared the pre-commit-gate receipt'
+    Assert-True (Read-PreCommitGateNoteValidated -RepoRoot $fr -CommitSha $fc -GovernanceTier 1).Valid 'flushed pre-commit-gate note validates'
 
     $nr = New-TempRepo   # no identity
     $nc = New-TestCommit -Directory $nr -File 'src.txt' -Content 'code' -Message 'feat'

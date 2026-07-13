@@ -13,11 +13,13 @@ Set-StrictMode -Version Latest
 $script:PanelNoteRef    = 'refs/notes/copilot-audit-panel'
 $script:CommentNoteRef  = 'refs/notes/copilot-audit-comment'
 $script:ReadsNoteRef    = 'refs/notes/copilot-audit-reads'
+$script:PreCommitNoteRef = 'refs/notes/copilot-audit-precommit'
 $script:GitEmptyTreeSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 function Get-PanelNoteRef   { $script:PanelNoteRef }
 function Get-CommentNoteRef { $script:CommentNoteRef }
 function Get-ReadsNoteRef   { $script:ReadsNoteRef }
+function Get-PreCommitNoteRef { $script:PreCommitNoteRef }
 
 function Invoke-AuditGit {
     [CmdletBinding()]
@@ -232,6 +234,22 @@ function Read-ReadsNoteValidated {
     return [PSCustomObject]@{ Valid = $true; Errors = @(); NoteLines = $n.NoteLines }
 }
 
+function Read-PreCommitGateNoteValidated {
+    # 4th audit receipt: the PRE-COMMIT GATE PASSED block. Routes through Read-FreshAuditNote (so it
+    # inherits the audited_tree amend/rebase freshness) then validates via Test-PreCommitGateBlock (the
+    # parent_sha binding + load-bearing user-approval keys). GovernanceTier only relaxes the slug sub-check.
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $RepoRoot,
+        [Parameter(Mandatory)] [string] $CommitSha,
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+    )
+    $n = Read-FreshAuditNote -RepoRoot $RepoRoot -NoteRef $script:PreCommitNoteRef -CommitSha $CommitSha -Kind 'pre-commit-gate'
+    if (-not $n.Ok) { return [PSCustomObject]@{ Valid = $false; Errors = $n.Errors } }
+    $r = Test-PreCommitGateBlock -BlockLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier
+    return [PSCustomObject]@{ Valid = $r.Valid; Errors = @($r.Errors) }
+}
+
 function Get-NormalizedRemoteIdentity {
     # Normalizes a git remote URL to '<host>/<owner>/<repo>' (lowercased, .git/trailing
     # slash stripped, scp- and url-style both handled) for an exact identity compare.
@@ -282,7 +300,7 @@ function Assert-AuditSetup {
 
     $cfg = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('config', '--get-all', 'notes.rewriteRef')
     $refVals = @($cfg.Stdout) | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }
-    foreach ($need in @($script:PanelNoteRef, $script:CommentNoteRef, $script:ReadsNoteRef)) {
+    foreach ($need in @($script:PanelNoteRef, $script:CommentNoteRef, $script:ReadsNoteRef, $script:PreCommitNoteRef)) {
         $covered = $false
         foreach ($val in $refVals) {
             if ($val -eq $need -or $need -like $val) { $covered = $true; break }
@@ -301,10 +319,10 @@ function Assert-AuditSetup {
 }
 
 Export-ModuleMember -Function `
-    Get-PanelNoteRef, Get-CommentNoteRef, Get-ReadsNoteRef, Invoke-AuditGit, `
+    Get-PanelNoteRef, Get-CommentNoteRef, Get-ReadsNoteRef, Get-PreCommitNoteRef, Invoke-AuditGit, `
     Get-CommitTreeSha, Get-CommitParentSha, `
     Read-RawAuditNote, Write-AuditNote, Remove-AuditNote, `
-    Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Read-ReadsNoteValidated, Test-PanelNoteExists, `
+    Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Read-ReadsNoteValidated, Read-PreCommitGateNoteValidated, Test-PanelNoteExists, `
     Get-NormalizedRemoteIdentity, Test-IsInstructionsRepo, Assert-AuditSetup, `
     Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-NewCommentSites, Get-UnparseableDiffPaths, Test-CommentCoverage, Get-CoveredCommentCount `
-    -Variable PanelNoteRef, CommentNoteRef, ReadsNoteRef, GitEmptyTreeSha
+    -Variable PanelNoteRef, CommentNoteRef, ReadsNoteRef, PreCommitNoteRef, GitEmptyTreeSha

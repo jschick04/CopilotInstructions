@@ -23,6 +23,7 @@ function New-IdRepo {
         git -C $dir config --add notes.rewriteRef (Get-PanelNoteRef)
         git -C $dir config --add notes.rewriteRef (Get-CommentNoteRef)
         git -C $dir config --add notes.rewriteRef (Get-ReadsNoteRef)
+        git -C $dir config --add notes.rewriteRef (Get-PreCommitNoteRef)
         git -C $dir config notes.rewriteMode overwrite
         git -C $dir config core.hooksPath '.githooks'
     }
@@ -48,6 +49,23 @@ function Write-ReadsNote {
     param([string] $Dir, [string] $Sha, [string] $Path, [string] $Token)
     $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
     Write-AuditNote -RepoRoot $Dir -NoteRef (Get-ReadsNoteRef) -CommitSha $Sha -BodyLines @("parent_sha: $parent", "reads=$Path@$Token")
+}
+function Write-PreCommitNote {
+    param([string] $Dir, [string] $Sha)
+    $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
+    $pv = if ($parent -eq $GitEmptyTreeSha) { 'NONE' } else { $parent }
+    $body = @(
+        "parent_sha: $pv",
+        'commit_subject: precommit commit',
+        'PRE-COMMIT GATE PASSED',
+        'gate|diff_shown=yes:t1|diff_approved=yes:t2|staged_diff_verified=yes:(1 files,+1/-0)matches|profile=full|author_identity=T <t@t.t>|commit_ownership=agent|rule_coverage_passed=true|pr_creation=deferred',
+        'subject|proposed_subject="precommit commit"|subject_approved=yes:t2|format_check=single_line:yes',
+        'core_rules_acknowledged:',
+        '  - slug:comment-necessity status:applied sites:[x:1] metric:rg=0/0 disp:keep',
+        'staged_files:',
+        '  - x'
+    )
+    Write-AuditNote -RepoRoot $Dir -NoteRef (Get-PreCommitNoteRef) -CommitSha $Sha -BodyLines $body
 }
 
 function Invoke-Validator {
@@ -205,6 +223,38 @@ try {
     Remove-Item -LiteralPath (Join-Path $drd '.github/instructions/fake-cs.instructions.md')
     $rdd = Invoke-Validator -Dir $drd -RefLines @(RefLine $drdCs $drdBase)
     Assert-True ($rdd.ExitCode -ne 0 -and $rdd.Output -match 'reads') 'instruction file deleted in the worktree (unstaged; still in every commit tree) -> the pushed gated .cs commit still requires a reads note -> fail (membership is per-commit-tree, no fail-open)'
+
+    Write-Host "`n=== pre-commit-gate note (4th receipt): adopted range requires a fresh valid note ==="
+    $dp = New-IdRepo
+    Set-Content -LiteralPath (Join-Path $dp 'scripts/check-pre-commit-gate.ps1') -Value 'x' -NoNewline
+    $p0 = New-TestCommit -Directory $dp -File 'a.txt' -Content 'base' -Message 'p0 (adopted base)'
+    $p1 = New-TestCommit -Directory $dp -File 'code.cs' -Content 'class C{}' -Message 'p1'
+    Write-PanelNote -Dir $dp -Sha $p1
+    $rp = Invoke-Validator -Dir $dp -RefLines @(RefLine $p1 $p0)
+    Assert-True ($rp.ExitCode -ne 0 -and $rp.Output -match 'pre-commit-gate') 'adopted range, missing pre-commit-gate note -> fail'
+    Write-PreCommitNote -Dir $dp -Sha $p1
+    $rp2 = Invoke-Validator -Dir $dp -RefLines @(RefLine $p1 $p0)
+    Assert-True ($rp2.ExitCode -eq 0) "adopted range, valid pre-commit-gate note -> pass ($($rp2.Output.Trim()))"
+
+    Write-Host "`n=== pre-commit-gate: non-adopted range (no checker anywhere in range or its base) is exempt ==="
+    $dn = New-IdRepo
+    $n0 = New-TestCommit -Directory $dn -File 'a.txt' -Content 'base' -Message 'n0'
+    $n1 = New-TestCommit -Directory $dn -File 'code.cs' -Content 'class C{}' -Message 'n1'
+    Write-PanelNote -Dir $dn -Sha $n1
+    $rn = Invoke-Validator -Dir $dn -RefLines @(RefLine $n1 $n0)
+    Assert-True ($rn.ExitCode -eq 0) 'non-adopted range (no check-pre-commit-gate.ps1 in tree) -> pre-commit-gate not required -> pass'
+
+    Write-Host "`n=== pre-commit-gate: two-commit --no-verify removal cannot self-exempt (range base is adopted) ==="
+    $dx = New-IdRepo
+    Set-Content -LiteralPath (Join-Path $dx 'scripts/check-pre-commit-gate.ps1') -Value 'x' -NoNewline
+    $x0 = New-TestCommit -Directory $dx -File 'a.txt' -Content 'base' -Message 'x0 (adopted base)'
+    Remove-Item -LiteralPath (Join-Path $dx 'scripts/check-pre-commit-gate.ps1')
+    $xa = New-TestCommit -Directory $dx -File 'b.txt' -Content 'more' -Message 'A removes checker'
+    $xb = New-TestCommit -Directory $dx -File 'code.cs' -Content 'class C{}' -Message 'B'
+    Write-PanelNote -Dir $dx -Sha $xa
+    Write-PanelNote -Dir $dx -Sha $xb
+    $rx = Invoke-Validator -Dir $dx -RefLines @(RefLine $xb $x0)
+    Assert-True ($rx.ExitCode -ne 0 -and $rx.Output -match 'pre-commit-gate') 'two-commit removal: base (x0) still carries the checker -> A+B still require pre-commit notes -> fail (bypass closed)'
 }
 finally { Remove-TestTempDirectories }
 
