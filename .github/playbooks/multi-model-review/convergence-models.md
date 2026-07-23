@@ -2,6 +2,8 @@
 
 Three convergence models for `multi-model-review.md`. The user selects one at intake; the default is unanimous (strictest).
 
+> **Verdict admissibility (all three models)**: a success verdict counts toward the tally (unanimous / threshold / confidence-weighted) ONLY with a floor-meeting `probing_evidence` block (see `evidence-gate-spec.md` §"Probing evidence"); a bare or below-floor confirmation is advisory-only and is EXCLUDED from the numerator and the confidence average. This is methodology + honest-ceiling disclosure, not a fail-closed gate in this increment.
+
 ## Model A - Unanimous (default)
 
 **Convergence condition**: ALL reviewers emit their success verdict (`DESIGN_READY` for design-class targets, `CODE_REVIEW_READY` for a `diff` target) AND 0 unaddressed blocking findings.

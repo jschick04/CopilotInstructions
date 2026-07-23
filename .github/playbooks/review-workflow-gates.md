@@ -34,6 +34,8 @@ A rubber-duck critique is cheap (one agent, fast turnaround) and catches blind s
 3. **Incorporate adopted findings** into the plan/design before Stage 2.
 4. **Stage 2 - Full multi-model panel.** Launch the panel per `multi-model-review.md` with the rubber-duck-improved plan. Iterate until unanimous convergence.
 
+> **Adversarial-framing methodology** (honest-ceiling; not a fail-closed gate in this increment): panel prompts are adversarial (assume defects; no pre-stated author conclusions - relocate them to an `Author claims to DISPROVE` section); full-mode `diff`-target panels carry an author-framing-free red-team reviewer (small diffs not exempt); and a success verdict counts toward convergence only with a `probing_evidence` block. See `multi-model-review/procedure.md` §§ "Prompt hygiene (adversarial framing)" / "Adversarial red-team reviewer" and `multi-model-review/evidence-gate-spec.md` § "Probing evidence".
+
 ### When to apply
 
 - **Always apply** for non-trivial changes: multiple files, architectural decisions, unfamiliar codebases, complex logic, new patterns, restructuring work, decomposition, DI changes, dependency graph changes.

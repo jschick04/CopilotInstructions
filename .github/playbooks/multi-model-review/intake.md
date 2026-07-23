@@ -40,6 +40,10 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 10. **Asymptotic-convergence behavior** - default **ON**: a sole-NEEDS-reviewer dissent on precise polish (1-2 line fixes, no architectural concern) auto-routes to C2 `routed-deferred` per `convergence-models.md` *Asymptotic-convergence pattern*, with an auto-created session-todo citation. Set OFF when the user wants strict iteration until full convergence (no auto-routing; every NEEDS verdict triggers another round). On panels invoked by `post-code-change.md` (multi-model hard gate), this defaults to OFF - hard-gate panels iterate to unanimous unless the user explicitly authorizes auto-routing.
 
+11. **Prompt-hygiene pre-dispatch scan (methodology)** - the orchestrator scans the assembled panel prompt for pre-stated conclusions / confirm-the-author language and emits a re-derivable `prompt-hygiene-scan:` disclosure before launch (see `multi-model-review/procedure.md` §"Prompt hygiene (adversarial framing)"). Honest-ceiling disclosure, not a fail-closed gate in this increment.
+
+12. **Author-narrative minimization (diff-target panels)** - default **ON**: the diff-panel framing is built from the raw diff; the author's design narrative is NOT fed as framing, and author assumptions are relocated to the `Author claims to DISPROVE` section (`procedure.md` §"Prompt hygiene (adversarial framing)"). The mandated red-team reviewer (`procedure.md` §"Adversarial red-team reviewer") is the strong form; this applies author-independence to the whole slate's framing. Set OFF only when the artifact cannot be understood from the diff alone (rare; document why).
+
 ## Pre-fill rules
 
 - When the user opens with structured detail (e.g., `target=plan.md, model=unanimous, max-loop=5`), pre-fill those fields and ask only the unfilled questions.

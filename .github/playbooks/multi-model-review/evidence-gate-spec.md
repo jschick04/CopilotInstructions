@@ -105,3 +105,30 @@ When the panel is utility-called by `post-code-change.md` (multi-model panel har
 - `subagent_ask_user_calls=0` on every round.
 
 If any verification fails, the calling phase does NOT certify the multi-model panel as passed.
+
+## Probing evidence (verdict admissibility) - methodology
+
+A success verdict (`DESIGN_READY` / `CODE_REVIEW_READY`) counts toward convergence (unanimous / threshold / confidence-weighted alike) ONLY if the reviewer's output includes a `probing_evidence` block of DISTINCT checks that cover the target, each naming what was probed, WHERE (with `file:line` where applicable), and the OUTCOME. A bare success verdict, or one below the coverage floor, or one whose probes are generic / duplicated ("read it, looks fine"), is ADVISORY ONLY - it does NOT count toward the tally. The orchestrator re-prompts a bare-verdict reviewer once; if probing evidence is still absent, that reviewer is DROPPED and a replacement is launched per the drop-handling rule (the orchestrator does NOT fabricate a `NEEDS` verdict on the reviewer's behalf). This is reviewer-methodology + honest-ceiling disclosure; a mechanically-validated probe floor is future work.
+
+**Coverage units + floor per target type:**
+
+- `diff` - cover the changed hunks (each check cites `file:line`); floor >= 2; and when a new lens (`short-circuit-operand-ordering` / `throw-surface-enumeration-under-fail-preserve-contract`) is triggered, >= 1 probe MUST name that specific site.
+- `plan` / `design` / `spec` - cover the artifact's major sections / claims; floor >= 2.
+- `bug-investigation` - cover the reviewer's assigned lanes and cited files; floor >= 2.
+- `custom` - the intake declares the coverage units and floor (default >= 2).
+
+Ordinary findings carry stable IDs (`F-<n>`) so a probe outcome can reference `finding:<id>`.
+
+**Schema** (accompanying a success verdict):
+
+```
+probing_evidence:
+  - checked: <what was probed>
+    location: <file:line or n/a>
+    outcome: <ruled-out:<why> | finding:<id>>
+  - ... (>= floor, distinct)
+```
+
+Chat / caveman form: one line per check preceding the VERDICT line - `probe: <checked> @<file:line> -> <ruled-out:why | finding:id>` (>= floor lines).
+
+**Advisory-verdict arithmetic** (Models A / B / C): evidence-invalid rows are EXCLUDED from the numerator AND the confidence average; the configured slate denominator holds until a same-round replacement lands; evidence repair is treated as formatting, NOT a new substantive round; replacement attempts are capped per the drop-handling rule. Verification (when the calling phase checks the log): every success verdict counted toward convergence carries a floor-meeting `probing_evidence` block.

@@ -11,7 +11,7 @@ triggers:
 ---
 
 # Multi-model review loop
-<!-- read-receipt-token: a0ae506f -->
+<!-- read-receipt-token: 526ee370 -->
 
 ## Purpose
 
@@ -33,6 +33,14 @@ Procedure runs ≥3 reviewers in parallel across different model families, requi
 - **C2 findings disposition required** between rounds - every reviewer finding is routed via the C2 status enum (`fixed | routed-now | routed-deferred | dismissed-source-grounded`) before the next round launches. **Target-type exception**: for `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), C2 routing is DEFERRED to the caller's Step 11A (after user report approval); the engine records `C2 dispositions this round: deferred-to-caller-step-11A` sentinel in evidence emission. See `multi-model-review/procedure.md` step 11 target-type variation for full semantics.
 - **Max-loop escalation**: when the configured max-loop count is reached without convergence, surface remaining dissent to the user via `ask_user`. Do NOT silently loop past max-loop.
 - **Evidence-gate output per round** (see `multi-model-review/evidence-gate-spec.md`).
+
+## Methodology disclosures (honest ceiling)
+
+These are reviewer-methodology practices + re-derivable disclosure receipts, NOT fail-closed gates in this increment (mechanical validation is future work):
+
+- **Adversarial prompt framing** - orchestrator framing MUST be adversarial ("assume defects; find them") and MUST NOT pre-state the author's conclusion; any such claim is relocated to an `Author claims to DISPROVE` section reviewers attack, and a pre-dispatch `prompt-hygiene-scan:` disclosure is emitted. See `multi-model-review/procedure.md` §"Prompt hygiene (adversarial framing)".
+- **Adversarial red-team reviewer** - on full-mode `diff`-target panels, >= 1 `code-review`-role reviewer red-teams the panel's own target diff with NO author narrative (small diffs not exempt). See `multi-model-review/procedure.md` §"Adversarial red-team reviewer".
+- **Probing evidence for a countable verdict** - a success verdict counts toward convergence only with a floor-meeting `probing_evidence` block; a bare confirmation is advisory-only. See `multi-model-review/evidence-gate-spec.md` §"Probing evidence".
 
 ## Intake
 
