@@ -8,11 +8,15 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 2. **Sub-agent prompt template** (every reviewer gets this structure):
 
    ```
+   ADVERSARIAL REVIEW: assume this **<target type>** contains defects; FIND and enumerate them, do NOT confirm the author, and accept no author claim without a falsification attempt. Actively attempt to falsify; report ONLY evidence-backed defects; a clean result is a valid verdict; do NOT invent findings.
+
    You are reviewing **<target type>** at **<path or reference>**.
    <Round context if iterating: round N of max M; prior-round findings shared per intake; v<N> incorporates amendments from round <N-1> - verify amendments address prior findings without introducing new issues.>
 
    **Key context files to read**:
    - <list of file paths the reviewer should view>
+
+   **Author claims to DISPROVE** (attack each; a claim merely restated is NOT cleared; try to falsify each with a concrete counter-example citing file:line): <the author's load-bearing assumptions, or "none">
 
    **Critique focus** (vary per reviewer slot per intake - cross-family / technical-design / coding-discipline / rubber-duck design):
    **Standing structural-hygiene axis** (every `diff`-target panel, IN ADDITION to the change-specific focus): VERIFY the POST-CODE-CHANGE LEDGER's structural-hygiene fields against the actual diff - folder placement vs VSA (`vsa-audit`), member visibility + `InternalsVisibleTo` (`touched-file-LPA`), DI-fit (`dependency-injection-fit`), comment necessity + §3.1 quality (`comment-audit-§3.1` + `hygiene-cleanup`). Confirm each field's value matches what the diff shows; do NOT restate a parallel criteria set. The B1 floor only forces these fields present-with-a-justified-value (local, bypassable); the panel is what checks the value is APT.
@@ -20,7 +24,9 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    2. <focus point 2>
    ...
 
-   **Format for findings**: bullet list, max ~10-15 bullets. Each: one-line summary + severity (blocking | major | minor) + where (file / section / line) if applicable + proposed mitigation.
+   **Format for findings**: bullet list, max ~10-15 bullets. Each: a stable `F-<n>` id (so a `probing_evidence` outcome can reference `finding:<F-n>`) + one-line summary + severity (blocking | major | minor) + where (file / section / line) if applicable + proposed mitigation.
+
+   **REQUIRED before the VERDICT**: a `probing_evidence` block per `evidence-gate-spec.md` §"Probing evidence" (distinct checks covering the target, each with location + `ruled-out:<why>` or `finding:<id>`). A success verdict WITHOUT it is advisory-only and does not count toward convergence.
 
    **REQUIRED: end your output with this single line**: `VERDICT: <success verdict | NEEDS_ANOTHER_ROUND>` - the success verdict is `DESIGN_READY` for a `plan`/`design`/`spec` target and `CODE_REVIEW_READY` for a `diff` target (match the target type stated above)
 
@@ -140,3 +146,25 @@ Return findings + VERDICT line only.
 ## Output
 
 Returns to caller with: convergence outcome (CONVERGED / ESCALATED), final round number, per-reviewer verdicts, dedup'd findings list with severities and dispositions. Evidence-gate output emitted per `evidence-gate-spec.md`.
+
+## Prompt hygiene (adversarial framing) - methodology
+
+The orchestrator authors the per-panel task framing. Because the same agent often authored the artifact under review, author-written framing tends to be CONFIRMATORY (it lists conclusions and asks reviewers to agree) - the documented cause of a panel returning unanimous approval on a defect an external reviewer then caught. Every panel's orchestrator-authored framing (design- AND diff-target) MUST be adversarial. This is reviewer-methodology guidance and a re-derivable disclosure receipt, NOT a fail-closed gate (mechanical enforcement is future work).
+
+1. **Adversarial stance, not confirmatory.** Frame the task as "assume the artifact contains defects; find and enumerate them", never "confirm that X, Y, Z are fine". Do not use confirm-the-author verbs (`confirm that`, `verify ... is correct`, `check that ... still holds`) as yes-invitations in the framing.
+2. **No pre-stated conclusions in the framing.** Do NOT assert the author's desired conclusion or verdict (`is genuinely unreachable`, `is correct`, `is safe`, `cannot throw`, `is guaranteed`, equivalents). Relocate any such claim to the `Author claims to DISPROVE` section as a target to attack.
+3. **`Author claims to DISPROVE` section** (in the step-2 template): list each load-bearing author assumption and instruct reviewers to try to FALSIFY each with a concrete counter-example (input, race, edge state) citing `file:line`. A claim merely restated is NOT cleared.
+
+Scope of this rule = only the task-framing the orchestrator writes; it does NOT restrict launcher-forwarded catalog rules or the standing template text (those legitimately contain words like "correct").
+
+### Pre-dispatch prompt-hygiene disclosure
+
+Before launching a panel, the orchestrator scans the WHOLE assembled mutable prompt (preamble + critique focus + round context + prior dispositions + context notes), EXCLUDING byte-identical launcher-canonical blocks AND the `Author claims to DISPROVE` block (conclusion-shaped claims there are `relocated` by design, not residual), then emits a re-derivable chat receipt:
+
+`prompt-hygiene-scan: scanned=<assembled-prompt-ref> relocated=<n> residual_hits=0`
+
+where `<assembled-prompt-ref>` resolves to the exact inspectable prompt text so a diff-panel reviewer can re-run the scan. `residual_hits` counts pre-stated-conclusion / confirm-the-author language found OUTSIDE the DISPROVE block only; it should be 0 before dispatch. This is an honest-ceiling disclosure (self-reported + re-derivable), not a mechanically fail-closed gate.
+
+## Adversarial red-team reviewer - methodology
+
+On full-mode `diff`-target panels, AT LEAST ONE `code-review`-role reviewer slot is designated the red-team: it receives the panel's OWN target diff (a per-commit post-code panel = the commit diff; the pre-PR review-exposure gate = the whole branch `<base>..HEAD`) plus all standing reviewer controls (read-only inspection, tooling discipline, forwarded catalog rules, the required VERDICT), but WITHOUT the author's design narrative, plan summary, or `Author claims to DISPROVE` list - it reconstructs intent from the code alone and is told "assume defects exist; enumerate every defect (correctness, concurrency, ordering, resource, contract, error-handling); do not invent findings; an empty result is a clean verdict". This is the author-framing-free pass whose absence let a confirmatory panel converge on a real defect. Small diffs are NOT exempt. On lite mode the red-team angle is assigned when the 3-slot slate allows; governance / safety-critical changes (always full) always carry it. This is reviewer-methodology guidance; a mechanically-validated red-team slate property is future work.
