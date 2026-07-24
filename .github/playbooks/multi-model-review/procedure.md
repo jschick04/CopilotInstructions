@@ -36,7 +36,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    - Do NOT modify any files - this is a review pass.
    - Do NOT launch sub-agents.
 
-   Return findings + verdict only.
+   Return findings + the `probing_evidence` block + verdict only.
    ```
 
 3. **Differentiate reviewer slots** by varying the critique-focus angle per intake (cross-family fresh eyes / technical-design depth / coding-discipline / rubber-duck design critique). Each reviewer gets one differentiated focus emphasis on top of the shared focus areas.
@@ -48,7 +48,7 @@ When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md
 - **Lane-to-slot mapping**: round-robin lane-to-slot assignment until every selected lane has ≥1 reviewer; when `lanes_selected > reviewers`, double-up per-slot per M8 default and add a per-reviewer lane-budget hint ("Focus first on your primary lane; expand to secondary lanes only as evidence requires. Document which lane each finding belongs to.").
 - **Lane-specific critique-focus paragraphs** injected from `cross-file-bug-investigation/lanes-catalog.md` - for each lane assigned to the slot, the lane's "Reviewer prompt clause" (≤200 words per lane) is inserted into the prompt under the per-slot Critique focus section.
 - **Required 7-field finding schema** - every finding the reviewer reports MUST include:
-  1. `id`: `F-XXXX` placeholder (orchestrator assigns the final `F-NNNN`).
+  1. `id`: a reviewer-local stable id `F-<n>` (`F-1`, `F-2`, ...) that the orchestrator maps to a global `F-NNNN`; a `probing_evidence` outcome may reference it as `finding:<F-n>`.
   2. `severity`: `blocking | major | minor`.
   3. `is_blocking`: `true | false` (mirrors `severity == 'blocking'` for greppability in the persistence schema).
   4. `lane`: one of the assigned lane slugs.
@@ -80,7 +80,7 @@ You have been assigned lane(s): <slot_to_lane_mapping[your_slot]>.
 ...
 
 **Required 7-field finding schema** (per finding):
-1. id: F-XXXX (orchestrator assigns final F-NNNN)
+1. id: reviewer-local stable F-<n> (F-1, F-2, ...; orchestrator maps to global F-NNNN; a probing_evidence outcome may reference it as finding:<F-n>)
 2. severity: blocking | major | minor
 3. is_blocking: true | false (mirrors severity == 'blocking')
 4. lane: <one of your assigned lanes>
@@ -96,7 +96,7 @@ You have been assigned lane(s): <slot_to_lane_mapping[your_slot]>.
 **Tooling discipline**:
 - Read-only inspection (view / grep / glob / read-only git). NO ask_user. NO file modifications. NO sub-agent launches.
 
-Return findings + VERDICT line only.
+Return findings + the `probing_evidence` block (covering your assigned lanes + cited files per `evidence-gate-spec.md` §"Probing evidence") + VERDICT line only.
 ```
 
 ## Completion-wait
