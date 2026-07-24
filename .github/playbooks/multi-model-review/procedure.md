@@ -26,7 +26,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 
    **Format for findings**: bullet list, max ~10-15 bullets. Each: a stable `F-<n>` id (so a `probing_evidence` outcome can reference `finding:<F-n>`) + one-line summary + severity (blocking | major | minor) + where (file / section / line) if applicable + proposed mitigation.
 
-   **REQUIRED before the VERDICT**: a `probing_evidence` block per `evidence-gate-spec.md` §"Probing evidence" (distinct checks covering the target, each with location + `ruled-out:<why>` or `finding:<id>`). A success verdict WITHOUT it is advisory-only and does not count toward convergence.
+   **REQUIRED before the VERDICT**: a `probing_evidence` block (or the equivalent one-line `probe:` chat lines) per `evidence-gate-spec.md` §"Probing evidence" (distinct checks covering the target, each with location + `ruled-out:<why>` or `finding:<id>`). A success verdict WITHOUT it is advisory-only and does not count toward convergence.
 
    **REQUIRED: end your output with this single line**: `VERDICT: <success verdict | NEEDS_ANOTHER_ROUND>` - the success verdict is `DESIGN_READY` for a `plan`/`design`/`spec` target and `CODE_REVIEW_READY` for a `diff` target (match the target type stated above)
 
@@ -36,7 +36,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    - Do NOT modify any files - this is a review pass.
    - Do NOT launch sub-agents.
 
-   Return findings + the `probing_evidence` block + verdict only.
+   Return findings + the `probing_evidence` block (or `probe:` chat lines) + verdict only.
    ```
 
 3. **Differentiate reviewer slots** by varying the critique-focus angle per intake (cross-family fresh eyes / technical-design depth / coding-discipline / rubber-duck design critique). Each reviewer gets one differentiated focus emphasis on top of the shared focus areas.
@@ -96,7 +96,7 @@ You have been assigned lane(s): <slot_to_lane_mapping[your_slot]>.
 **Tooling discipline**:
 - Read-only inspection (view / grep / glob / read-only git). NO ask_user. NO file modifications. NO sub-agent launches.
 
-Return findings + the `probing_evidence` block (covering your assigned lanes + cited files per `evidence-gate-spec.md` §"Probing evidence") + VERDICT line only.
+Return findings + the `probing_evidence` block (or `probe:` chat lines, covering your assigned lanes + cited files per `evidence-gate-spec.md` §"Probing evidence") + VERDICT line only.
 ```
 
 ## Completion-wait

@@ -11,7 +11,7 @@ triggers:
 ---
 
 # Multi-model review loop
-<!-- read-receipt-token: 526ee370 -->
+<!-- read-receipt-token: d1b8f3a7 -->
 
 ## Purpose
 
@@ -40,7 +40,7 @@ These are reviewer-methodology practices + re-derivable disclosure receipts, NOT
 
 - **Adversarial prompt framing** - orchestrator framing MUST be adversarial ("assume defects; find them") and MUST NOT pre-state the author's conclusion; any such claim is relocated to an `Author claims to DISPROVE` section reviewers attack, and a pre-dispatch `prompt-hygiene-scan:` disclosure is emitted. See `multi-model-review/procedure.md` §"Prompt hygiene (adversarial framing)".
 - **Adversarial red-team reviewer** - on full-mode `diff`-target panels, >= 1 `code-review`-role reviewer red-teams the panel's own target diff with NO author narrative (small diffs not exempt). See `multi-model-review/procedure.md` §"Adversarial red-team reviewer".
-- **Probing evidence for a countable verdict** - a success verdict counts toward convergence only with a floor-meeting `probing_evidence` block; a bare confirmation is advisory-only. See `multi-model-review/evidence-gate-spec.md` §"Probing evidence".
+- **Probing evidence for a countable verdict** - a success verdict counts toward convergence only with floor-meeting probing evidence (a `probing_evidence` block or its `probe:` chat lines); a bare confirmation is advisory-only. See `multi-model-review/evidence-gate-spec.md` §"Probing evidence".
 
 ## Intake
 

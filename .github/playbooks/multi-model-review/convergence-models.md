@@ -2,7 +2,7 @@
 
 Three convergence models for `multi-model-review.md`. The user selects one at intake; the default is unanimous (strictest).
 
-> **Verdict admissibility (all three models)**: a success verdict counts toward the tally (unanimous / threshold / confidence-weighted) ONLY with a floor-meeting `probing_evidence` block (see `evidence-gate-spec.md` §"Probing evidence"); a bare or below-floor confirmation is advisory-only and is EXCLUDED from the numerator and the confidence average. This is methodology + honest-ceiling disclosure, not a fail-closed gate in this increment.
+> **Verdict admissibility (all three models)**: a success verdict counts toward the tally (unanimous / threshold / confidence-weighted) ONLY with floor-meeting probing evidence - a `probing_evidence` block or its `probe:` chat lines (see `evidence-gate-spec.md` §"Probing evidence"); a bare or below-floor confirmation is advisory-only and is EXCLUDED from the numerator and the confidence average. This is methodology + honest-ceiling disclosure, not a fail-closed gate in this increment.
 
 ## Model A - Unanimous (default)
 
