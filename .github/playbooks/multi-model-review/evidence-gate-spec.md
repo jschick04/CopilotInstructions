@@ -112,7 +112,7 @@ A success verdict (`DESIGN_READY` / `CODE_REVIEW_READY`) counts toward convergen
 
 **Coverage units + floor per target type:**
 
-- `diff` - cover the changed hunks (each check cites `file:line`); floor >= 2; and when a new lens (`short-circuit-operand-ordering` / `throw-surface-enumeration-under-fail-preserve-contract`) is triggered, >= 1 probe MUST name that specific site.
+- `diff` - cover the changed hunks (each check cites `file:line`); floor >= 2; and when the diff triggers a site-naming review-pass-only lens (e.g. `short-circuit-operand-ordering` / `throw-surface-enumeration-under-fail-preserve-contract`), >= 1 probe MUST name that specific site.
 - `plan` / `design` / `spec` - cover the artifact's major sections / claims; floor >= 2.
 - `bug-investigation` - cover the reviewer's assigned lanes and cited files; floor >= 2.
 - `custom` - the intake declares the coverage units and floor (default >= 2).
