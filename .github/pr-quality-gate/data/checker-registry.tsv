@@ -12,3 +12,4 @@ ci-shell-or-true-swallows-real-failures	check-diff-consistency	scripts/check-dif
 ci-jq-arg-literal-backslash-n	check-diff-consistency	scripts/check-diff-consistency.ps1	scripts/tests/check-diff-consistency.tests.ps1	advisory
 edited-file-drops-non-ascii-encoding-loss	check-encoding-loss	scripts/check-encoding-loss.ps1	scripts/tests/check-encoding-loss.tests.ps1	hard-fail
 doc-ref-to-playbook-subdir-omits-repo-root-prefix	check-playbook-refs	scripts/check-playbook-refs.ps1	scripts/tests/check-playbook-refs.tests.ps1	hard-fail
+model-registry-tier-shape-or-capability-drift	check-model-registry	scripts/check-model-registry.ps1	scripts/tests/check-model-registry.tests.ps1	hard-fail

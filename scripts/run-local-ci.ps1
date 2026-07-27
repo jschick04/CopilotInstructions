@@ -33,6 +33,8 @@ $baseRef = "origin/$BaseBranch"
 $mirror = @(
     [pscustomobject]@{ Name = 'playbook path refs';          Script = 'scripts/check-playbook-refs.ps1';               LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'playbook-refs unit tests';    Script = 'scripts/tests/check-playbook-refs.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'model registry';              Script = 'scripts/check-model-registry.ps1';               LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'model-registry unit tests';   Script = 'scripts/tests/check-model-registry.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instruction file refs';       Script = 'scripts/check-instructions-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instructions-refs unit tests';Script = 'scripts/tests/check-instructions-refs.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'catalog cede refs';           Script = 'scripts/check-catalog-cede-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }

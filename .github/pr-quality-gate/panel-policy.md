@@ -36,11 +36,13 @@ Floor is verified from the slate enumeration. Mid-launch substitutions are allow
 
 ## Slate composition floor (`lite` mode) + profile floor
 
-`lite` floor (active when the loaded profile is `lite`, or when `-Mode lite` runs below a full floor with a `lite-acknowledged` receipt):
+`lite` floor:
 
 - 3 reviewers (odd); >= 1 Claude family AND >= 1 GPT family AND >= 1 Gemini family; >= 1 `rubber-duck` role AND >= 2 `code-review` role
-- light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per `.github/playbooks/multi-model-review/current-model-registry.md`); heavy-tier NOT required
+- light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per the registry cited above); heavy-tier NOT required
 - `convergence_model: unanimous` (lite cuts reviewer COUNT + tier, NOT the convergence bar); slate recorded in the `CODE-REVIEW PANEL CONVERGED` `slate` + `profile` fields
+
+Slot effort + context: wherever a slot is resolved via a registry tier, it runs at that tier's `effort` and requests its `context_tier` per the registry cited above. Panel MODE selects the tier set; the active profile selects the default mode (see below).
 
 **Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips panels. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not agent `-Profile`; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. `Test-PanelLedger` mechanically validates BOTH panels against `$script:PanelSlateFloor` (always full here); the transcript formats, `user-waived` token, and tier-2 (safety-critical) both-ran-only rule are canonical in `review-workflow-gates-sweeps.md` §2B.
 

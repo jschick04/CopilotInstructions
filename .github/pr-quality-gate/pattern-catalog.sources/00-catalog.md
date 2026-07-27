@@ -254,6 +254,7 @@ These slugs are enforced by a script named in `data/checker-registry.tsv` (parit
 | ci-jq-arg-literal-backslash-n | checker-scoped | {"checker_id":"check-diff-consistency"} |  |  | LOW |
 | edited-file-drops-non-ascii-encoding-loss | checker-scoped | {"checker_id":"check-encoding-loss"} |  |  | LOW |
 | doc-ref-to-playbook-subdir-omits-repo-root-prefix | checker-scoped | {"checker_id":"check-playbook-refs"} |  |  | MEDIUM |
+| model-registry-tier-shape-or-capability-drift | checker-scoped | {"checker_id":"check-model-registry"} |  |  | MEDIUM |
 
 ---
 
