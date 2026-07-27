@@ -120,6 +120,54 @@ try {
     git -C $d12 add -A 2>$null; git -C $d12 commit -q -m init
     $r = Run $d12
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('Pre-Commit.md')) 'wrong-prefix + wrong-case playbooks/Pre-Commit.md -> exit 1 (does not slip through)'
+
+    Write-Host "`n=== a bare playbook-SUBDIR ref cited OUTSIDE .github/playbooks/ is caught ==="
+    $d13 = New-PlaybookRepo
+    Add-RepoFile $d13 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d13 'README.md' @('see `multi-model-review/intake.md` for details')
+    git -C $d13 add -A 2>$null; git -C $d13 commit -q -m init
+    $r = Run $d13
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match [regex]::Escape('.github/playbooks/multi-model-review/intake.md')) 'bare subdir ref outside the tree -> exit 1, names the canonical path'
+
+    Write-Host "`n=== the SAME bare subdir ref INSIDE .github/playbooks/ is NOT flagged (playbooks-root-relative, depth 1) ==="
+    $d14 = New-PlaybookRepo
+    Add-RepoFile $d14 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d14 '.github/playbooks/post-code-change.md' @('see `multi-model-review/intake.md` for details')
+    git -C $d14 add -A 2>$null; git -C $d14 commit -q -m init
+    $r = Run $d14
+    Assert-True ($r.ExitCode -eq 0) 'bare subdir ref from a top-level playbook -> exit 0 (in-tree convention)'
+
+    Write-Host "`n=== a bare subdir ref from a DEPTH-2 in-tree file is NOT flagged (convention holds at any depth) ==="
+    $d15 = New-PlaybookRepo
+    Add-RepoFile $d15 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d15 '.github/playbooks/pre-pr-creation-review/implementation-roadmap.md' @('see `multi-model-review/intake.md` for details')
+    git -C $d15 add -A 2>$null; git -C $d15 commit -q -m init
+    $r = Run $d15
+    Assert-True ($r.ExitCode -eq 0) 'bare subdir ref from a depth-2 playbook -> exit 0 (exclusion must not narrow to direct children)'
+
+    Write-Host "`n=== a subdir-shaped ref that resolves to NO real file is NOT flagged (existence gate is load-bearing) ==="
+    $d16 = New-PlaybookRepo
+    Add-RepoFile $d16 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d16 'README.md' @('the retired `multi-model-review/deleted-file.md` is gone')
+    git -C $d16 add -A 2>$null; git -C $d16 commit -q -m init
+    $r = Run $d16
+    Assert-True ($r.ExitCode -eq 0) 'subdir ref naming a deleted file -> exit 0 (existence gate protects retired-file mentions)'
+
+    Write-Host "`n=== a wrong-CASE bare subdir ref outside the tree is caught, and the message names the real casing ==="
+    $d17 = New-PlaybookRepo
+    Add-RepoFile $d17 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d17 'README.md' @('see `Multi-Model-Review/Intake.md` for details')
+    git -C $d17 add -A 2>$null; git -C $d17 commit -q -m init
+    $r = Run $d17
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -cmatch [regex]::Escape('.github/playbooks/multi-model-review/intake.md')) 'wrong-case bare subdir ref -> exit 1, suggestion uses the on-disk casing'
+
+    Write-Host "`n=== a bare-leaf ref sharing a subdir NAME is NOT flagged (no subdir prefix present) ==="
+    $d18 = New-PlaybookRepo
+    Add-RepoFile $d18 '.github/playbooks/multi-model-review/intake.md' @('# a real nested playbook')
+    Add-RepoFile $d18 'README.md' @('see `intake.md` item 4 for the slate')
+    git -C $d18 add -A 2>$null; git -C $d18 commit -q -m init
+    $r = Run $d18
+    Assert-True ($r.ExitCode -eq 0) 'bare-leaf intake.md with a same-named subdir present -> exit 0 (bare-leaf convention preserved)'
 }
 finally { Remove-TestTempDirectories }
 

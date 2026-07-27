@@ -194,7 +194,7 @@ Hard gates:
 - State read-back (12-field predicate) before claiming ready.
 - No "ready to push" until all gates done OR explicitly skipped with warning.
 
-> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md` (INDEX with deterministic decision tree).
+> **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md` (INDEX).
 
 ### Post-PR-review phase
 
@@ -231,7 +231,7 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Sub-agents must NEVER prompt the user** (every prompt includes *"Do not call `ask_user`; return findings only"*) or introduce comments via `edit` (propose in the return value; orchestrator runs the §3.1 gate).
 - **Unintended reverts:** ASK before reverting code that was previously removed/refactored/renamed.
 - **Do NOT report ready** until every phase completed or explicitly skipped with recorded warning.
-- **Sub-agent model selection.** Resolve tier via `multi-model-review/current-model-registry.md` (rubber-duck/general=heavy-claude-standard, code-review/security=heavy-claude-xhigh, explore=light-claude-balanced, panels=per `intake.md` item 4).
+- **Sub-agent model selection.** Resolve tier via `.github/playbooks/multi-model-review/current-model-registry.md` (rubber-duck/general=heavy-claude-standard, code-review/security=heavy-claude-xhigh, explore=light-claude-balanced, panels=per `intake.md` item 4).
 - **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always full review rigor, both profiles.
 - **Instruction-set maintenance.** STOP + view `.github/playbooks/instruction-set-maintenance.md` before any instruction-repo edit.
 - **Output: caveman-terse.** Results over narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).

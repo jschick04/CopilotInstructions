@@ -76,6 +76,32 @@ foreach ($line in $truncatedRefs) {
     }
 }
 
+# Scan 3: a playbook SUBDIR-prefixed ref (`<subdir>/<leaf>.md`) cited from OUTSIDE `.github/playbooks/`.
+# Inside `.github/playbooks/**` that form is playbooks-root-relative and canonical AT ANY DEPTH, so the whole
+# tree is excluded; outside it only the full `.github/playbooks/...` path resolves for the reader. Bare-leaf
+# refs (no subdir) are deliberately not scanned - they are an established convention in tree diagrams + prose.
+$canonicalByLower = @{}
+foreach ($path in $existingPlaybooks) { $canonicalByLower[$path.ToLowerInvariant()] = $path }
+foreach ($subdir in (Get-ChildItem -Path $playbookFolder -Directory | ForEach-Object { $_.Name })) {
+    $escaped = [regex]::Escape($subdir)
+    $subdirFindPattern = "(^|[^./a-zA-Z0-9_-])$escaped/[a-zA-Z0-9_./-]+\.md"
+    $subdirExtractPattern = "(?<![./a-zA-Z0-9_-])$escaped/[a-zA-Z0-9_./-]+\.md"
+    $subdirRefs = & git -C $RepoRoot grep -niE "$subdirFindPattern" -- . ':!.github/playbooks' ':!**/HIGH-TIER-SLUGS.md' ':!*.lock' ':!**/*.csv' ':!scripts/check-playbook-refs.ps1' ':!scripts/tests/check-playbook-refs.tests.ps1' 2>$null
+    if ($LASTEXITCODE -gt 1) {
+        Write-Invocation "git grep for bare playbook-subdir citations of '$subdir' failed (exit $LASTEXITCODE); cannot validate references. Failing closed."
+        exit $script:ExitInvocation
+    }
+    foreach ($line in $subdirRefs) {
+        foreach ($match in [regex]::Matches($line, $subdirExtractPattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)) {
+            $cited = $match.Value
+            $canonical = $canonicalByLower[".github/playbooks/$cited".ToLowerInvariant()]
+            if ($canonical) {
+                $violations += "$line  (bare playbook-subdir ref '$cited' cited outside '.github/playbooks/'; use '$canonical')"
+            }
+        }
+    }
+}
+
 if ($violations) {
     foreach ($v in ($violations | Sort-Object -Unique)) { Write-Violation $v }
     exit $script:ExitViolation

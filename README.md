@@ -121,7 +121,7 @@ Razor markup files (`*.razor`, `*.cshtml`) intentionally match both the C# file 
 This instruction set ships two **profiles** that trade review thoroughness against token cost. Both keep the full file-split + enforcement core; they differ only in panel slate size, an optional trivial fast-path, and output verbosity.
 
 - **full** (default): pre-implementation / pre-PR panels use 4-6 reviewers (>=1 Claude + >=2 GPT + >=1 Gemini family, >=1 heavy-tier). No trivial fast-path. For work where token cost is not the constraint but context limits + loading-failure avoidance still matter.
-- **lite**: panels use 3 cross-family **light-tier** reviewers (>=1 each Claude / GPT / Gemini, i.e. the `light-claude-balanced` / `light-gpt` / `light-gemini` tiers per `multi-model-review/current-model-registry.md`). Quantified-trivial, non-safety-critical, non-governance changes may use a single-reviewer `triage` pass (with a `triage-acknowledged` receipt) instead of the full panel. For personal / paid-token work.
+- **lite**: panels use 3 cross-family **light-tier** reviewers (>=1 each Claude / GPT / Gemini, i.e. the `light-claude-balanced` / `light-gpt` / `light-gemini` tiers per `.github/playbooks/multi-model-review/current-model-registry.md`). Quantified-trivial, non-safety-critical, non-governance changes may use a single-reviewer `triage` pass (with a `triage-acknowledged` receipt) instead of the full panel. For personal / paid-token work.
 
 **Safety-critical and governance/instruction edits always use the full slate on both profiles** (see `AGENTS.md` + `.github/playbooks/workflow-conventions.md` §5). The lite `triage` fast-path saves reviewer COUNT only - it still performs the full per-rule acknowledgement and does NOT skip rule coverage.
 
@@ -210,7 +210,7 @@ Cycle 4 added `cross-file-bug-investigation.md` - a domain-trigger playbook that
 
 | Investigative playbook | Engine | Output | Handoff |
 |---|---|---|---|
-| `cross-file-bug-investigation.md` + `cross-file-bug-investigation/lanes-catalog.md` | `multi-model-review.md` with `target-type=bug-investigation` (lane-specialized prompts; 7-field finding schema; target-type-specific VERDICT-emission rule) | Citation-verified findings (≤1 rework cap; severity `blocking`/`major`/`minor` + `is_blocking` boolean); per-finding C2 disposition (Step 11A - always) | Optional fix-transition picker (Step 11B - only when intake Q8 ≠ `none`); selected findings persisted to `<session-state>/files/bug-investigation-<ts>.md` (`schema_version: 1`); pre-impl reads via its "Entry points" subsection |
+| `cross-file-bug-investigation.md` + `.github/playbooks/cross-file-bug-investigation/lanes-catalog.md` | `multi-model-review.md` with `target-type=bug-investigation` (lane-specialized prompts; 7-field finding schema; target-type-specific VERDICT-emission rule) | Citation-verified findings (≤1 rework cap; severity `blocking`/`major`/`minor` + `is_blocking` boolean); per-finding C2 disposition (Step 11A - always) | Optional fix-transition picker (Step 11B - only when intake Q8 ≠ `none`); selected findings persisted to `<session-state>/files/bug-investigation-<ts>.md` (`schema_version: 1`); pre-impl reads via its "Entry points" subsection |
 | `codebase-architecture-audit.md` + 5 lens sub-files | single-orchestrator pass over fixed lenses | Ranked debt list with file:line citations | Each picked proposal becomes a normal change through phase playbook chain |
 | `least-privilege-audit.md` + 6 axis sub-files | single-orchestrator 6-axis visibility sweep | Per-type matrix with consumer evidence | Picked tightenings become normal changes |
 
@@ -237,10 +237,10 @@ Quick reference for what's in `.github/playbooks/`. Each file is loaded only whe
 | `post-code-change.md` | Phase trigger - files modified, diff not yet shown | Hygiene cleanup + touched-file LPA + recurring-pattern sweep + §3.1 comment audit gate + `multi-model-review.md` panel + verify-the-fix + builds/tests |
 | `pre-commit.md` | Phase trigger - user approved diff | Single-line commit (per `AGENTS.md` §2), no `Co-authored-by` trailer, §4.1 author-identity verify (prompt-when-missing → local config; global opt-in) + commit-ownership prompt with resolved identity + explicit `the agent` / `you (the user)` actor labels |
 | `pre-pr-push.md` (INDEX) | Phase trigger - user asks to push, open PR, or request review | §4.2 push-credential verification (mechanism-aware) BEFORE sandbox pre-check + per-commit audit + branch-wide rename-first sweep + branch-wide LPA + state read-back of **10-field predicate** (incl. `pushCredentialsVerified`) before "ready" + separate push-ownership prompt with explicit actor labels |
-| `pre-pr-push/per-commit-micro-hygiene.md` | Sub-trigger - per-commit comment audit needed | Audited / amended commit + `perCommitAuditCoverage` entry |
-| `pre-pr-push/branch-wide-sweep.md` | Sub-trigger - first push intended for review | Sweep evidence (base SHA + head SHA + base ref) recorded |
-| `pre-pr-push/cleanup-commit-buckets.md` | Sub-trigger - sweep produced changes | Default-coarser grouping (file / SUT family / lens / audit category / slice) + 3 cleanup buckets + staging-sprawl guard |
-| `pre-pr-push/when-to-re-run-sweep.md` | Sub-trigger - subsequent push on a branch already swept | Re-run decision + copy-forward of prior state |
+| `.github/playbooks/pre-pr-push/per-commit-micro-hygiene.md` | Sub-trigger - per-commit comment audit needed | Audited / amended commit + `perCommitAuditCoverage` entry |
+| `.github/playbooks/pre-pr-push/branch-wide-sweep.md` | Sub-trigger - first push intended for review | Sweep evidence (base SHA + head SHA + base ref) recorded |
+| `.github/playbooks/pre-pr-push/cleanup-commit-buckets.md` | Sub-trigger - sweep produced changes | Default-coarser grouping (file / SUT family / lens / audit category / slice) + 3 cleanup buckets + staging-sprawl guard |
+| `.github/playbooks/pre-pr-push/when-to-re-run-sweep.md` | Sub-trigger - subsequent push on a branch already swept | Re-run decision + copy-forward of prior state |
 | `post-pr-review.md` | Phase trigger - PR exists / review comments present | Verified bot finding responses + C2-status-enum per-finding audit + instructions delta |
 | `design-spec.md` | Strong trigger - design spec / current-state survey / design-change request / dev design spec | Markdown rendered in chat first; saved to chosen destination only after user approval |
 | `ado-task-planning.md` | Strong trigger - ADO task / story / work item drafting | Markdown summary + paste-ready ADO-field block |
