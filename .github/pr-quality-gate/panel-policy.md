@@ -29,7 +29,7 @@ CLI flag is the ONLY robust activation mechanism. Env vars and `plan.md` flags a
 - ≥ 4 reviewers
 - ≥ 1 Claude family AND ≥ 2 GPT family AND ≥ 1 Gemini family
 - ≥ 1 `rubber-duck` role AND ≥ 2 `code-review` role
-- ≥ 1 heavy-tier model (claude-opus-*-xhigh, claude-opus-4.8, gpt-5.5, gpt-5.4, gemini-3.1-pro-preview, or equivalent per `multi-model-review/current-model-registry.md` heavy-* tiers)
+- ≥ 1 heavy-tier model (any `heavy-*` tier, or equivalent, per `multi-model-review/current-model-registry.md`)
 - Slot composition is recorded in the `CODE-REVIEW PANEL CONVERGED` block's `slate` field for audit
 
 Floor is verified from the slate enumeration. Mid-launch substitutions are allowed ONLY for same family + role + tier; document in `slate_substitutions` on `CODE-REVIEW PANEL CONVERGED`.

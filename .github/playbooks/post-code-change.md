@@ -1,5 +1,5 @@
 # Playbook: Post-code-change phase
-<!-- read-receipt-token: d36f8f31 -->
+<!-- read-receipt-token: a7c41f92 -->
 
 ## Purpose
 
@@ -235,7 +235,7 @@ Run the panel via `multi-model-review.md` with these invocation parameters:
   - `heavy-claude-xhigh` (Claude, extra-high reasoning) - `code-review`.
   - `heavy-gpt-premium` (GPT, premium reasoning) - `code-review`.
   - `heavy-gpt-codex` (GPT, codex-tuned) - `code-review`.
-  - `heavy-gpt-cross-version` (GPT, cross-version) - `code-review`.
+  - `heavy-gpt-cross-profile` (GPT, cross-profile) - `code-review`.
   - `heavy-gemini-premium` (Gemini, premium reasoning) - `code-review`.
   - **rubber-duck** at `heavy-claude-standard` (critique angle complementing line-level review).
   Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.

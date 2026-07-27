@@ -1,5 +1,5 @@
 # Playbook: Publish gate - pre-PR-creation review
-<!-- read-receipt-token: 8b41e2f6 -->
+<!-- read-receipt-token: c95d7b30 -->
 
 ## Purpose
 
@@ -87,7 +87,7 @@ The pre-push publish-gate receipt (`check-publish-gate-prepush.ps1`) is a BACKST
 | G6 (forbidden tools) | NO | - |
 | G7 conditions | NO | Either all 3 met or exemption doesn't apply. |
 | Convergence model (default `unanimous`) | YES | Floor: `threshold >=75%` or `confidence-weighted >=80%`. Recorded under `convergence_waive`. Must-fix=0 still applies. |
-| Slate composition | YES | Floor: >=4 reviewers; >=1 Claude + >=2 GPT (one premium + one cross-version/codex) + >=1 Gemini; >=1 `rubber-duck` + >=2 `code-review`; >=1 heavy-tier. Recorded under `slate_waive`. Re-checked after every drop/replacement. |
+| Slate composition | YES | Floor: >=4 reviewers; >=1 Claude + >=2 GPT (one premium + one cross-profile/codex) + >=1 Gemini; >=1 `rubber-duck` + >=2 `code-review`; >=1 heavy-tier. Recorded under `slate_waive`. Re-checked after every drop/replacement. |
 | Individual finding via G4 | YES (with G4) | External tracker URL + same-turn `ask_user`. |
 
 Items not in the matrix are NOT waivable.
@@ -101,7 +101,7 @@ Tier -> current model via `multi-model-review/current-model-registry.md`.
 | 1 | `heavy-claude-xhigh` | Claude | `code-review` |
 | 2 | `heavy-gpt-premium` | GPT | `code-review` |
 | 3 | `heavy-gpt-codex` | GPT | `code-review` |
-| 4 | `heavy-gpt-cross-version` | GPT | `code-review` |
+| 4 | `heavy-gpt-cross-profile` | GPT | `code-review` |
 | 5 | `heavy-gemini-premium` | Gemini | `code-review` |
 | 6 | `heavy-claude-standard` | Claude | `rubber-duck` |
 

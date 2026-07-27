@@ -14,13 +14,13 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 2. **Review-target location** - a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).
 
-3. **Reviewer count** - number of reviewers. Default = the active profile's panel mode (full = **6**: one Claude-family flagship + three GPT-family models for premium / codex / cross-version diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique; lite = **3** cross-family light-tier, >=1 each Claude/GPT/Gemini); if no profile is loaded, default **6** (full-default). Minimum **3** per hard gate (both profiles). Hard-gate convergence stays unanimous on both.
+3. **Reviewer count** - number of reviewers. Default = the active profile's panel mode (full = **6**: one Claude-family flagship + three GPT-family models for premium / codex / cross-profile diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique; lite = **3** cross-family light-tier, >=1 each Claude/GPT/Gemini); if no profile is loaded, default **6** (full-default). Minimum **3** per hard gate (both profiles). Hard-gate convergence stays unanimous on both.
 
 4. **Model selection** - defaults maximize cross-family diversity and reasoning depth. Tier → current model via `current-model-registry.md`:
    - `heavy-claude-xhigh` - Claude family, extra-high reasoning. `code-review` slot.
    - `heavy-gpt-premium` - GPT family, premium reasoning. `code-review` slot.
    - `heavy-gpt-codex` - GPT family, code-specialized. `code-review` slot (different perspective via codex tuning).
-   - `heavy-gpt-cross-version` - GPT family, cross-version. `code-review` slot (different reasoning profile from premium).
+   - `heavy-gpt-cross-profile` - GPT family, cross-profile. `code-review` slot (different reasoning profile from premium).
    - `heavy-gemini-premium` - Gemini family, premium reasoning. `code-review` slot (third-vendor cross-family diversity).
    - **rubber-duck** agent at `heavy-claude-standard` tier - independent design / blind-spot critique (per AGENTS.md sub-agent model selection defaults).
 

@@ -112,7 +112,7 @@ PR is BOOTSTRAP-EXEMPT from §2D only if ALL of:
 | Forbidden-tool list (G6) | **NO** | - |
 | Bootstrap exemption (G7) | **NO** | Conditions either met or not. |
 | Convergence model | **YES** | Floor: `threshold >= 75%`. `confidence-weighted >= 80%` also allowed. Record under `convergence_waive`. |
-| Reviewer slate composition | **YES** | Floor (all simultaneous): >= 4 reviewers; >= 1 Claude + >= 2 GPT (>= 1 premium + >= 1 cross-version/codex) + >= 1 Gemini; >= 1 `rubber-duck` + >= 2 `code-review`; >= 1 heavy-tier. Record under `slate_waive`. Floor re-checked after every drop/replacement. |
+| Reviewer slate composition | **YES** | Floor (all simultaneous): >= 4 reviewers; >= 1 Claude + >= 2 GPT (>= 1 premium + >= 1 cross-profile/codex) + >= 1 Gemini; >= 1 `rubber-duck` + >= 2 `code-review`; >= 1 heavy-tier. Record under `slate_waive`. Floor re-checked after every drop/replacement. |
 | `routed-deferred` per finding | **YES with G4** | External tracker URL + same-turn `ask_user`. |
 
 Items not in matrix: NOT waivable. If uncertain, treat as NOT waivable; escalate via `ask_user`.
@@ -137,7 +137,7 @@ Slate defined by capability tier + family + role, NOT hardcoded model name. Tier
 | 1 | `heavy-claude-xhigh` | Claude | `code-review` | Anchor; deep reasoning; cross-family diversity. |
 | 2 | `heavy-gpt-premium` | GPT | `code-review` | Cross-family fresh eyes. |
 | 3 | `heavy-gpt-codex` | GPT | `code-review` | Code-specialized angle. |
-| 4 | `heavy-gpt-cross-version` | GPT | `code-review` | Within-family version triangulation. |
+| 4 | `heavy-gpt-cross-profile` | GPT | `code-review` | Within-family triangulation. |
 | 5 | `heavy-gemini-premium` | Gemini | `code-review` | Third-vendor diversity. |
 | 6 | `heavy-claude-standard` | Claude | `rubber-duck` | Design/blind-spot critique. |
 

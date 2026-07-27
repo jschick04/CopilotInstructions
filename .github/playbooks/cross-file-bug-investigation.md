@@ -242,7 +242,7 @@ Canonical scenario: user says `"find bugs in AuthMiddleware.cs, TokenService.cs,
 | 9 | User | Picks "fix-multiple F-0001 + F-0003" |
 | 9 | Agent | Writes persistence file with selected findings; enters `pre-implementation.md` with file path as Q1 source |
 
-Total user turns to report: ~5-6 `ask_user` prompts. Total user turns to fix-transition: ~8-9 (one extra turn for the C2-routing split per GPT-5.5 R3 finding).
+Total user turns to report: ~5-6 `ask_user` prompts. Total user turns to fix-transition: ~8-9 (one extra turn for the C2-routing split per a round-3 panel finding).
 
 ## Truth tables
 
