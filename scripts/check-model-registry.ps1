@@ -60,31 +60,79 @@ $tagScopes = @{
 }
 $presenceScope = @('.github/playbooks', '.github/pr-quality-gate', 'profiles', 'AGENTS.md')
 
-function Get-TableRows {
-    param([string[]] $Lines, [string] $Heading)
-    $start = -1
-    for ($i = 0; $i -lt $Lines.Count; $i++) {
-        if ($Lines[$i] -ceq $Heading) { $start = $i; break }
+function Test-DelimiterRow {
+    param([string] $Bare)
+    # Class-legal but renders no table: '::---', '-:-', '--- || ---'. Renders one with no pipe at all: ':---'.
+    # This class is a superset of the cell production below, so it is an early exit, not a gate.
+    if ($Bare -notmatch '^[ \t\v\f:|-]+$') { return $false }
+    $hasPipe = $Bare.Contains('|')
+    $cells = @($Bare -split '\|')
+    # Redundant with the dash-run test below; kept so the no-pipe case reads as its own path.
+    if ($hasPipe) {
+        # Outer pipes are not symmetric in GFM: '<VT>| --- |' renders no table at any header width, but
+        # '| --- |<VT>' does, so only the trailing drop may treat VT / FF as droppable whitespace.
+        if ($cells.Count -ge 1 -and $cells[0] -match '^[ \t]*$') { $cells = @($cells | Select-Object -Skip 1) }
+        if ($cells.Count -ge 1 -and $cells[$cells.Count - 1].Trim() -eq '') { $cells = @($cells | Select-Object -SkipLast 1) }
     }
-    if ($start -lt 0) { return $null }
-    $rows = @()
-    $started = $false
-    for ($i = $start + 1; $i -lt $Lines.Count; $i++) {
-        $line = $Lines[$i]
-        if ($line -match '^\s*$') { if ($started) { break } else { continue } }
-        if ($line -match '^#') { break }
-        # A non-pipe line inside a started table is malformed, not a terminator: silently stopping there
-        # would drop every row after it from validation.
-        if ($line -notmatch '^\|') {
-            if ($started) { return @('MALFORMED', $line) }
-            continue
-        }
-        $started = $true
-        $rows += $line
+    # A lone '|' loses both of its cells to the outer-pipe drops, and a row with no cells is not a table.
+    if ($cells.Count -eq 0) { return $false }
+    foreach ($cell in $cells) {
+        # '| - - - |' renders no table: GFM allows whitespace only around cell content, not inside the run.
+        if ($cell -notmatch '^[ \t\v\f]*:?-+:?[ \t\v\f]*$') { return $false }
     }
-    return $rows
+    # A pipe-less dash run is a setext underline unless a colon or VT / FF breaks that reading: '<VT>---'
+    # renders a table where '---' and a tab-padded '---' do not.
+    if (-not $hasPipe -and $Bare -notmatch ':' -and $Bare -notmatch '[\v\f]') { return $false }
+    return $true
 }
 
+function Get-SentinelRows {
+    param([string[]] $Lines, [string] $Name, [string] $Header)
+    # Markdown gives no decidable way to locate a table inside a document: every container class closed here
+    # (fences, indented blocks, HTML comments, raw HTML, list items, setext) produced another one. Exact
+    # sentinel lines sidestep the question - the checker never has to know what a section or container is.
+    $begin = '<!-- registry:' + $Name + ':begin -->'
+    $end = '<!-- registry:' + $Name + ':end -->'
+    $beginAt = @()
+    $endAt = @()
+    $headerAt = @()
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].TrimEnd() -ceq $begin) { $beginAt += $i }
+        if ($Lines[$i].TrimEnd() -ceq $end) { $endAt += $i }
+        if ($Lines[$i].TrimEnd() -ceq $Header) { $headerAt += $i }
+    }
+    if ($beginAt.Count -ne 1 -or $endAt.Count -ne 1) {
+        return [PSCustomObject]@{ Error = "expected exactly one '$begin' and one '$end' in the registry (found $($beginAt.Count) and $($endAt.Count))"; Rows = @(); BeginAt = -1; EndAt = -1 }
+    }
+    if ($endAt[0] -le $beginAt[0]) {
+        return [PSCustomObject]@{ Error = "'$end' must come after '$begin'"; Rows = @(); BeginAt = -1; EndAt = -1 }
+    }
+    # Locating a span decidably is not enough: a second copy of the table outside the sentinels renders as
+    # authoritative to every reader while going unvalidated, and a sentinel PAIR moved inside a fence or a
+    # comment substitutes the validated rows for a different rendered table. Both copies carry this header,
+    # so requiring it exactly once, immediately after the begin sentinel, ties the validated span to the
+    # rendered one without the checker knowing what a fence or a comment is.
+    if ($headerAt.Count -ne 1) {
+        return [PSCustomObject]@{ Error = "'$Header' must appear exactly once in the registry (found $($headerAt.Count)); a second copy of the table is not validated but still renders as authoritative"; Rows = @(); BeginAt = -1; EndAt = -1 }
+    }
+    if ($headerAt[0] -ne $beginAt[0] + 1) {
+        return [PSCustomObject]@{ Error = "the line after '$begin' must be the table header '$Header'"; Rows = @(); BeginAt = -1; EndAt = -1 }
+    }
+    $rows = @()
+    for ($i = $beginAt[0] + 1; $i -lt $endAt[0]; $i++) {
+        $line = $Lines[$i]
+        # A blank line ENDS a table in GFM, so rows after it render as paragraph text. Skipping blanks would
+        # let the checker validate rows no reader sees, and make the sentinel span wider than the real table.
+        if ($line.Trim() -eq '') {
+            return [PSCustomObject]@{ Error = "line $($i + 1) between the $Name sentinels is blank; a blank line ends the table in GFM, so every line between the sentinels must be a row"; Rows = @(); BeginAt = -1; EndAt = -1 }
+        }
+        if ($line.TrimEnd() -notmatch '^\|.*\|$') {
+            return [PSCustomObject]@{ Error = "line $($i + 1) between the $Name sentinels is not a table row: $($line.Trim())"; Rows = @(); BeginAt = -1; EndAt = -1 }
+        }
+        $rows += $line
+    }
+    return [PSCustomObject]@{ Error = ''; Rows = $rows; BeginAt = $beginAt[0]; EndAt = $endAt[0] }
+}
 function Get-Cells {
     param([string] $Row)
     $trimmed = $Row.Trim()
@@ -104,30 +152,66 @@ function Get-TierId {
 $lines = @(Get-Content -LiteralPath $registryFull)
 $violations = @()
 
-$tierRows = Get-TableRows -Lines $lines -Heading '## Capability tiers'
-$mapRows = Get-TableRows -Lines $lines -Heading '## Current mapping'
-foreach ($tableSpec in @(@('Capability tiers', $tierRows), @('Current mapping', $mapRows))) {
-    if ($null -ne $tableSpec[1] -and @($tableSpec[1]).Count -ge 1 -and $tableSpec[1][0] -ceq 'MALFORMED') {
-        Write-Violation "'## $($tableSpec[0])' table contains a non-table line before it ends: $($tableSpec[1][1].Trim())"
+$tierBlock = Get-SentinelRows -Lines $lines -Name 'tiers' -Header $tierHeader
+if ($tierBlock.Error -ne '') {
+    Write-Violation "$RegistryPath capability-tiers table: $($tierBlock.Error)"
+    exit $script:ExitViolation
+}
+$mapBlock = Get-SentinelRows -Lines $lines -Name 'mapping' -Header $mapHeader
+if ($mapBlock.Error -ne '') {
+    Write-Violation "$RegistryPath current-mapping table: $($mapBlock.Error)"
+    exit $script:ExitViolation
+}
+# Header uniqueness only catches a byte-identical copy; a ghost table with renamed, re-cased, re-padded or
+# pipe-less headers renders identically to a reader and evades it. Every GFM table needs a delimiter row, so
+# banning delimiter rows outside the sentinel spans closes the markdown substitution class by construction
+# instead of one text shape at a time - no notion of fences, comments or sections required. Two caveats the
+# rule cannot infer: a blockquote prefix puts a '>' on the delimiter line, so it is stripped before the test;
+# and an HTML table renders with no delimiter row at all, so HTML table markup is rejected separately.
+$spanLines = @{}
+foreach ($span in @($tierBlock, $mapBlock)) {
+    for ($i = $span.BeginAt; $i -le $span.EndAt; $i++) { $spanLines[$i] = $true }
+}
+for ($i = 0; $i -lt $lines.Count; $i++) {
+    $line = $lines[$i]
+    # Scope differs between the two tests on purpose. HTML table markup is never legitimate ANYWHERE in this
+    # file, spans included: Notes and Description are free text no grammar validates, and inline HTML in a
+    # cell renders a nested table every reader sees while the row around it validates clean.
+    # The tag name must be followed by a real tag-name terminator, not just any word boundary: '@' is a word
+    # boundary, so '\b' rejected the email autolink <table@example.com>, which renders a mailto link and no
+    # table. End-of-line is a terminator too - '<table' alone on a line, with content after a blank line,
+    # renders a real table element and is the only table markup in that file.
+    if ($line -match '<\s*/?\s*(table|thead|tbody|tr|td|th)(?=[ \t\v\f/>]|$)') {
+        Write-Violation "$RegistryPath line $($i + 1) contains raw HTML table markup ($($line.Trim())); an HTML table renders without a delimiter row, so it would publish unvalidated rows - inside a cell it renders nested in the validated table"
+        exit $script:ExitViolation
+    }
+    # The delimiter test, by contrast, MUST skip the spans: the two real delimiter rows live there. The strip
+    # handles space/tab only - GitHub does not accept vertical tab or form feed as blockquote-prefix
+    # whitespace, so a VT before the marker renders a paragraph, not a blockquoted table (measured). VT and FF
+    # ARE in the class below, where GitHub does accept them inside the row itself.
+    if ($spanLines.ContainsKey($i)) { continue }
+    $bare = $line -replace '^[ \t]*(>[ \t]*)+', ''
+    if (Test-DelimiterRow $bare) {
+        Write-Violation "$RegistryPath line $($i + 1) is a table delimiter row outside the sentinel spans ($($line.Trim())); a second table would render as authoritative without being validated, so this file may hold only the two sentinel-delimited tables"
         exit $script:ExitViolation
     }
 }
-if ($null -eq $tierRows -or $tierRows.Count -lt 3) {
-    Write-Violation "'## Capability tiers' table missing or empty in $RegistryPath"
+$tierRows = $tierBlock.Rows
+$mapRows = $mapBlock.Rows
+if ($tierRows.Count -lt 3) {
+    Write-Violation "capability-tiers table between its sentinels is missing or empty in $RegistryPath"
     exit $script:ExitViolation
 }
-if ($null -eq $mapRows -or $mapRows.Count -lt 3) {
-    Write-Violation "'## Current mapping' table missing or empty in $RegistryPath"
+if ($mapRows.Count -lt 3) {
+    Write-Violation "current-mapping table between its sentinels is missing or empty in $RegistryPath"
     exit $script:ExitViolation
 }
-if ($tierRows[0].Trim() -cne $tierHeader) { $violations += "capability-tiers header must be exactly '$tierHeader' (got '$($tierRows[0].Trim())')" }
-if ($mapRows[0].Trim() -cne $mapHeader) { $violations += "current-mapping header must be exactly '$mapHeader' (got '$($mapRows[0].Trim())')" }
 
 # The divider must be validated, not assumed: 'Skip 2' on a divider-less table silently drops the first data
 # row, and a matching omission in both tables would keep tier-id parity while that tier escapes every check.
 function Test-Divider {
     param([string] $Row, [int] $ExpectedCells)
-    $cells = Get-Cells -Row $Row
+    $cells = @(Get-Cells -Row $Row)
     if ($null -eq $cells -or $cells.Count -ne $ExpectedCells) { return $false }
     foreach ($c in $cells) { if ($c -notmatch '^:?-{3,}:?$') { return $false } }
     return $true
@@ -141,7 +225,7 @@ if ($violations.Count -gt 0) {
 
 $tierIds = @()
 foreach ($row in ($tierRows | Select-Object -Skip 2)) {
-    $cells = Get-Cells -Row $row
+    $cells = @(Get-Cells -Row $row)
     if ($null -eq $cells -or $cells.Count -ne 2) { $violations += "capability-tiers row must have exactly 2 cells: $($row.Trim())"; continue }
     $id = Get-TierId -Cell $cells[0]
     if (-not $id) { $violations += "capability-tiers tier id must be backticked: $($row.Trim())"; continue }
@@ -155,7 +239,7 @@ $mapIds = @()
 $modelEffortPairs = @{}
 $rowsForConsumers = @()
 foreach ($row in ($mapRows | Select-Object -Skip 2)) {
-    $cells = Get-Cells -Row $row
+    $cells = @(Get-Cells -Row $row)
     if ($null -eq $cells -or $cells.Count -ne 6) { $violations += "current-mapping row must have exactly 6 cells: $($row.Trim())"; continue }
     $id = Get-TierId -Cell $cells[0]
     if (-not $id) { $violations += "current-mapping tier id must be backticked: $($row.Trim())"; continue }
@@ -163,7 +247,11 @@ foreach ($row in ($mapRows | Select-Object -Skip 2)) {
     if ($mapIds -ccontains $id) { $violations += "duplicate tier id '$id' in the current-mapping table"; continue }
     $mapIds += $id
 
+    # Padding is never a model distinction: CommonMark renders ` x ` identically to `x`, and one-sided
+    # padding leaves a stray space no runtime resolves to a different model. Not inside Get-TierId - a
+    # padded tier id must stay a loud grammar violation rather than be normalised away.
     $model = Get-TierId -Cell $cells[1]
+    if ($model) { $model = $model.Trim() }
     if (-not $model) { $violations += "tier '$id' model must be backticked and non-empty"; continue }
     $effort = $cells[2]
     $context = $cells[3]
@@ -174,6 +262,10 @@ foreach ($row in ($mapRows | Select-Object -Skip 2)) {
 
     $tags = @($consumers -split ',' | ForEach-Object { $_.Trim() })
     foreach ($tag in $tags) {
+        # Case-sensitive on purpose, and it is the only line enforcing canonical tag text: the $tagScopes
+        # lookup below is a hashtable, so its keys match case-INsensitively and 'Default Slate' would
+        # otherwise be silently normalised at exit 0. It is also what makes the two -ccontains comparisons
+        # on 'no default slate consumer' unreachable for a case variant.
         if ($validConsumerTags -cnotcontains $tag) { $violations += "tier '$id' consumers tag '$tag' is not one of: $($validConsumerTags -join ', ')" }
     }
     if ($tags -ccontains 'no default slate consumer' -and $tags.Count -ne 1) {
