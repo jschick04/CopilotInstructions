@@ -49,13 +49,15 @@ command -v jq  >/dev/null 2>&1 || die 3 'jq not found on PATH (required for JSON
 [[ -z "${COPILOT_INSTRUCTIONS_CLONE:-}" ]] && die 3 'COPILOT_INSTRUCTIONS_CLONE env var not set.'
 CLONE="$COPILOT_INSTRUCTIONS_CLONE"
 [[ -d "$CLONE" ]] || die 3 "COPILOT_INSTRUCTIONS_CLONE='$CLONE' is not a directory."
-[[ -d "$CLONE/.git" ]] || die 3 "'$CLONE' does not contain a .git/ subdirectory."
-REMOTE_URL="$(git -C "$CLONE" remote get-url origin 2>/dev/null || true)"
-[[ -z "$REMOTE_URL" ]] && die 3 "Cannot read 'origin' remote URL from '$CLONE'."
-[[ ! "$REMOTE_URL" =~ $ALLOWED_CLONE_URL_PATTERN ]] && die 3 "Remote URL '$REMOTE_URL' does not match AllowedCloneUrlPattern '$ALLOWED_CLONE_URL_PATTERN'."
+[[ -e "$CLONE/.git" ]] || die 3 "'$CLONE' does not contain a .git/ subdirectory."
+if [[ $VERIFY -eq 0 ]]; then
+    REMOTE_URL="$(git -C "$CLONE" remote get-url origin 2>/dev/null || true)"
+    [[ -z "$REMOTE_URL" ]] && die 3 "Cannot read 'origin' remote URL from '$CLONE'."
+    [[ ! "$REMOTE_URL" =~ $ALLOWED_CLONE_URL_PATTERN ]] && die 3 "Remote URL '$REMOTE_URL' does not match AllowedCloneUrlPattern '$ALLOWED_CLONE_URL_PATTERN'."
+fi
 
 # ===== Auto-fetch =====
-if [[ $AUTO_FETCH_CATALOG -eq 1 ]]; then
+if [[ $VERIFY -eq 0 && $AUTO_FETCH_CATALOG -eq 1 ]]; then
     DIRTY="$(git -C "$CLONE" status --porcelain '.github/pr-quality-gate/' 2>/dev/null || true)"
     [[ -n "$DIRTY" ]] && die 4 "Auto-fetch refused: uncommitted local changes:\n$DIRTY"
     CUR_BRANCH="$(git -C "$CLONE" rev-parse --abbrev-ref HEAD)"
@@ -165,7 +167,7 @@ done < "$CATALOG_PATH"
 
 # ===== Diff file list =====
 DIFF_FILES="$(git -C "$PROJECT_ROOT" -c core.quotePath=false diff --name-only "$BASE_SHA..$HEAD_SHA" 2>/dev/null || true)"
-FILE_COUNT="$(echo "$DIFF_FILES" | grep -c '^' || true)"
+FILE_COUNT="$(printf '%s\n' "$DIFF_FILES" | grep -c '[^[:space:]]' || true)"
 
 # ===== Pattern execution =====
 # Run rg with stderr captured: exit 0 = matches (emit to stdout), exit 1 = no matches (normal), exit >1 = a real rg
@@ -330,17 +332,22 @@ IFS=','; echo "  required_rule_ack: [$(echo "${REQ_ACK[*]}" | sed 's/,/, /g')]";
 if [[ -n "$PR_REF" ]]; then
     PANEL_MISSES_CSV="$CLONE/.github/pr-quality-gate/data/panel-misses.csv"
     if [[ -f "$PANEL_MISSES_CSV" ]]; then
-        PRIOR_SLUGS="$(python3 -c '
+        command -v python3 >/dev/null 2>&1 || die 4 "python3 is required for anti-recidivism extraction"
+        if ! PRIOR_SLUGS="$(python3 -c '
 import csv, sys
 seen=set()
 with open(sys.argv[1], newline="", encoding="utf-8") as f:
     r = csv.DictReader(f)
+    if not r.fieldnames or not {"pr_ref", "proposed_catalog_slug"}.issubset(r.fieldnames):
+        raise ValueError("anti-recidivism CSV schema is invalid")
     for row in r:
         if row.get("pr_ref","") == sys.argv[2]:
             slug = row.get("proposed_catalog_slug","").strip()
             if slug: seen.add(slug)
 print("\n".join(sorted(seen)))
-' "$PANEL_MISSES_CSV" "$PR_REF" 2>/dev/null || true)"
+' "$PANEL_MISSES_CSV" "$PR_REF")"; then
+            die 4 "anti-recidivism extraction failed"
+        fi
         if [[ -n "$PRIOR_SLUGS" ]]; then
             echo "  anti_recidivism_preamble:"
             echo "    pr_ref: $(yaml_sq "$PR_REF")"

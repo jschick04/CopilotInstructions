@@ -39,7 +39,6 @@ $excludeRules = @(
     'PSUseShouldProcessForStateChangingFunctions'  # these are scripts, not cmdlets that expose -WhatIf/-Confirm
     'PSUseSingularNouns'                            # domain nouns (Flush-Audits, Add-Windows) read correctly as plural
     'PSReviewUnusedParameter'                       # param contracts (e.g. -Quiet/-RepoRoot) are an intentional surface
-    'PSAvoidAssignmentToAutomaticVariable'          # setup.ps1 -Profile is a deliberate, documented public CLI flag
     'PSUseBOMForUnicodeEncodedFile'                 # the repo is intentionally UTF-8 NO-BOM (git/hash-parity friendly)
 )
 $settings = @{ Severity = @('Warning', 'Error'); ExcludeRules = $excludeRules }

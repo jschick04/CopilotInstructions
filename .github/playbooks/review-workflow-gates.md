@@ -39,7 +39,7 @@ A rubber-duck critique is cheap (one agent, fast turnaround) and catches blind s
 ### When to apply
 
 - **Always apply** for non-trivial changes: multiple files, architectural decisions, unfamiliar codebases, complex logic, new patterns, restructuring work, decomposition, DI changes, dependency graph changes.
-- **May skip Stage 1 (rubber-duck) only** for genuinely trivial changes: single-file rename, typo fix, version bump, comment update. Even then, Stage 2 (panel) is still mandatory per the pre-implementation hard gate - except under the lite profile's trivial fast-path (below), where a single-reviewer `triage` pass substitutes.
+- **May skip Stage 1 (rubber-duck) only** for genuinely trivial changes: single-file rename, typo fix, version bump, comment update. Even then, Stage 2 (panel) is still mandatory per the pre-implementation hard gate - except under the triage mode's trivial fast-path (below), where a unanimous `triage` pass substitutes.
 
 ### Skip escalation
 
@@ -49,9 +49,9 @@ Skipping either stage requires **all three**:
 2. A documented justification stronger than "low risk" or "simple change." Acceptable justifications: "user explicitly directed immediate implementation," "change is a mechanical rename with no behavioral delta and automated refactoring tool output."
 3. The skip recorded in the session state so future review can audit the decision.
 
-### Profile-aware fast-path (lite profile)
+### Triage fast-path
 
-When the active profile is `lite` (per the loaded `active-profile.instructions.md`; if none is loaded -> full-default and this fast-path is UNAVAILABLE), a quantified-trivial change MAY use `triage` mode (single reviewer + `triage-acknowledged` receipt) in place of the full two-stage review, ONLY when ALL hold: (a) the change is NOT a governance/instruction artifact in any repo (see AGENTS.md cross-cutting rules); (b) it is NOT safety-critical (`workflow-conventions.md` §5); (c) it touches only docs/`.md` OR has `changed_lines_total` < 10 (added+removed non-blank, non-rename-only, across the whole diff) with no control-flow / public-API / concurrency change. Any miss or any uncertainty -> escalate to the lite 3-reviewer panel (or full). The single reviewer's result is certified per §1A's lite trivial fast-path cert. On the full profile this fast-path is unavailable; `triage` then requires explicit justification per `panel-policy.md`.
+A change may use `triage` only when all hold: (a) it is not a governance/instruction artifact in any repo; (b) it is not safety-critical under `workflow-conventions.md` §5; (c) it touches docs-only OR has fewer than 10 changed lines with no control-flow, public-API, or concurrency change. Any uncertainty escalates to full. Triage requires a same-turn `triage-acknowledged` receipt and exactly 2 distinct-family light code-reviewers, with unanimous verdicts. It is never available for instruction-set repo changes.
 
 ---
 
@@ -85,7 +85,7 @@ The certification block:
 2. Is invalid if the artifact changes after emission - agent must re-panel on the changed artifact and emit a new certification.
 3. Sub-decision panels (single library placement, single naming choice, etc.) do NOT satisfy a plan-level gate. They certify ONLY the sub-decision; the plan-level gate is separate and requires its own certification.
 
-**Lite trivial fast-path cert.** When the lite profile's trivial fast-path applies (§1 Profile-aware fast-path), the single `triage` reviewer's result IS the artifact-binding certification: emit the `DESIGN PANEL CONVERGED` block with `convergence_model: single-reviewer` and `unanimous: yes` (1 of 1 reviewer SOUND is structurally unanimous), bound to the artifact hash + base/head SHA, citing the `triage-acknowledged` receipt. It satisfies §1A/§1B for THAT change only, and never for safety-critical or governance/instruction artifacts (those always take the full slate on both profiles).
+**Triage fast-path certification.** Both triage reviewers must return the success verdict. Emit the `DESIGN PANEL CONVERGED` block with `convergence_model: unanimous` and `unanimous: yes`, bound to the reviewed artifact and citing the `triage-acknowledged` receipt. Triage never applies to safety-critical or governance/instruction artifacts.
 
 ### Sub-decision vs full-plan distinction
 
@@ -175,7 +175,7 @@ Editing the session plan file (`plan.md` in the session-state folder) BEFORE the
 
 After a `DESIGN PANEL CONVERGED` certification authorizes implementation, the agent may call `create` / `edit` to apply the panel-approved changes to the working tree. **But the agent does NOT stage project code.** Under the inverted staging model (`AGENTS.md` §0 + `pre-commit.md`), the USER reviews by STAGING each file; staged content is the user's reviewed scope, and the agent commits only what the user staged.
 
-This gate is asymmetric between repo types, but ONLY for the working-tree review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA working-tree review (the panel already reviewed the change); it does NOT waive §0.
+This gate is asymmetric between repo types, but ONLY for the working-tree review - NOT for the §0 per-operation gates. The §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repositories, including the instruction-set repo. What the panel certification waives for an instruction-set edit is the EXTRA working-tree review (the panel reviews the user-staged index); it does NOT waive §0.
 
 **Why staging-as-review (not a pre-push gate)?**
 
@@ -183,7 +183,7 @@ Earlier is better, and a harder skip path. If the agent honors the never-auto-st
 
 **Procedure in a project repo:**
 
-1. Classify the working tree (`git status --porcelain`). Staged = the user's reviewed scope; commit it as-is.
+1. Implementation -> slug review -> user stages -> INDEX-ONLY diff panel. Review `git diff --cached` plus `git show :path` or an index export, never working-tree sources. Any index change invalidates the panel and requires re-review.
 2. For each unstaged / untracked change, `ask_user`: review-now / stage-for-me / skip-file / abort (`pre-commit.md` step 2). The agent NEVER auto-stages code.
 3. The agent's commit-approval `ask_user` prints the enumerated staged set (the mechanical backstop); the §0 `git commit` + `git push` gates are independent and still apply.
 
@@ -193,7 +193,7 @@ Earlier is better, and a harder skip path. If the agent honors the never-auto-st
 
 **What about instruction-repo pushes?**
 
-Same inverted model (the user stages what enters history). The panel certification covers the TECHNICAL review; it does NOT waive the never-auto-stage rule or the §0 per-operation `ask_user` gates (commit / push). The diff-review asymmetry exists because the user's plan-stage approval + the panel's review already cover the instruction change's shape, whereas project-repo pushes affect a long-lived shared repo with multiple consumers.
+Same inverted model (the user stages what enters history). The panel certification covers the TECHNICAL review; it does NOT waive the never-auto-stage rule or the §0 per-operation `ask_user` gates (commit / push). The diff-review asymmetry exists because the user's staging + the index-only panel review cover the instruction change's shape, whereas project-repo pushes affect a long-lived shared repo with multiple consumers.
 
 **Failure mode if skipped:** the agent auto-stages and presents a "shipped!" summary before the user has reviewed; the user discovers an issue post-push; the revert/amend cycle inflates round count and erodes trust. The never-auto-stage-code rule is the prose discipline that keeps the agent's "build -> test -> commit -> push" cadence from proceeding past staging without the user in the loop; the commit-approval `ask_user` (enumerated staged set) is the mechanical backstop that makes a bypass visible.
 
@@ -277,7 +277,7 @@ Document these learnings for future panel configurations.
 - `multi-model-review.md` - owns the panel mechanics (reviewer selection, verdict format, model assignments); this playbook owns the workflow gates around when/how panels run and what happens with their output.
 - `multi-model-review/pr-creation-mirror-prompt.md` - shared 11-category Copilot-mirror prompt template used by §2D's (the publish gate's) heavy pre-PR panel and (optionally) `post-code-change.md` §3's per-commit panel.
 - `pre-pr-creation-review.md` - owns the §2D publish gate procedure (invocation modes, ancestry-based re-run triggers, gate-runner mechanical floor, panel + synthesis + fix loop, QUALITY GATE block emissions, AGENTS user-approval flow). Deferred features captured in `pre-pr-creation-review/implementation-roadmap.md`.
-- `AGENTS.md` cross-cutting rules - references §1A/§1B (panel-binds-to-artifact + hard-stop tool list), §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), §2D (the publish gate), and §3 (scope reduction sign-off) as hard gates.
+- `AGENTS.md` §1 phase hard gates + cross-cutting rules - reference §1A/§1B, §2A (prior-PR-review sweep), §2B (post-code-change ledger), §2C (DRY remediation gate), and §3 (scope reduction sign-off) as hard gates.
 
 ---
 

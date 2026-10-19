@@ -71,7 +71,7 @@ For each commit audited:
 - Number of comments enumerated.
 - Number deleted vs kept (with justification).
 - Whether any rename-first cases escalated to cross-file scope.
-- **`perCommitAuditCoverage` entry in the pre-PR-push phase-state record** (per `AGENTS.md` *Per-phase additional fields*) - write `{sha: <post-amend SHA>, status: done}` (or `skipped-with-reason` per User-skip policy) for the audited commit. The pre-PR-push readiness gate consumes this map; if the entry is missing, the commit appears as `not-run` and blocks readiness. Use the canonical enum (`done` / `skipped-with-reason` / `not-run`) - do not introduce other values.
+- **`perCommitAuditCoverage` entry in the pre-PR-push phase-state record** (per `phase-state-convention.md` *Per-phase additional fields*) - write `{sha: <post-amend SHA>, status: done}` (or `skipped-with-reason` per User-skip policy) for the audited commit. The pre-PR-push readiness gate consumes this map; if the entry is missing, the commit appears as `not-run` and blocks readiness. Use the canonical enum (`done` / `skipped-with-reason` / `not-run`) - do not introduce other values.
 
 ## Scope clarification
 

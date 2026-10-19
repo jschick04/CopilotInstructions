@@ -7,7 +7,7 @@ Single source of truth for the pre-push **publish-gate receipt** and the **PUBLI
 ## What it is
 
 A gitignored worktree receipt at `.github/pr-quality-gate/audits/publish-gate-receipt` that authorizes a
-push which publishes reviewable code. It mirrors the `check-signoff.ps1` pattern: object-bound, identity-gated
+push which publishes reviewable code. It mirrors the `check-signoff.ps1` pattern: object-bound, git-object-activated
 (no-op on any consuming repo), honest (bypassable - see ceiling). It is the mechanical backstop the RCA
 identified as missing: the branch-level publish/sweep boundary had NO hookable enforcement, so a compound
 "push + PR" crossed it on execution momentum.
@@ -22,7 +22,7 @@ recall lift, not proof-of-panel. Bypass ceiling (documented, not closed): `git p
 absent** (every local pwsh gate skips; CI cannot reproduce this local-only receipt). `gh pr create` from an
 already-pushed tip is still NOT hook-gated (that boundary stays modeled: the SENTINEL below + the detective
 slug `pr-creation-or-push-without-quality-gate-block` + the CI `quality-gate-check.yml` rg-floor). The
-identity gate keys on repo identity (`Test-IsInstructionsRepo`), not the remote alias; the receipt binds to
+activation uses committed/indexed instruction-set objects (`Test-RequiresFullPanel`), not the remote alias; the receipt binds to
 the normalized `-RemoteUrl` push destination, falling back to `-RemoteName` (default `origin`).
 
 ## Which pushes are governed
@@ -41,7 +41,7 @@ Per pre-push ref-update line `<local-ref> <local-sha> <remote-ref> <remote-sha>`
 Exactly one authorizing row for the governed update, plus one `reads=` line per required playbook:
 
 ```
-publish_gate_ready: <turn-ref> remote:<normalized-remote-identity> dst:<remote-ref> sha:<40-hex tip commit>
+publish_gate_ready: <turn-ref> remote:<normalized-remote-identity> dst:<remote-ref> sha:<40|64-hex tip commit>
 reads=.github/playbooks/pre-pr-push.md@<token>
 reads=.github/playbooks/pre-pr-creation-review.md@<token>
 ```
@@ -49,7 +49,7 @@ reads=.github/playbooks/pre-pr-creation-review.md@<token>
 or (sandbox path):
 
 ```
-sandbox_push_declared: <turn-ref> remote:<normalized-remote-identity> dst:<remote-ref> sha:<40-hex tip commit>
+sandbox_push_declared: <turn-ref> remote:<normalized-remote-identity> dst:<remote-ref> sha:<40|64-hex tip commit>
 reads=.github/playbooks/pre-pr-push.md@<token>
 ```
 
@@ -69,7 +69,7 @@ Field rules:
   `remote.<name>.pushurl` would otherwise produce a receipt that never matches. Case-sensitive match. Binding
   the URL (not the alias name) stops a retargeted remote from reusing a receipt.
 - **`dst:`** - the exact `remote-ref` of the governed update (e.g. `refs/heads/main`). Case-sensitive.
-- **`sha:`** - the full 40-hex pushed TIP COMMIT (`local-sha`). Commit-bound, NOT tree-bound: a message-only
+- **`sha:`** - the full 40- or 64-hex pushed TIP COMMIT (`local-sha`). Commit-bound, NOT tree-bound: a message-only
   amend / rebase / any new commit invalidates the receipt (re-run the gate). A prefix / short SHA never matches.
 - **`reads=` lines** - one per required playbook, using the shared `reads=<file>@<token>` format. The `<token>`
   must equal the playbook's `read-receipt-token` AT THE PUSHED TIP (`git show <local-sha>:<path>`). Required
@@ -98,5 +98,5 @@ the same salience as the §0 `PRE-GIT SENTINEL` (not inherited - re-emit; emitti
 
 ```
 PUBLISH BOUNDARY SENTINEL
-intent=<first-review-push|review-response-push|pr-create> | branch=<name> | quality_gate_block=<pending|initial:tN|re-emitted:tN|blocked> | whole_branch_panel=<pending|ran:unanimous|ran:convergence-waived> | sweeps=<done|n/a|pending> | publish_gate_receipt=<written:sha<8>@<dst>|pending> | next_action=<run-publish-gate|write-receipt|ask_user-approve|push|create-pr>
+intent=<first-review-push|review-response-push|pr-create> | branch=<name> | quality_gate_block=<pending|initial:tN|re-emitted:tN|blocked> | whole_branch_panel=<pending|ran:unanimous> | sweeps=<done|n/a|pending> | publish_gate_receipt=<written:sha<8>@<dst>|pending> | next_action=<run-publish-gate|write-receipt|ask_user-approve|push|create-pr>
 ```

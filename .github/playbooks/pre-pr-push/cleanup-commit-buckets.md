@@ -97,6 +97,8 @@ Apply the standard `AGENTS.md` §2 single-line commit message rules. Examples sp
 | ❌ | `cleanup: drop comments` (Conventional-Commit prefix forbidden) |
 | ❌ | Any message followed by `Co-authored-by:` (trailer forbidden) |
 
+A rewritten commit (amend, rebase, or cherry-pick with a changed first parent or tree) requires a fresh review bound to `Get-ReviewedArtifactId.ps1 -Commit <new sha>`; before an amend, use `-Staged -ParentSha <HEAD^ full SHA | none>`, while cherry-picks and rebase replays use plain `-Staged`. Earlier verdicts never carry forward.
+
 ## Amend-safety invariant
 
 "Amend the final work commit" above (buckets 1 and 2) assumes the branch is NOT yet under review on a shared remote. The matrix below is the full force-push approval gate - apply by the recorded booleans (`isFirstReviewExposurePush`, `remoteExposureExists` - see `pre-pr-push.md` *Two independent state booleans*). The gate fires **lazily** - only at the moment a history-rewriting operation (amend, rebase, force-push) is about to be applied, NOT preemptively at intake.
@@ -104,7 +106,7 @@ Apply the standard `AGENTS.md` §2 single-line commit message rules. Examples sp
 | `isFirstReviewExposurePush` | `remoteExposureExists` | Amend behavior |
 | --- | --- | --- |
 | true | false | **Silent amend is safe.** Brand-new branch; no prior remote to disrupt. |
-| true | true | **Conditional sandbox exemption.** Before any history-rewriting amend, ask the one-question sandbox-privacy confirmation: *"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"* On **yes/private/unwatched** → silent amend is safe; on **no/unsure** → use the explicit force-push approval choices below (do NOT remap the recorded booleans; do NOT skip Step 2 first-review sweep; do NOT enter Step 4 `when-to-re-run-sweep.md`). Record the answer in `sandboxPriorExposureConfirmation` (per `AGENTS.md` *Per-phase additional fields*). |
+| true | true | **Conditional sandbox exemption.** Before any history-rewriting amend, ask the one-question sandbox-privacy confirmation: *"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"* On **yes/private/unwatched** → silent amend is safe; on **no/unsure** → use the explicit force-push approval choices below (do NOT remap the recorded booleans; do NOT skip Step 2 first-review sweep; do NOT enter Step 4 `when-to-re-run-sweep.md`). Record the answer in `sandboxPriorExposureConfirmation` (per `phase-state-convention.md` *Per-phase additional fields*). |
 | false | true | **Never silently amend.** Branch is already under review. Use the explicit force-push approval choices below. |
 | false | false | Unreachable in practice (the pre-PR-push pre-check exits at this combination). If reached, treat as `(false, true)` and ask the user. |
 
@@ -112,17 +114,17 @@ Apply the standard `AGENTS.md` §2 single-line commit message rules. Examples sp
 
 1. **Force-push the amend.** Acceptable on a draft PR or feature branch the user owns - but the user must confirm no one else has it pulled.
 2. **Add a separate hygiene commit instead.** Always safe.
-3. **Defer the hygiene to the next push cycle.** Record the deferred sweep in canonical session todos (per AGENTS.md Phase-state tracking convention).
+3. **Defer the hygiene to the next push cycle.** Record the deferred sweep in canonical session todos (per `phase-state-convention.md`).
 
 The pre-push pass is designed to run BEFORE the first push intended for review (PR-opening, request-for-review, or pushing to a shared branch others may pull from). When that timing held AND prior sandbox exposure was truly private, amend is safe; otherwise the explicit choices above apply.
 
 ## Recording cleanup outcomes
 
-After cleanup commits are made (any bucket), record in the pre-PR-push phase-state record (per `AGENTS.md` Phase-state tracking convention):
+After cleanup commits are made (any bucket), record in the pre-PR-push phase-state record (per `phase-state-convention.md`):
 
 - `cleanupBucketOutcomes` - for each cleanup commit: bucket chosen (1 / 2 / 3), reason, and whether amend-safety required force-push approval.
-- `branchWideSweepStatus` - set to `done-cleanup-committed` (initial sweep cycle) or `rerun-done-cleanup-committed` (re-run sweep cycle) per the canonical enumeration in AGENTS.
-- `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written when the `(true, true)` conditional sandbox-exemption gate fires AND an amend was actually attempted; otherwise leave as `not-needed`. Canonical field lives in `AGENTS.md` *Per-phase additional fields*.
+- `branchWideSweepStatus` - set to `done-cleanup-committed` (initial sweep cycle) or `rerun-done-cleanup-committed` (re-run sweep cycle) per the canonical enumeration in `phase-state-convention.md`.
+- `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written when the `(true, true)` conditional sandbox-exemption gate fires AND an amend was actually attempted; otherwise leave as `not-needed`. Canonical field lives in `phase-state-convention.md` *Per-phase additional fields*.
 
 ## What "strictest" means
 

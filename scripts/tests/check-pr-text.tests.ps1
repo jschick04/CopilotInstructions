@@ -77,6 +77,7 @@ Assert-True ((Get-HardFailCount -Title 'T1 milestone shipped') -eq 0) 'bare shor
 Assert-True ((Get-WarnCount -Title 'T1 milestone shipped') -ge 1) 'bare short-id "T1 milestone" -> >=1 warn'
 Assert-True ((Get-HardFailCount -Title 'Done; already shipped upstream by d3fcfa9aa1') -eq 0) 'context-SHA -> 0 hard-fail'
 Assert-True ((Get-WarnCount -Title 'Done; already shipped upstream by d3fcfa9aa1') -ge 1) 'context-SHA -> >=1 warn'
+Assert-True ((Get-WarnCount -Title "Done; already shipped upstream by $('d3' * 32)") -ge 1) '64-hex context-SHA -> >=1 warn'
 
 Write-Host 'Get-PrTextFindings - per-anchored short-ids: demoted tier-1 -> tier-2 warn (surfaced, not silent):'
 Assert-True ((Get-HardFailCount -Title 'Refactor (per D6 cascade)') -eq 0) 'per-anchored "(per D6 cascade)" -> 0 hard-fail (per dropped from tier-1; too FP-prone to hard-fail)'

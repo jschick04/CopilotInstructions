@@ -2,7 +2,7 @@
 #
 # Sibling-of-the-router index. Generated / derived from each trigger-fired playbook's frontmatter.
 # Consulted ONLY AFTER the AGENTS.md router has selected or shortlisted a workflow - does NOT
-# drive initial trigger detection. The AGENTS.md semantic discriminator stays canonical for
+# drive initial trigger detection. The workflow-conventions.md semantic discriminator stays canonical for
 # detection. This manifest carries optional `discrimination` prose with examples for ambiguous
 # trigger pairs that router rows alone cannot disambiguate.
 #
@@ -62,7 +62,7 @@ playbooks:
       Run before pushing for review or opening PR: §4.2 push-credential verification,
       per-commit comment audit, branch-wide rename-first sweep, branch-wide
       least-privilege audit (when applicable), §2D publish gate (Quality Gate & panel)
-      (via `pre-pr-creation-review.md`), 11-field state predicate read-back (12-line block).
+      (via `pre-pr-creation-review.md`), state predicate read-back with one line per field.
       INDEX - dispatches to sub-files under `pre-pr-push/`.
     triggers: []
     status: active
@@ -76,8 +76,8 @@ playbooks:
       Mirrors GitHub Copilot's PR-review categories (11-category prompt at
       `multi-model-review/pr-creation-mirror-prompt.md`). Emits the composite `QUALITY GATE` block
       (canonical schema: `.github/pr-quality-gate/quality-gate-block.md`). Strict mandatory: G1 panel-must-run,
-      G2 must-fix=0, G3 same-turn block emission, G6 forbidden-tool list. Convergence model + slate
-      composition user-waivable within floors. Bootstrap exemption (G7) narrow-scope. Deferred features
+      G2 must-fix=0, G3 same-turn block emission, G6 forbidden-tool list. Unanimous convergence +
+      full slate floor, not user-waivable, no round cap. Bootstrap exemption (G7) narrow-scope. Deferred features
       captured in `pre-pr-creation-review/implementation-roadmap.md`. Invoked from `pre-pr-push.md`
       Step 5 (single source of truth for when the publish gate fires).
     triggers: []
@@ -453,7 +453,7 @@ playbooks:
       pass (codebase-architecture-audit: 5 lenses; least-privilege-audit: 6 axes); code-review
       sub-agent and multi-model-review target-type=diff review CHANGES (diffs), not unchanged
       code. Bare unpaired "review" / "audit" / "trace this through the code" remain
-      ambiguous-clarify per AGENTS - this playbook fires only on artifact-shaped phrases
+      ambiguous-clarify per workflow-conventions.md - this playbook fires only on artifact-shaped phrases
       (cross-file qualifier required for review/audit forms).
 
   # ─── Sub-step (auto-fires within a phase) ───
@@ -496,9 +496,9 @@ playbooks:
     classification: domain
     utility_callable: true
     description: >-
-      Panel-of-reviewers convergence pattern. ≥3 reviewers across model families, mandatory
-      VERDICT line per reviewer, three convergence models (unanimous default / threshold
-      ≥75% / confidence-weighted ≥80%), max-loop escalation. Trigger-fired as a domain
+      Panel-of-reviewers convergence pattern. Full = four distinct heavy reviewers; triage =
+      two distinct-family light reviewers. Mandatory VERDICT line per reviewer, unanimous
+      convergence, no round cap. Trigger-fired as a domain
       playbook for plan / design / spec reviews; ALSO utility-called by
       `post-code-change.md`'s multi-model reviewer panel hard gate (the `utility_callable`
       flag marks this dual role). Index file; sub-files under `multi-model-review/`.

@@ -5,9 +5,6 @@
 # the pre-push ref-update list (`<local-ref> <local-sha> <remote-ref> <remote-sha>` lines)
 # from stdin, or from -RefUpdateLines for tests.
 #
-# Identity-gated (no-op on a consuming repo); asserts its own setup is wired (spec R4);
-# refuses to publish the note refs; walks EVERY commit in range (first-parent diff for
-# merges - no silent --no-merges skip, spec R4).
 [CmdletBinding()]
 param(
     [string] $RepoRoot = '',
@@ -30,9 +27,6 @@ if ($RepoRoot) {
     $RepoRoot = Resolve-RepoRoot -Explicit '' -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-audit-notes-prepush.ps1') -RequireGitWorkTree
 }
 
-# Identity gate: on any repo that is not this instruction set's own, do nothing.
-if (-not (Test-IsInstructionsRepo -RepoRoot $RepoRoot)) { exit $ExitOk }
-
 if ($PSBoundParameters.ContainsKey('RefUpdateLines')) {
     $lines = @($RefUpdateLines)
 } else {
@@ -40,12 +34,24 @@ if ($PSBoundParameters.ContainsKey('RefUpdateLines')) {
     $lines = @($stdin -split "`n") | ForEach-Object { ([string]$_).TrimEnd("`r") } | Where-Object { $_.Trim() }
 }
 
-$zeroSha = '^0{40}$'
+$zeroSha = '^(0{40}|0{64})$'
+$fullSha = '^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$'
 $commitSet = [ordered]@{}
 
 foreach ($line in $lines) {
-    $parts = @($line.Trim() -split '\s+')
-    if ($parts.Count -lt 4) { continue }
+    $trimmedLine = ([string]$line).Trim()
+    if (-not $trimmedLine) { continue }
+    $parts = @($trimmedLine -split '\s+')
+    if ($parts.Count -ne 4) {
+        Write-Host "ERROR: malformed pre-push ref-update line (expected 4 fields): $trimmedLine"
+        exit $ExitViolation
+    }
+    foreach ($oid in @($parts[1], $parts[3])) {
+        if ($oid -notmatch $fullSha) {
+            Write-Host "ERROR: pre-push ref-update line has a malformed object id '$oid': $trimmedLine"
+            exit $ExitViolation
+        }
+    }
     $localRef = $parts[0]; $localSha = $parts[1]; $remoteRef = $parts[2]; $remoteSha = $parts[3]
 
     # No-publish guard (R4): the note refs are local-only and must never be pushed.
@@ -78,6 +84,12 @@ if ($commitSet.Count -eq 0) {
     exit $ExitOk
 }
 
+$activatedRange = $false
+foreach ($candidateSha in $commitSet.Keys) {
+    if (Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $candidateSha) { $activatedRange = $true; break }
+}
+if (-not $activatedRange) { exit $ExitOk }
+
 # Setup assertion (R4): fail loud if the local note gate is not wired.
 $setupErrors = Assert-AuditSetup -RepoRoot $RepoRoot
 if ($setupErrors.Count -gt 0) {
@@ -103,6 +115,8 @@ $violations = @()
 $readsGitInvoke = { param($a) (Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs $a).Stdout }
 foreach ($sha in $commitSet.Keys) {
     $short = $sha.Substring(0, [Math]::Min(8, $sha.Length))
+    $requiresFull = Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $sha
+    if (-not $requiresFull) { continue }
     $parent = Get-CommitParentSha -RepoRoot $RepoRoot -CommitSha $sha
 
     $dp = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', '--no-pager', 'diff', '--name-only', '--no-renames', $parent, $sha)
@@ -119,16 +133,22 @@ foreach ($sha in $commitSet.Keys) {
     $nameStatusLines = @($ns.Stdout) | ForEach-Object { [string]$_ } | Where-Object { $_ }
 
     $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
-    if ($governanceTier -ge 1 -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
-        $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier
-        if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
+    $postAdoption = Test-IsPostAdoption -RepoRoot $RepoRoot -CommitSha $sha
+    if ($governanceTier -ge 1 -or ($requiresFull -and $postAdoption) -or (Test-PanelNoteExists -RepoRoot $RepoRoot -CommitSha $sha)) {
+        try {
+            $requireArtifactBinding = Test-IsArtifactBindingAdopted -RepoRoot $RepoRoot -CommitSha $sha
+            $pv = Read-PanelNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier -RequiresFull:$requiresFull -PostAdoption:$postAdoption -RequireArtifactBinding:$requireArtifactBinding
+            if (-not $pv.Valid) { foreach ($e in $pv.Errors) { $violations += "commit ${short} (panel): $e" } }
+        } catch {
+            $violations += "commit ${short} (panel): cannot validate artifact-binding adoption: $($_.Exception.Message)"
+        }
     }
 
     # Pre-commit-gate note: required on EVERY commit in an adopted range (all tiers, merges included via
     # the first-parent parent_sha inside Read-PreCommitGateNoteValidated); GovernanceTier only relaxes
     # the code-slug sub-check.
     if ($precommitAdopted) {
-        $pcv = Read-PreCommitGateNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier
+        $pcv = Read-PreCommitGateNoteValidated -RepoRoot $RepoRoot -CommitSha $sha -GovernanceTier $governanceTier -RequiresFull:$requiresFull -PostAdoption:$postAdoption
         if (-not $pcv.Valid) { foreach ($e in $pcv.Errors) { $violations += "commit ${short} (pre-commit-gate): $e" } }
     }
 

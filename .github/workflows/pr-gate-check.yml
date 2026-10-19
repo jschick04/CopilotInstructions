@@ -246,6 +246,14 @@ jobs:
       - shell: pwsh
         run: ./scripts/run-local-ci.ps1 -CoverageOnly
 
+  guarded-path-completeness-tests:
+    name: Guarded-path extractor completeness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - shell: pwsh
+        run: ./scripts/tests/guarded-paths.tests.ps1
+
   local-ci-harness-tests:
     name: Local-CI harness unit tests
     runs-on: ubuntu-latest

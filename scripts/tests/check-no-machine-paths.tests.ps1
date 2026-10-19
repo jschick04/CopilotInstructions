@@ -138,6 +138,64 @@ Assert-Equal 2 (Invoke-Gate -Repo $modeRepo) 'no mode (-Staged/-BaseRef absent) 
 Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -Staged -BaseRef 'main') 'both -Staged and -BaseRef -> exit 2'
 Assert-Equal 2 (Invoke-Gate -Repo $modeRepo -BaseRef 'no-such-ref-xyz') 'unresolvable -BaseRef ref -> exit 2 (fail-closed)'
 
+
+$isolationRepo = New-TestGitRepository -Prefix 'repo-isolation'
+New-TestCommit -Directory $isolationRepo -File 'README.md' -Content 'seed' -Message 'seed' | Out-Null
+$fixtureHost = 'https://' + 'GITHUB.COM/'
+$fixtureScpHost = 'git@' + 'github.com:'
+$fixtureSshHost = 'ssh://git@' + 'GitHub.com:22/'
+foreach ($slug in @('example/consumer','jschick04/CopilotInstructionsOther','jschick04/CopilotInstructionsOther.git/tree/main','other/CopilotInstructions')) {
+    $url = $fixtureHost + $slug
+    Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $url
+    Assert-Equal 1 (Invoke-Gate -Repo $isolationRepo -Staged) "repository isolation rejects $url"
+}
+foreach ($url in @('https://github.com/jschick04/CopilotInstructions','https://GITHUB.COM/JSCHICK04/COPILOTINSTRUCTIONS.git','https://github.com/jschick04/CopilotInstructions/tree/main','https://github.com/jschick04/CopilotInstructions.git/')) {
+    Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $url
+    Assert-Equal 0 (Invoke-Gate -Repo $isolationRepo -Staged) "repository isolation exempts exact identity $url"
+}
+
+$scpForeign = $fixtureScpHost + 'example/consumer.git'
+$scpOwn = $fixtureScpHost + 'jschick04/CopilotInstructions'
+$scpOwnGit = $fixtureScpHost + 'jschick04/CopilotInstructions.git'
+$sshOwn = $fixtureSshHost + 'jschick04/CopilotInstructions'
+$mixedCaseOwn = 'https://' + 'gItHuB.cOm:22/' + 'JSCHICK04/COPILOTINSTRUCTIONS'
+$ownTrailingPeriod = $fixtureHost + 'jschick04/CopilotInstructions.'
+$ownGitTrailingPeriod = $fixtureHost + 'jschick04/CopilotInstructions.git.'
+$foreignTrailingPeriod = $fixtureHost + 'example/consumer.'
+foreach ($url in @($scpForeign, $foreignTrailingPeriod)) {
+    Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $url
+    Assert-Equal 1 (Invoke-Gate -Repo $isolationRepo -Staged) "repository isolation rejects foreign slug $url"
+}
+foreach ($url in @($scpOwn, $scpOwnGit, $sshOwn, $mixedCaseOwn, $ownTrailingPeriod, $ownGitTrailingPeriod)) {
+    Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $url
+    Assert-Equal 0 (Invoke-Gate -Repo $isolationRepo -Staged) "repository isolation exempts normalized own slug $url"
+}
+$apiDomain = 'api.github.com/repos/' + 'example/consumer'
+Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $apiDomain
+Assert-Equal 0 (Invoke-Gate -Repo $isolationRepo -Staged) 'repository isolation does not match api.github.com host'
+
+$allowlistedScpLine = $fixtureScpHost + 'example/allowlisted'
+Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $allowlistedScpLine
+$allowlist = Join-Path $isolationRepo '.github/pr-quality-gate/data/no-repo-slugs-allowlist.txt'
+New-Item -ItemType Directory -Path (Split-Path $allowlist) -Force | Out-Null
+$allowlistedScpHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($allowlistedScpLine.Trim()))).ToLowerInvariant()
+Set-Content -LiteralPath $allowlist -Value $allowlistedScpHash
+& git -C $isolationRepo add -- $allowlist 2>$null
+Assert-Equal 0 (Invoke-Gate -Repo $isolationRepo -Staged) 'allowlisted SCP-style foreign slug is clean'
+
+$selfTestContent = Get-Content -LiteralPath $MyInvocation.MyCommand.Path -Raw
+Add-RepoFile -Repo $isolationRepo -File 'scripts/tests/check-no-machine-paths.tests.ps1' -Content $selfTestContent
+Assert-Equal 0 (Invoke-Gate -Repo $isolationRepo -Staged) 'self-scan: repository slug fixtures do not match the isolation gate'
+
+$foreignLine = $fixtureHost + 'example/consumer'
+Add-RepoFile -Repo $isolationRepo -File 'link.txt' -Content $foreignLine
+$lineBytes = [Text.Encoding]::UTF8.GetBytes($foreignLine)
+$lineHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($lineBytes)).ToLowerInvariant()
+Set-Content -LiteralPath $allowlist -Value @()
+& git -C $isolationRepo add .github/pr-quality-gate/data/no-repo-slugs-allowlist.txt 2>$null
+Set-Content -LiteralPath $allowlist -Value $lineHash
+Assert-Equal 1 (Invoke-Gate -Repo $isolationRepo -Staged) 'unstaged exemption cannot authorize staged foreign repository reference'
+
 Remove-TestTempDirectories
 Write-Host ''
 Write-Host "check-no-machine-paths.tests: $script:Pass passed, $script:Fail failed."

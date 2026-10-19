@@ -1,5 +1,5 @@
 # Playbook: Post-code-change phase
-<!-- read-receipt-token: a7c41f92 -->
+<!-- read-receipt-token: 0986fd13 -->
 
 ## Purpose
 
@@ -11,6 +11,7 @@ After implementation: import/using hygiene, the comment-hygiene purge, the recur
 - **Touched-file least-privilege audit applied** (per `least-privilege-audit.md`, touched-file scope). **Trigger:** the diff has any **visibility/export/mutability surface delta** (enumerated, with the body-only-edit carve-out, in step 2).
 - **Touched-file review-recurring-pattern sweep run with explicit findings count reported** (see step 2.5). MANDATORY on every commit-bound change - silent skip is the failure mode this gate exists to prevent.
 - **§3.1 comment audit evidence-gate output emitted** (see step 2.6) before the diff is shown - structured chat block enumerating every NEW comment line with one-line justifications per the §3.1 self-review pass rule.
+- **Known-slug review (R7-U1)**: before staging, one unpinned Auto code-review sub-agent checks the written diff against `HIGH-TIER-SLUGS.md` and applicable catalog slugs. Do not call `ask_user`; fix or C2-route findings. It never replaces the full diff panel.
 - Multi-model reviewer panel run via `multi-model-review.md` (utility-called by this phase) with `unanimous` convergence model; cumulative log shows convergence reached with 0 unaddressed blocking findings and `subagent_ask_user_calls=0` per round.
 - Diagnosis-verifying benchmark/test re-run; metric moved or test passes.
 - Affected builds + tests pass.
@@ -19,7 +20,7 @@ After implementation: import/using hygiene, the comment-hygiene purge, the recur
 
 Bundle these in one prompt:
 
-1. Should I run the **active profile's default panel** (full = 6 reviewers; lite = 3 cross-family light-tier; per the loaded `active-profile.instructions.md`, none loaded -> full), or add reviewers? (Default panel below. Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.) **Carve-out (this instructions repo):** the post-code-change LEDGER panel here is ALWAYS the full slate regardless of the active profile - its `panel-transcript` is gate-validated against the full floor (>= 4 reviewers, >= 1 heavy), because panel-required changes here are governance/instruction artifacts (`panel-policy.md` §45). The `lite = 3 light-tier` default applies only to consuming / non-gated contexts.
+1. Should I run the default full panel (4 distinct heavy reviewers; optional fifth for code-heavy changes), or does the change meet every triage predicate? Triage needs a same-turn `triage-acknowledged` receipt and exactly 2 distinct-family light code-reviewers. Governance and safety-critical changes require full. The instruction-set repo always requires the full floor.
 2. Any specific blind spots you want the reviewers to focus on? (e.g. concurrency safety, allocation hot paths, naming consistency across an interface chain)
 3. **Perf work only:** confirm the benchmark from the pre-implementation phase is still the one I should re-run.
 
@@ -127,8 +128,6 @@ Step 2.5 sweep: ran, <N> findings.
 
 Run the §3.1 comment-audit evidence gate before the panel, BEFORE the diff is shown. WHEN/HOW comments may be added lives in `comment-protocol.md`; this step records the OUTCOME.
 
-**Note on scope**: this gate is chat audit output ABOUT comments, NOT the §3.1-governed source-code comments themselves; the two never collide.
-
 **MANDATORY OUTPUT REQUIREMENT.** Same discipline as step 2.5: no silent skip. Emit before showing the diff:
 
 ```
@@ -147,7 +146,11 @@ Comment audit: scope=<files in diff>, <N> new-or-substantively-rewritten comment
 
 ### 2.7 Per-rule acknowledgement (POST-CODE-CHANGE LEDGER block)
 
-Emit a `POST-CODE-CHANGE LEDGER` block in the current turn BEFORE step 3 (panel) or staging gate artifacts / `git commit` (the user stages code; the agent never auto-stages it). **Schema + verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - it defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.).
+**Slug review (R7-U1, R8-7)**
+
+Before staging, run the slug review above and fix or C2-route each finding. The staged-bound row format, placement, and validation rules are canonical in `review-workflow-gates-sweeps.md` §2B.
+
+Prepare the `POST-CODE-CHANGE LEDGER` before step 3; finalize it after the index-only panel, before `git commit`. Order: implementation -> slug review -> user stages -> diff panel. **Schema + verification semantics are canonical in `review-workflow-gates-sweeps.md` §2B** - it defines all gate-row formats (`touched-file-LPA`, `intent-driven-testing-audit`, `delta-g-sweeps`, etc.).
 
 **Chat emission**: the compressed KV v1 form per `review-workflow-gates-sweeps.md` §2B "Chat-emission form". The `pre-impl-trigger-detections` / `pre-impl-playbook-decisions` / `playbook-invocations` sub-blocks stay structured below the KV line (catalog rules parse their dot-paths). `delta-g-sweeps` + `comment-audit` appendices emit in chat only when count>0 (the receipt holds full detail). Canonical/full form (below) goes to the gitignored receipt (flushed to a git note by `post-commit`):
 
@@ -157,21 +160,18 @@ POST-CODE-CHANGE LEDGER
   shown_diff_matches_intent: yes | no
   self_similarity_sweep: clean | <list of sibling sites + dispositions>
   tests_run: <result summary or n/a>
-  # ... plus every gate row from review-workflow-gates-sweeps.md §2B, including:
-  pre-code-change-panel: ran, unanimous          # OR user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>. tier>=1: N/A rejected; tier 2 (safety-critical path): ran ONLY.
+  pre-code-change-panel: ran, unanimous          # OR user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>. tier>=1: N/A rejected; full-floor (tier 2 or `Test-RequiresFullPanel`): ran ONLY.
   # pre-panel-transcript REQUIRED when pre-code-change-panel: ran, unanimous. verdict DESIGN_READY. Header bare; exactly-1 `- findings:` line; <...> fail closed.
   pre-panel-transcript:
-    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini|grok> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
     - findings: <one-line pre-panel summary of what the panel caught and how it was resolved>
   diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>   # author-asserted; shape-checked only
   approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
   safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
-  post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>; tier 2 (safety-critical): ran ONLY
-  # panel-transcript REQUIRED when post-code-change-panel: ran, unanimous. <...> = fill in; NEVER ship the placeholders literally (they fail the grammar = fail-closed). Header line must stay bare. Exactly-1 `- findings:` line (whole-value <...> fails closed).
+  post-code-change-panel: ran, unanimous          # OR: user-waived: "panel-waive-acknowledged" ref:<ask_user-call-ref>; full-floor (tier 2 or `Test-RequiresFullPanel`): ran ONLY, G5 panel-ran
   panel-transcript:
-    - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n>
+    - slot:<id> model:<model-id> family:<claude|gpt|gemini|grok> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n> artifact:<sha256>
     - findings: <one-line post-panel summary of what the panel caught and how it was resolved>
-    # one line per reviewer; full-slate floor (always, in this instructions repo): >= 4 distinct slots, >= 1 claude, >= 2 gpt, >= 1 gemini, >= 1 rubber-duck, >= 2 code-review, >= 1 heavy; every verdict CODE_REVIEW_READY; rounds >= 1. See review-workflow-gates-sweeps.md §2B.
   core_rules_acknowledged:
     - slug: <string>
       status: <applied | not-applicable>
@@ -180,18 +180,28 @@ POST-CODE-CHANGE LEDGER
         diff_metric_check: <cross-reference>
       rationale: <≤30 words; required when status=not-applicable>
   rule_coverage_passed: <bool>
+evidence-tree: <worktree-clean | index-export tree:<full-tree-sha>>
+profile: <full|triage>
+checker-edit: "checker-edit-acknowledged" ref:<call-ref> paths:<n>
+triage-ack: "triage-acknowledged" ref:<call-ref>
+slate-substitution: slot:<id> tier:<tier-id> from:<model|none> to:<model> reason:<model-retired|model-superseded|tier-added|family-unavailable>
+registry-rotation: "registry-rotation-acknowledged" ref:<call-ref> map:<tier-id>=<from>><to>[,...]
+slug-review: ran findings:<n> fixed:<k> routed:<j>
 ```
+
+Conditional acks follow their `ask_user` (every guarded path / each mapping); §2B.
 
 **Worked example** (chat KV v1 emission; canonical compressed rendering of the block above):
 
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
-core|profile=full-default|commit="Guard against null tag list"|files=2(+31/-6)
+core|profile=full|commit="Guard against null tag list"|files=2(+31/-6)
 gates|hygiene=ran|lpa=na:no-visibility-delta|vsa=na:no-placement-change|difit=na:no-di|emdash=clean|purge=ran:3/0|recurring=ran:0|priorpr=ran:3/0|dry=ran:1/1/0|prepanel=ran:unanimous:r3|diag=ref|g3=fix|g5=na|g6=complete|impl=complete:diff-yes|panel=ran:unanimous:r2|itd=prospective|delta-g=ran:4/0|comment=ran:0|build=pass|tests=pass:247/247|diff=yes:t41|msg=approved:t42
+slug-review: ran findings:0 fixed:0 routed:0
 appendix=none
 ```
 
-Here `appendix=none` is valid because `delta-g` sites (the value after `/`) and `comment` failed-sites are both 0. When either is >0, `appendix=none` is INVALID (§2B rule 6): emit the canonical structured `delta-g-sweeps` site sub-block + `comment` failed-site bullets (from the schema above) in its place, NOT pipe-compressed. The `pre-impl-trigger-detections`/`pre-impl-playbook-decisions`/`playbook-invocations` sub-blocks always follow in their structured form.
+`appendix=none` is valid only when `delta-g` sites (after `/`) and `comment` failed-sites are both 0; otherwise (§2B rule 6) emit the structured `delta-g-sweeps` sub-block + `comment` failed-site bullets, NOT pipe-compressed. The `pre-impl-trigger-detections`/`pre-impl-playbook-decisions`/`playbook-invocations` sub-blocks always follow in their structured form.
 
 **Catalog rule cross-references**: `least-privilege-audit-required-on-visibility-delta` (HIGH) checks `touched-file-LPA` on a visibility delta; `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH) checks `intent-driven-testing-audit` on test files OR any SUT modification (private-only branches included). See `.github/pr-quality-gate/pattern-catalog.md` for full audit methods.
 
@@ -227,18 +237,10 @@ SELF-attested. `design_ready` affirms the DESIGN panel converged before code; `d
 
 Run the panel via `multi-model-review.md` with these invocation parameters:
 
-- **target**: `diff` (staged or branch-vs-base).
+- **target**: `diff`, INDEX-ONLY after the user stages. Use `git diff --cached`, `git show :path`, or an index export for every reviewed source, including unchanged context. Never substitute working-tree reads. Any later index change invalidates the panel and requires re-review.
 - **convergence-model**: `unanimous` (default for post-code-change; do not relax without explicit user direction).
-- **max-loop**: 5.
 - **prior-round-findings sharing**: enabled.
-- **reviewer count + model selection**: default per the active profile (full = 6-reviewer slate; lite = 3 cross-family light-tier) from `multi-model-review/intake.md` (tier -> model via `current-model-registry.md`). **In this instructions repo the LEDGER panel is ALWAYS full** (the gate validates the `panel-transcript` against the full floor regardless of profile - see Intake Q1 carve-out + `review-workflow-gates-sweeps.md` §2B):
-  - `heavy-claude-xhigh` (Claude, extra-high reasoning) - `code-review`.
-  - `heavy-gpt-premium` (GPT, premium reasoning) - `code-review`.
-  - `heavy-gpt-codex` (GPT, codex-tuned) - `code-review`.
-  - `heavy-gpt-cross-profile` (GPT, cross-profile) - `code-review`.
-  - `heavy-gemini-premium` (Gemini, premium reasoning) - `code-review`.
-  - **rubber-duck** at `heavy-claude-standard` (critique angle complementing line-level review).
-  Add reviewers liberally for risky/cross-cutting/unfamiliar-area changes.
+- **reviewer count + model selection**: the `full` floor is 4 heavy reviewers with distinct model names; `triage` is exactly 2 distinct-family light code-reviewers and is forbidden here. This instructions-repo panel is ALWAYS full, independent of profile. The full slate requires at least 1 Claude, 1 GPT, 1 Gemini, 2 combined GPT/Grok reviewers, 1 rubber-duck, and 2 code-review roles. Default: `heavy-claude-standard` rubber-duck; `heavy-gpt-premium`, `heavy-gemini-premium`, and `heavy-grok-premium` code-review. Optional fifth: `heavy-gpt-codex`; it is the only sanctioned substitute when Grok is unavailable. See `panel-policy.md` and `review-workflow-gates-sweeps.md` §2B.
 - **critique focus areas** - see *Anti-anchoring focus areas* below.
 
 Panel procedure (launch, synthesis, loop-vs-escalate, evidence-gate) lives in `multi-model-review/procedure.md` + `multi-model-review/evidence-gate-spec.md`.

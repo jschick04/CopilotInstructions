@@ -107,8 +107,8 @@ if (-not $receipt.ParentSha) {
     Write-Invocation "FAIL: receipt has no parent_sha line."
     exit $script:ExitViolation
 }
-if ($receipt.ParentSha -cnotmatch '^[a-fA-F0-9]{40}$') {
-    Write-Invocation "FAIL: receipt parent_sha '$($receipt.ParentSha)' must be a full 40-char SHA."
+if ($receipt.ParentSha -cnotmatch '^([a-fA-F0-9]{40}|[a-fA-F0-9]{64})$') {
+    Write-Invocation "FAIL: receipt parent_sha '$($receipt.ParentSha)' must be a full 40- or 64-char SHA."
     exit $script:ExitViolation
 }
 $matchParent = $acceptable | Where-Object { $_.Equals($receipt.ParentSha, [System.StringComparison]::OrdinalIgnoreCase) }

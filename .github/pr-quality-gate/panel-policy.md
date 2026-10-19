@@ -6,7 +6,7 @@ Multi-reviewer panel governance for `full` and `triage` modes. The orchestrator 
 
 TWO panel invocation points per task, both required for non-trivial work:
 
-1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous DESIGN_READY` (or matched waive per Convergence-model below) before code is written. Catches design flaws while correction is cheap.
+1. **Pre-implementation panel** - AFTER the agent drafts a plan and (when applicable) has it critiqued by `rubber-duck`, but BEFORE writing any production code. Reviewers see: (a) the issue / user request, (b) the plan, (c) the rubber-duck critique and the agent's response to each finding, (d) the relevant current code surfaces. Required verdict: `unanimous DESIGN_READY` before code is written. Catches design flaws while correction is cheap.
 2. **Pre-PR-creation panel** - AFTER code + tests are written and the build is green, BEFORE `gh pr create` or `git push`. `gate-runner.ps1`/`.sh` runs the rg-battery + scaffolds the reviewer set; the panel + verdict are AGENT-ASSERTED via the §1B `QUALITY GATE` block. Reviewers see the diff + block. Target verdict: `unanimous CODE_REVIEW_READY`.
 
 "Non-trivial" means any of: ≥3 files changed, new interface members, new state, behavioral changes to existing public APIs, security/concurrency code, or anything called a feature/refactor/add/implement. A small isolated single-file bugfix (e.g., 1-line typo) MAY skip pre-implementation panel if the agent justifies the skip in the same-turn `ask_user` quote.
@@ -17,56 +17,56 @@ Skipping pre-implementation panel for non-trivial work is a process violation. T
 
 | mode | reviewers | output cap | rg battery | `§1A` slate carve-out | Activation |
 |---|---|---|---|---|---|
-| `full` | 4-6 (slate-floor below) | none | yes | none - full slate-floor applies | default; no `ask_user` receipt required |
-| `lite` | 3 (lite slate-floor below) | none | yes | `slate-mode: lite; slate-size=3; convergence_model: unanimous` | default WHEN the active profile is lite; `invoke-panel.ps1 -Mode lite` derives the floor from the on-disk active profile; running `lite` below a `full` floor needs a same-turn `ask_user` `lite-acknowledged` receipt |
-| `triage` | 1 code-review-role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review`; `convergence_model: single-reviewer` MANDATORY | `invoke-panel.ps1 -Mode triage`; same-turn `ask_user` receipt with `triage-acknowledged` token required per PR |
-| `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | `invoke-panel.ps1 -Mode lint-only` (effectively skips panel); same-turn `ask_user` receipt with `lint-only-acknowledged` token required per PR |
+| `full` | 4 or more distinct heavy reviewers; default slate of 4 | none | yes | none - full floor applies | default; no receipt |
+| `triage` | exactly 2 distinct-family light code-reviewers | none | yes | `slate-mode: triage; slate-size=2; convergence_model: unanimous` | all fast-path predicates + same-turn `triage-acknowledged` receipt; forbidden for governance/safety-critical changes |
+| `lint-only` | 0 | n/a | yes | `slate-mode: lint-only; no panel invoked` | same-turn `lint-only-acknowledged` receipt |
 
 CLI flag is the ONLY robust activation mechanism. Env vars and `plan.md` flags are NOT honored (too persistent, bypass-prone).
 
 ## Slate composition floor (`full` mode)
 
-- ≥ 4 reviewers
-- ≥ 1 Claude family AND ≥ 2 GPT family AND ≥ 1 Gemini family
-- ≥ 1 `rubber-duck` role AND ≥ 2 `code-review` role
-- ≥ 1 heavy-tier model (any `heavy-*` tier, or equivalent, per `.github/playbooks/multi-model-review/current-model-registry.md`)
-- Slot composition is recorded in the `CODE-REVIEW PANEL CONVERGED` block's `slate` field for audit
+- At least 4 reviewers; all heavy-tier; distinct model names.
+- At least 1 Claude, 1 GPT, 1 Gemini, and 2 combined GPT/Grok reviewers.
+- At least 1 rubber-duck and 2 code-review roles.
+- Default slate: heavy-claude-standard rubber-duck; heavy-gpt-premium, heavy-gemini-premium, heavy-grok-premium code-review. Optional fifth: heavy-gpt-codex.
+- If Grok is unavailable, heavy-gpt-codex is the only cross-family fallback. Record `slate-substitution: slot:<id> tier:heavy-grok-premium from:<parent-grok-model> to:<parent-codex-model> reason:family-unavailable` plus `registry-rotation: "registry-rotation-acknowledged" ref:<approval-ref> map:heavy-grok-premium=<parent-grok-model>><parent-codex-model>`. Both models must resolve to those named parent-registry tiers; this fallback does not rotate the heavy allowlist.
 
-Floor is verified from the slate enumeration. Mid-launch substitutions are allowed ONLY for same family + role + tier; document in `slate_substitutions` on `CODE-REVIEW PANEL CONVERGED`.
+## Triage floor and predicates
 
-## Slate composition floor (`lite` mode) + profile floor
+Triage is exactly 2 light code-review reviewers from distinct families, with distinct models and unanimous convergence. Default: light-claude-balanced + light-gpt; light-gemini may replace an unavailable family while keeping families distinct. The same-turn `triage-acknowledged` receipt is required. It is permitted only when all predicates hold: (a) not governance/instruction; (b) not safety-critical; (c) docs-only OR fewer than 10 changed lines with no control-flow, public-API, or concurrency change. Any uncertainty escalates to full. Triage is forbidden when `Test-RequiresFullPanel` is true.
 
-`lite` floor:
+Slot effort and context use the tier's registry values. `profile` in a panel ledger means the mode actually run: `full` or `triage`; `lint-only` emits no panel ledger.
 
-- 3 reviewers (odd); >= 1 Claude family AND >= 1 GPT family AND >= 1 Gemini family; >= 1 `rubber-duck` role AND >= 2 `code-review` role
-- light-tier models (`light-claude-balanced` / `light-gpt` / `light-gemini` per the registry cited above); heavy-tier NOT required
-- `convergence_model: unanimous` (lite cuts reviewer COUNT + tier, NOT the convergence bar); slate recorded in the `CODE-REVIEW PANEL CONVERGED` `slate` + `profile` fields
+## Checker-enforced ledger rows
 
-Slot effort + context: wherever a slot is resolved via a registry tier, it runs at that tier's `effort` and requests its `context_tier` per the registry cited above. Panel MODE selects the tier set; the active profile selects the default mode (see below).
+Column-0 rows in the staged-bound `POST-CODE-CHANGE LEDGER` (schema: `review-workflow-gates-sweeps.md` §2B); `<...>` placeholders fail closed:
 
-**Profile floor authority.** The active profile sets the DEFAULT mode + floor; it NEVER skips panels. `invoke-panel.ps1` derives it from the on-disk `.github/instructions/active-profile.instructions.md` `profile-id` (fail-closed to `full-default` if absent / unreadable / >1 id); this on-disk read (not agent `-Profile`; mismatch aborts) is the floor authority. A mode below the active floor (`lite`/`triage`/`lint-only` under `full`) requires that mode's same-turn `ask_user` `<mode>-acknowledged` receipt; at/above floor needs none. Safety-critical and governance/instruction artifacts always use `full`, on both profiles. `Test-PanelLedger` mechanically validates BOTH panels against `$script:PanelSlateFloor` (always full here); the transcript formats, `user-waived` token, and tier-2 (safety-critical) both-ran-only rule are canonical in `review-workflow-gates-sweeps.md` §2B.
+```
+profile: <full|triage>
+checker-edit: "checker-edit-acknowledged" ref:<call-ref> paths:<n>
+triage-ack: "triage-acknowledged" ref:<call-ref>
+slate-substitution: slot:<id> tier:<tier-id> from:<model|none> to:<model> reason:<model-retired|model-superseded|tier-added|family-unavailable>
+registry-rotation: "registry-rotation-acknowledged" ref:<call-ref> map:<tier-id>=<from>><to>[,...]
+```
+
+- `checker-edit` iff the staged diff touches guarded paths: first `ask_user` listing EVERY guarded path; `paths:` equals that count (`git diff --cached --name-only --no-renames <parent_sha>`). A pure same-vendor heavy-model addition is not a rotation: it needs a guarded, checker-edit-acknowledged change to the rotation rule in `scripts/lib/panel-ledger-helpers.psm1` (listed in that `ask_user`), not just the ack.
+- `triage-ack` iff `profile: triage`; never when `Test-RequiresFullPanel` is true.
+- `slate-substitution` per changed slot (`from:none` only with `reason:tier-added`) plus exactly one `registry-rotation` whose `map:` lists every substitution and allowlist rotation; first `ask_user` showing each `<tier-id>=<from>><to>` mapping. Rotation must stay same-vendor except the Grok -> codex `family-unavailable` fallback.
 
 ## Convergence model
 
-| convergence_model | rule | use |
-|---|---|---|
-| `unanimous` (DEFAULT for `full`) | all reviewers must return the success verdict (`DESIGN_READY` pre-implementation / `CODE_REVIEW_READY` pre-PR) (or all `NEEDS_REWORK`) | strict - no findings ship without all-reviewer agreement |
-| `threshold-N%` (waive floor) | ≥ N% of reviewers must converge on verdict; floor `N=75` | acceptable when ≥75% agree on the success verdict |
-| `confidence-weighted-N%` (waive floor) | ≥ N% confidence-weighted sum; floor `N=80` | accounts for reviewer confidence per finding |
-| `single-reviewer` (MANDATORY for `triage`) | single reviewer's verdict is the panel verdict | distinguishes from `unanimous` in audit trail (Slot 1 NB-V2 / Slot 4 D) |
-
-Waiving the default `unanimous` for `full` requires same-turn `ask_user` quote in the `CODE-REVIEW PANEL CONVERGED` block's `convergence-waive` field. `triage` MUST use `single-reviewer` - no waive needed (it's structural).
+Every multi-reviewer panel requires unanimous success verdicts. A non-unanimous result requires fixes and another review round; reuse the same idle reviewers with the delta and their prior findings. There is no cap on rounds or follow-ups. Triage is also unanimous: both reviewers must return the success verdict. Reviewers bind each verdict to the artifact hash they independently compute; a verdict for an earlier artifact never carries forward.
 
 ## Drop handling (`full` mode only)
 
-`triage` and `lint-only` have no drops by construction (1 or 0 reviewers).
+`lint-only` has no reviewers. Triage replacements must preserve two distinct families and light tiers.
 
 | dropped_count | action |
 |---|---|
 | 0 | proceed |
 | 1 | launch replacement (same family + role + tier; record in `replacement_reviewers` field) |
 | 2 | `ask_user` quoting both drops; user decides proceed-with-2-replacements OR abort |
-| ≥ 3 | hard escalate - abort panel; emit `ask_user` with all drops listed; require user to authorize remediation (e.g., switch to `triage` mode, retry later, etc.) |
+| ≥ 3 | hard escalate - abort panel; emit `ask_user` with all drops listed; require user to authorize remediation (retry later, etc.) |
 
 Each drop is recorded in `dropped_reviewers` field with timestamp + reason (timeout, error, drop-explicit).
 
@@ -100,7 +100,7 @@ When a panel returns any verdict other than its unanimous success verdict, the a
 
 1. **Revise the plan / code** addressing every finding (or explicitly document why a finding is set aside with rationale).
 2. **Re-launch the SAME panel slate** (same composition; substitutions allowed per the floor rules) on the revised work.
-3. **Repeat until the panel reaches its unanimous success verdict** (or until the `fix_iteration_count` cap is reached - see below).
+3. **Repeat until the panel reaches its unanimous success verdict.** There is no round cap.
 
 The agent MUST NOT:
 
@@ -108,10 +108,7 @@ The agent MUST NOT:
 - **Treat "I addressed the findings" as equivalent to "the panel cleared the findings".** The panel must see the revised work and re-verify.
 - **Silently skip iteration** by collapsing multiple rounds into "we'll fix it in implementation". Findings are the panel's word; only the panel can retract them.
 
-The agent MAY:
-
-- **Surface the iteration status to the user** between rounds. This is informational, not approval-seeking.
-- **Request user override of the iteration requirement** via same-turn `ask_user` quote with literal token `iteration-waive-acknowledged` - rare cases where the user explicitly decides to bypass (e.g., panel-found findings are deferred to follow-up work tracked elsewhere). The waive MUST be recorded in the `CODE-REVIEW PANEL CONVERGED` block's `iteration_waive` field. Default is iterate.
+The agent MAY surface iteration status between rounds as information. It must continue until unanimous convergence.
 
 **How to detect a process violation in practice**: if the agent has emitted a synthesis of panel findings + a "approve this revised plan?" `ask_user` without a fresh panel slate launch between the two, the iteration discipline was bypassed. The user can call this out at any point and the agent MUST re-launch the panel before any further implementation work.
 
@@ -123,26 +120,17 @@ When a panel returns `unanimous CODE_REVIEW_READY` on uncommitted project-repo w
 
 - **Substitute panel CODE_REVIEW_READY for the `pre-commit.md` user-review gate.** Panel verdict is necessary but NOT sufficient. The `pre-commit.md` flow (classify the staged set, commit-approval `ask_user`, emit `PRE-COMMIT GATE PASSED` block) MUST still fire before any commit-producing tool call (`git commit`, `git commit --amend`, `git cherry-pick`, `git rebase`-driven replay, `git am`, or any other tool call that produces a new commit object), `git push`, or PR-creation tool call. The narrow `pre-commit.md` §"Skip conditions" remain available where their stated conditions apply - they govern when the `PRE-COMMIT GATE PASSED` block may be omitted (e.g., mechanical `--amend --no-edit` after a clean rebase) and are NOT a generic "panel CODE_REVIEW_READY covers user-review" waiver.
 - **Chain panel CODE_REVIEW_READY into commit-producing tool calls, `git push`, or `gh pr create`.** This skips two independent gates (user commit-approval AND the `PRE-COMMIT GATE PASSED` block) by treating the panel as both technical-review and user-review. The two are independent: the panel reviews technical correctness; the user reviews scope, intent, and approves the resulting commit.
-- **Treat a panel run on uncommitted changes as "post-commit review".** A panel on the working tree is a *pre-commit* technical review; commit gates still apply afterward.
+- **Treat a panel run on uncommitted changes as "post-commit review".** A panel on the staged index is a *pre-commit* technical review; commit gates still apply afterward.
 
 The agent MAY:
 
-- Surface panel CODE_REVIEW_READY to the user as informational status (e.g., "4/4 panel CODE_REVIEW_READY; stage the files you've reviewed").
-- After panel convergence, let the user review by STAGING (the user-review step); the agent does NOT auto-stage code.
+- Surface panel CODE_REVIEW_READY to the user as informational status (e.g., "4/4 panel CODE_REVIEW_READY on the user-staged index").
+- Before the diff panel, let the user review by STAGING; use INDEX-ONLY sources (`git diff --cached`, `git show :path`, or an index export). Any later index change invalidates the panel and requires re-review; the agent does NOT auto-stage code.
 
 **Instruction-repo scope**: §0 git safety gates (`ask_user` before every `git commit` / `git push`, plus the never-auto-stage-code rule) apply in ALL repos. The panel certification waives ONLY the EXTRA §1B working-tree-review step for instruction-repo edits (see `review-workflow-gates.md` §1B), never §0.
 
 **How to detect a process violation in practice**: if the agent has launched a commit-producing tool call, `git push`, or PR-creation tool call without an emitted `PRE-COMMIT GATE PASSED` block in the same chat turn (and outside the narrow `pre-commit.md` §"Skip conditions" exemptions) - regardless of how many panels converged CODE_REVIEW_READY beforehand - the commit-approval gate was bypassed. The user can call this out at any point; the agent MUST roll back the offending commits (revert / `git reset` + restore working tree) and re-run the gate. Same remediation procedure as `pre-commit.md` §"Falsification is a higher-severity failure than skipping" (which treats omission as the lower-severity sibling of falsification).
 
-## Fix-iteration cap
-
-After panel returns `NEEDS_REWORK`, agent fixes + re-runs panel. Cycle counter is `fix_iteration_count`; default cap is **3 cycles**.
-
-When cap is hit:
-- **`cap-with-regressions`**: each iteration introduces NEW findings on top of resolving old ones - abort; emit `ask_user` quoting all iterations' verdicts. User authorizes override OR routes via G4 `routed-deferred-with-tracker-and-ask_user`.
-- **`cap-with-new-clean-categories`**: iterations resolve old findings but reveal new ones in previously-unreviewed code areas - typically indicates panel is doing useful work; user authorizes cap override (e.g., raise to 5) with explicit quoted approval.
-
-Cap override is recorded in `fix_iteration_count_cap` field of `CODE-REVIEW PANEL CONVERGED` block.
 
 ## System-prompt-rule enforcement (defensive - MANDATORY)
 
@@ -157,7 +145,7 @@ This is the catch-net for the gap between "rule exists in system prompt" and "ru
 ## Reviewer same-state re-checks
 
 Each reviewer's prompt MUST include this preamble:
-> Before producing your verdict, re-fetch `git rev-parse HEAD` in the consuming-project worktree. The expected SHA is `<panelHeadSha>` recorded at launch time. If your HEAD does NOT match (i.e., new commits landed after launch), ABORT with a `NEEDS_REWORK` verdict citing "stale launch SHA: launched against `<panelHeadSha>`, current HEAD is `<currentSha>`". The orchestrator will re-launch the panel from current HEAD.
+> At review start and before verdict, recompute the mode artifact with `Get-ReviewedArtifactId.ps1 -Staged [-ParentSha <HEAD^ full SHA | none>]` for an index panel, `-Commit <full sha>` for a committed commit panel, or `-Range "<BaseSha>..<HeadSha>"` using recorded full SHAs for a range panel. For an amend, staged review uses the first-parent SHA (or `none` for a root commit); cherry-pick and rebase replay use plain `-Staged`. Compare the first stdout line to the launch artifact. A mismatch or command failure requires `NEEDS_REWORK` and a fresh panel against the current artifact; HEAD alone cannot detect index changes.
 
 This prevents certifying a diff amended/rebased mid-review.
 
@@ -239,7 +227,7 @@ For PRs with prior entries in `.github/pr-quality-gate/data/panel-misses.csv` (m
 verified_no_recurrence:
   - slug: <prior-slug>
     fix_evidence:                   # REQUIRED - pointer to where prior occurrence was resolved
-      commit_sha: <40-char>         # commit that addressed the prior occurrence
+      commit_sha: <full 40- or 64-hex>         # commit that addressed the prior occurrence
       diff_hunk: |                  # OR pasted diff hunk showing the fix
         <git-diff snippet>
 ```
@@ -263,14 +251,13 @@ These print on EVERY invocation regardless of session-compaction state - the age
 ```
 panel:
   invoked: <true|false>                     # false only for lint-only
-  profile: <full|lite|full-default>         # on-disk active-profile (full-default if absent); must match LEDGER + PRE-COMMIT copies
+  profile: <full|triage>
   slate_floor_passed: <bool>
   reviewers: [<slot>: <model> <family> <role>, ...]
   convergence_model: <enum>
   convergence_result: <passed|failed>
   dropped_reviewers: [<slot>, ...]
   panel_rounds: <int>
-  fix_iteration_count: <int>
   must_fix_unresolved: <int>
   core_rules_acknowledged: <see §Per-rule acknowledgement>
   rule_coverage_passed: <bool>              # true if all HIGH-tier review-pass-only slugs dispositioned

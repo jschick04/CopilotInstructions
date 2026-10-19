@@ -8,11 +8,10 @@ Deferred features (ranked by priority):
 
 1. **Capability-tier registry indirection**: ship trigger: model deprecated/removed from runtime catalog, OR `slateSubstitutions` >= 2 in 30 days, OR new tier added.
 2. **Context-budget circuit breaker**: ship trigger: §2D session > 700K context, OR panel aborted from exhaustion/OOM.
-3. **Branch-level fix-iteration cap**: ship trigger: branch >= 3 fix-iterations, OR manual escalation bypassed.
-4. **Compaction format with citation preservation**: ship trigger: heavy panel re-raises disposed theme (dedup loss), OR per-commit-panel output > 50K tokens.
-5. **Forge-agnostic state field**: ship trigger: §2D invoked on non-GitHub forge AND inline commands fail, OR inline forge enumeration >= 5 entries.
-6. **Slate-floor automated re-check**: ship trigger: slate-floor break detected at synthesis, OR CODE_REVIEW_READY emitted with uncaught violation.
-7. **Same-state re-check infrastructure**: ship trigger: READY-re-emitted but actual branch state differs from `panelHeadSha`, OR Step 9 same-state check false-negative.
+3. **Compaction format with citation preservation**: ship trigger: heavy panel re-raises disposed theme (dedup loss), OR per-commit-panel output > 50K tokens.
+4. **Forge-agnostic state field**: ship trigger: §2D invoked on non-GitHub forge AND inline commands fail, OR inline forge enumeration >= 5 entries.
+5. **Slate-floor automated re-check**: ship trigger: slate-floor break detected at synthesis, OR CODE_REVIEW_READY emitted with uncaught violation.
+6. **Same-state re-check infrastructure**: ship trigger: READY-re-emitted but actual branch state differs from `panelHeadSha`, OR Step 9 same-state check false-negative.
 
 Ship triggers are not exhaustive; maintainer prioritization can promote any item.
 
@@ -52,7 +51,7 @@ The mandatory output block (format in Step 10) MUST appear in the same chat turn
 2. **Re-emission** in PR-creation turn (turn N+1, after user approval), with same-state re-check:
  - `git rev-parse HEAD` matches recorded `panelHeadSha`.
  - `git merge-base --is-ancestor <panelHeadSha> HEAD` returns true.
- - `git rev-parse <baseRef>` matches recorded `panelBaseSha`.
+ - approved remote `ls-remote` base tip and recomputed merge-base still equal recorded `panelBaseSha`.
  - Any check fails: gate restarts at Step 2; prior block invalid.
 3. **Re-emission status**: `READY-re-emitted-after-user-approval`. G6 tool call follows same turn.
 
@@ -87,19 +86,9 @@ Until the `QUALITY GATE` block emitted in current turn AND `pr_creation_status` 
 
 Pattern: absence of block IS the enforcement. New PR-creation pathways extend by INTENT, not literal name. Flag gaps and propose additions.
 
-### G7. Bootstrap exemption - narrow scope
+### G7. New-gate self-application exemption
 
-PR is BOOTSTRAP-EXEMPT from §2D only if ALL of:
-
-1. PR introduces a NEW mandatory gate not on `origin/<base>` pre-PR (verifiable via `git show`).
-2. PR body includes literal `BOOTSTRAP-EXEMPTION: <gate-name>`.
-3. PR includes ALL companion edits for gate to be operative post-merge.
-
-**Modifications to existing gates are NOT bootstrap-exempt.** Only the introducing PR of a NEW gate qualifies.
-
-**Token re-validation**: token MUST remain in PR body until merge. Removal (`gh pr edit --body`) revokes exemption; subsequent push triggers §2D normally. Track via `bootstrapTokenStatus` field (`not-applicable | present-in-body | removed-revokes-exemption`).
-
-**All other gates still apply**: §1A, §1B, §2A, §2B, §2C. G7 exempts ONLY from §2D.
+BOOTSTRAP-EXEMPTION skips only P's own check on the PR that introduces P. P must be a newly added `.github/playbooks/<name>.md`; the full `git diff -M -C --name-status <panelBaseSha> <panelHeadSha>` must contain exactly one P record with leading status `A`, and P must be absent from the verified current base tip (`ls-remote`). Unknown status letters, renames/copies into P, an unconfirmed gate-scope companion path, or any failed command invalidate the exemption. Confirm every other gate-scope companion path, including both paths for renames/copies. The Step 8 approved and live PR bodies must both contain `BOOTSTRAP-EXEMPTION: <name>`, and the companion edits must make P operative post-merge. Removing the token revokes the exemption; subsequent pushes run P's own check. G7 never exempts from §2D or any other existing gate; it skips only P's self-application. The §2D whole-branch panel, QUALITY GATE block, and publish-gate receipt always run. See `pre-pr-creation-review.md` for the canonical procedure.
 
 ## What is user-waivable at this gate (and what isn't)
 
@@ -111,8 +100,8 @@ PR is BOOTSTRAP-EXEMPT from §2D only if ALL of:
 | C2 disposition per finding (G5) | **NO** | - |
 | Forbidden-tool list (G6) | **NO** | - |
 | Bootstrap exemption (G7) | **NO** | Conditions either met or not. |
-| Convergence model | **YES** | Floor: `threshold >= 75%`. `confidence-weighted >= 80%` also allowed. Record under `convergence_waive`. |
-| Reviewer slate composition | **YES** | Floor (all simultaneous): >= 4 reviewers; >= 1 Claude + >= 2 GPT (>= 1 premium + >= 1 cross-profile/codex) + >= 1 Gemini; >= 1 `rubber-duck` + >= 2 `code-review`; >= 1 heavy-tier. Record under `slate_waive`. Floor re-checked after every drop/replacement. |
+| Convergence model | **NO** | Always `unanimous`. |
+| Reviewer slate composition | **NO** | Full floor per `panel-policy.md` (>= 4 distinct heavy models: Claude, GPT, Gemini, + one more GPT or Grok; >= 1 `rubber-duck` + >= 2 `code-review`). Re-checked after every drop/replacement. |
 | `routed-deferred` per finding | **YES with G4** | External tracker URL + same-turn `ask_user`. |
 
 Items not in matrix: NOT waivable. If uncertain, treat as NOT waivable; escalate via `ask_user`.
@@ -121,27 +110,26 @@ Items not in matrix: NOT waivable. If uncertain, treat as NOT waivable; escalate
 
 Bundle in one prompt before launching:
 
-1. **Confirm base ref.** Default `origin/main` (or parent for stacked PRs). Resolve to SHA; record as `panelBaseSha`.
-2. **Convergence model.** Default `unanimous`. User MAY downgrade per waive matrix.
-3. **Reviewer slate confirmation.** Default = the active profile's slate (full = heavy slate below; lite = 3 cross-family light-tier per `active-profile.instructions.md`). User MAY adjust within floor.
+1. **Confirm base ref.** Use the approved `base_remote`, `base_branch`, and `base_url`; fetch and verify `base_tip_sha` from `ls-remote`; `panelBaseSha` is its merge-base with HEAD.
+2. **Convergence model.** Always `unanimous`; not waivable.
+3. **Reviewer slate confirmation.** Default = the panel mode's slate (full = heavy slate below; triage = 2 distinct-family light code-reviewers per the panel mode actually run). User MAY adjust within floor.
 4. **Pre-existing-issue context** (CONTEXT-ONLY, does NOT preempt findings). User may surface branch context notes. Reviewers receive as CONTEXT NOTES; prompt instructs: "if you still find the pattern, raise it; orchestrator routes via G5 flow." Prevents user-muting failure mode.
 
 ## Reviewer slate - capability-tier definition
 
-Slate defined by capability tier + family + role, NOT hardcoded model name. Tier -> model mapping in `multi-model-review/current-model-registry.md`. Missing tier: fall back to highest-capability successor from same family; log under `slate_substitutions`.
+Slate defined by capability tier + family + role, NOT hardcoded model name. Tier -> model mapping in `multi-model-review/current-model-registry.md`. Missing tier or model: substitute only per `panel-policy.md` §Checker-enforced ledger rows; log under `slate_substitutions`.
 
-**Default heavy slate (full profile: 6 reviewers, >= 3 families, satisfies floor; lite profile uses 3 cross-family light-tier instead)**:
+**Default heavy slate (full mode: 4 distinct heavy reviewers across Claude, GPT, Gemini and Grok; triage: 2 distinct-family light code-reviewers)**:
 
 | Slot | Tier id | Family | Role | Purpose |
 | --- | --- | --- | --- | --- |
-| 1 | `heavy-claude-xhigh` | Claude | `code-review` | Anchor; deep reasoning; cross-family diversity. |
+| 1 | `heavy-claude-standard` | Claude | `rubber-duck` | Design/blind-spot critique. |
 | 2 | `heavy-gpt-premium` | GPT | `code-review` | Cross-family fresh eyes. |
-| 3 | `heavy-gpt-codex` | GPT | `code-review` | Code-specialized angle. |
-| 4 | `heavy-gpt-cross-profile` | GPT | `code-review` | Within-family triangulation. |
-| 5 | `heavy-gemini-premium` | Gemini | `code-review` | Third-vendor diversity. |
-| 6 | `heavy-claude-standard` | Claude | `rubber-duck` | Design/blind-spot critique. |
+| 3 | `heavy-gemini-premium` | Gemini | `code-review` | Third-vendor diversity. |
+| 4 | `heavy-grok-premium` | Grok | `code-review` | Fourth-vendor diversity. |
+| 5 | `heavy-gpt-codex` (optional) | GPT | `code-review` | Code-specialized angle. |
 
-**Substitution**: unavailable tier -> highest-capability successor from same family per registry. Record `slateSubstitutions`.
+**Substitution**: only per `panel-policy.md` §Checker-enforced ledger rows. Record `slateSubstitutions`.
 
 **Slate-floor enforcement**: floor checked at every checkpoint (launch, after drop, after replacement, at synthesis). Break -> escalate via `ask_user` before proceeding.
 
@@ -191,7 +179,7 @@ Compare current branch state against prior §2D run. Detect re-run triggers via 
 $priorHeadSha = <recorded prior-run headSha, or "none" for first run>
 $currentHead = git rev-parse HEAD
 $baseRef = <recorded prior-run baseRef, or current intake baseRef>
-$currentBase = git rev-parse $baseRef
+$currentBase = git merge-base $baseTipSha HEAD
 $priorBase = <recorded prior-run panelBaseSha, or "none">
 $priorCommitCount = <recorded prior-run commit count, or 0>
 $currentCommitCount = (git rev-list --count "$currentBase..HEAD")
@@ -250,12 +238,12 @@ Post-compaction `triggerPct >= 0.85` -> escalate via `ask_user`:
 
 ```powershell
 $BaseRef = <from Step 1>
-$BaseSha = git rev-parse $BaseRef
+$BaseSha = git merge-base $baseTipSha HEAD
 $HeadSha = git rev-parse HEAD
 $CommitCount = (git rev-list --count "$BaseSha..HEAD")
 ```
 
-Record `panelBaseRef`, `panelBaseSha`, `panelHeadSha`, `panelCommitCount` in §2D phase-state. Read by Step 2 on subsequent invocations.
+Record the binding fields (`phase-state-convention.md`), `panelBaseSha`, `panelHeadSha`, and `panelCommitCount` in phase-state.
 
 ### Step 5. Launch the panel in parallel
 
@@ -281,7 +269,7 @@ Dropped count is CUMULATIVE events (including replaced), not unfilled slots.
 | Cumulative drops | Action |
 | --- | --- |
 | 0 | Proceed to synthesis. |
-| 1 | Launch replacement (highest-capability successor, same family+tier). Replacement also drops -> 2-drop. |
+| 1 | Launch replacement (same registry tier; substitutions only per `panel-policy.md`). Replacement also drops -> 2-drop. |
 | 2 | Escalate `ask_user`: (a) wait 10 min, (b) proceed degraded if floor holds, (c) abort. |
 | >= 3 | Hard escalate; cannot proceed without user + floor satisfied. |
 
@@ -297,28 +285,16 @@ Per `multi-model-review/procedure.md` synthesis (dedup by theme, rank severity, 
 
 `routed-deferred-with-tracker-and-ask_user` requires G4 conditions IN THIS TURN. G4 not met -> finding must be `fixed` or `dismissed-source-grounded`.
 
-### Step 9. Apply fixes for must-fix findings (with branch-level iteration cap)
+### Step 9. Apply fixes for must-fix findings
 
-Every `blocking` finding resolved per G2's three paths.
-
-For `fixed`: apply change, re-stage, re-run build+tests, re-emit `POST-CODE-CHANGE LEDGER` per `review-workflow-gates-sweeps.md` §2B. After fix commit, re-run panel from Step 2.
-
-**Branch-level iteration cap**: track `fixIterationCount` in §2D phase-state.
-
-| `fixIterationCount` | Action |
-| --- | --- |
-| <= 3 | Proceed with re-run. |
-| 4+ | Hard escalate `ask_user`: (a) authorize N more iterations, (b) accept remaining as G4-compliant `routed-deferred-with-tracker-and-ask_user`, (c) split branch. |
-
-Prevents unbounded fix-introduces-finding cycling. Round-level max-loop (5 per `multi-model-review/procedure.md`) covers within-invocation; `fixIterationCount` covers across-invocation.
+Every `blocking` finding is resolved per G2's three paths. For `fixed`: apply the change, run applicable build and tests, re-emit `POST-CODE-CHANGE LEDGER`, then repeat the panel until unanimous convergence. Re-review continues until convergence. Preserve reviewer continuity where possible; do not stop re-review merely because earlier rounds passed.
 
 ### Step 10. Emit the `QUALITY GATE` block (initial emission)
 
 Mandatory at end of synthesis, BEFORE the AGENTS `gh pr create` user-approval. Emit the canonical `QUALITY GATE` block (schema: `../../pr-quality-gate/quality-gate-block.md`) with `emission_phase: initial-pending-user-approval` and `pr_creation_status: READY-pending-user-approval`. The deferred features in this roadmap would EXTEND that block's agent-appended region with:
 
 - `context_budget:` (`window_size`, `session_used_at_panel_launch`, `trigger_pct_at_launch`, `compaction_applied`, `compaction_artifact_path`, `mid_loop_rechecks`) - the context-budget circuit breaker (feature 2).
-- `slate_floor_rechecks:` plus `degraded_due_to_reviewer_loss` / `degraded_due_to_context` - the capability-tier + degraded-mode tracking (features 1, 4).
-- `fix_iteration_cap` override semantics - the branch-level fix-iteration cap (feature 3).
+- `slate_floor_rechecks:` plus `degraded_due_to_reviewer_loss` / `degraded_due_to_context` - the capability-tier + degraded-mode tracking (features 1, 3).
 
 `pr_creation_status: READY-pending-user-approval` is required to proceed to Step 11.
 
@@ -332,7 +308,7 @@ After user approval, BEFORE the G6 tool, re-emit with `emission_phase: ready-re-
 
 - Step 2 trigger detection: if triggers differ from the prior run -> restart at Step 2.
 - `git rev-parse HEAD` still matches `panelHeadSha`.
-- `git rev-parse <baseRef>` still matches `panelBaseSha`.
+- the approved remote base-tip recheck and recomputed merge-base still equal `panelBaseSha`.
 
 Any same-state check fails -> restart at Step 2.
 
@@ -342,25 +318,23 @@ Only after Step 12 emits `READY-re-emitted-after-user-approval` in same turn.
 
 ## State to record in canonical session todos
 
-Per `AGENTS.md` *Phase-state tracking convention*:
+Per `phase-state-convention.md`:
 
 - `invocationMode` - Step 1.
 - `reRunTriggers` - list, Step 2.
-- `panelBaseRef` / `panelBaseSha` / `panelHeadSha` / `panelCommitCount` - Step 4.
+- approved base/head bindings, `panelBaseSha`, `panelHeadSha`, and `panelCommitCount` - Step 4.
 - `slateActuallyRun` - `[{slot, tier-id, family, role, model}]`.
 - `slateSubstitutions` - `[{slot, requested-tier, requested-model, substituted-model, reason}]`.
 - `slateFloorRechecks` - `[{checkpoint, satisfied, ...}]`.
-- `slateWaive` / `convergenceWaive` - `"no waive"` or user-quote.
-- `convergenceModelUsed` - `unanimous | threshold-N | confidence-weighted-N`.
+- `convergenceModelUsed` - `unanimous`.
 - `panelRounds` - rounds before convergence.
-- `panelConvergence` - `converged-unanimous | converged-threshold | converged-confidence-weighted | escalated-to-user-after-max-loop`.
+- `panelConvergence` - `converged-unanimous | needs-another-review`.
 - `droppedReviewers` / `replacementReviewers` - Step 7.
 - `degradedDueToReviewerLoss` / `degradedDueToContext` - booleans.
 - `contextBudget` - `{windowSize, sessionUsedAtPanelLaunch, triggerPctAtLaunch, compactionApplied, compactionArtifactPath, midLoopRechecks}`.
 - `priorCommitPanelDispositions` - compacted string or `"none - <reason>"`.
-- `fixIterationCount` / `fixIterationCountCap` - Step 9.
 - `mustFixFindings` / `mustFixResolved` - must be equal for READY status.
-- `bootstrapTokenStatus` - `not-applicable | present-in-body | removed-revokes-exemption`.
+- `bootstrapTokenStatus` - `not-applicable | present-in-approved-and-live-body | removed-revokes-P-self-check` (`quality-gate-block.md`).
 - `prCreationStatus` - `READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-*`.
 - `prTextScan` - `clean | tier1-fail:<sites> | tier2-warn:<sites>` (the pre-create `check-pr-text.ps1` result; `tier1-fail` blocks PR creation until stripped).
 
@@ -370,18 +344,9 @@ Read from session todos when emitting block; never infer from memory.
 
 When the future `review-workflow-gates-sweeps.md` §2B edit lands (tightening `post-code-change-panel` from `ran | N/A - reason | user-waived` to `ran | N/A - reason`), preserve the existing N/A carve-out for pure-recommit / rebase with zero behavioral delta vs. previously-panelled artifact (existing carve-out at `review-workflow-gates-sweeps.md` ~line 297). Removing `user-waived` is correct; removing the N/A carve-out would be a regression.
 
-## Cross-cutting fit - companion edits required for §2D to be operative
+## §2D's own introducing companion set (historical)
 
-Per G7's "ALL companion edits required" rule, the introducing PR MUST include ALL of:
-
-- **`AGENTS.md` `gh pr create` section** - require the `QUALITY GATE` block per G3.
-- **`AGENTS.md` cross-cutting hard-gate bullets** - new bullet referencing §2D.
-- **`pre-pr-push.md` Step 5** - invokes this playbook. Adds `preCreationReviewStatus` to state predicate.
-- **`review-workflow-gates-sweeps.md` §2D** - hard-gate spec (LEDGER row, G1-G7 summary).
-- **`multi-model-review/current-model-registry.md`** - capability-tier mappings.
-- **This playbook** (`pre-pr-creation-review.md`).
-
-Missing any -> §2D non-operative post-merge -> G7 bootstrap-exemption invalid.
+A new gate P needs the companion edits that make P itself operative post-merge.
 
 ## Cross-cutting fit - gates §2D plugs alongside
 

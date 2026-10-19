@@ -1,9 +1,9 @@
 # Playbook: Instruction-set maintenance
-<!-- read-receipt-token: 2d7f4c93 -->
+<!-- read-receipt-token: c438fdc8 -->
 
 ## When this applies
 
-Editing ANY file in the instruction-set repo. Non-exhaustive: `AGENTS.md`, `.github/copilot-instructions.md` (if present), `.github/instructions/**`, `.github/playbooks/**`, `.github/pr-quality-gate/**`, `profiles/**`, `scripts/**`, `.github/workflows/**`, `.githooks/**`, `.gitattributes`, `.gitignore`, `setup.ps1`/`setup.sh`. All such edits are governance/safety-critical -> **full review rigor on both profiles** (never lite/triage/lint-only, never the trivial-PR carve-out), per the AGENTS.md governance rule.
+Editing ANY file in the instruction-set repo. Non-exhaustive: `AGENTS.md`, `.github/copilot-instructions.md` (if present), `.github/instructions/**`, `.github/playbooks/**`, `.github/pr-quality-gate/**`, `scripts/**`, `.github/workflows/**`, `.githooks/**`, `.gitattributes`, `.gitignore`, `setup.ps1`/`setup.sh`. All such edits are governance/safety-critical -> **full review rigor** (never triage/lint-only, never the trivial-PR carve-out), per the AGENTS.md governance rule.
 
 ## Core principles (the preferences this set is maintained by)
 
@@ -37,7 +37,7 @@ Editing ANY file in the instruction-set repo. Non-exhaustive: `AGENTS.md`, `.git
 
 The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflows/catalog-sync-check.yml`) are the fail-closed backstop; never hand-edit `pattern-catalog.md` to bypass the pipeline.
 
-## No project-specific references (hard rule + audit)
+## Repository isolation and no project-specific references (hard rule + audit)
 
 - Forbidden in committed instruction content: project names, project-specific type/identifier names, PR/issue numbers, product/domain specifics.
 - Examples must be language-generic and self-evidently illustrative.
@@ -49,14 +49,14 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 
 1. **Draft the spec** (in the session folder, not the repo).
 2. **Rubber-duck** (Stage-1 single critical pass).
-3. **Panel** (Stage-2): the full slate per `panel-policy.md` (4-6 reviewers, >=3 model families); iterate to **unanimous** convergence; emit the `DESIGN PANEL CONVERGED` certification BEFORE any repo edit (§1B in `review-workflow-gates.md`).
+3. **Panel** (Stage-2): the full slate per `panel-policy.md` (4 or more distinct heavy reviewers across the required families); iterate to **unanimous** convergence; emit the `DESIGN PANEL CONVERGED` certification BEFORE any repo edit (§1B in `review-workflow-gates.md`).
 4. **Implement** against the converged spec. Canonical schemas stay; add caveman chat-emission forms separately (canonical-vs-chat split). RE-MEASURE caps.
-5. **Diff-review panel** (all reviewers on the actual diff) -> unanimous CODE_REVIEW_READY.
+5. **Slug review -> user stages -> INDEX-ONLY diff-review panel** (`git diff --cached`, `git show :path`, or index export) -> unanimous CODE_REVIEW_READY. Any index change requires re-review.
 6. **§0 commit gates** -> PR-based workflow.
 
 ## Caps & measurement
 
-- `AGENTS.md` <= 28672 B; non-exempt `.github/**/*.md` <= 30720 B; `profiles/**/*.md` <= 4096 B. Exempt: `pattern-catalog.md` (allowlisted - a GENERATED data file, not prose to split) and `pattern-catalog.sources/**` (excluded). (Token-aware caps planned.)
+- `AGENTS.md` <= 28672 B; non-exempt `.github/**/*.md` <= 30720 B. Exempt: `pattern-catalog.md` (allowlisted - a GENERATED data file, not prose to split) and `pattern-catalog.sources/**` (excluded). (Token-aware caps planned.)
 - Measure **LF** bytes, e.g. for a path in `$f`: ``[System.Text.Encoding]::UTF8.GetByteCount(((Get-Content -Raw $f) -replace "`r`n","`n"))``. Local working copies are CRLF and over-count; `.gitattributes` normalizes to LF on commit; CI measures LF.
 - Enforced by `.github/workflows/instructions-size-check.yml`.
 
@@ -67,7 +67,6 @@ The CI checks (`.github/workflows/catalog-generator-check.yml`, `.github/workflo
 - **Read-receipt tokens**: preserve the `read-receipt-token` HTML-comment marker near the top of files that carry one; **rotate it (a fresh random lowercase 8-hex) on a MATERIAL edit** so a receipt written against the pre-edit version cannot validate post-edit (freshness). The two pre-pr playbooks' tokens back the publish-gate receipt (`.github/pr-quality-gate/publish-gate-receipt.md`); the code-topic files' tokens back `check-read-receipts`.
 - **Comments**: structural section banners only; no narrative code comments without the §3.1 gate.
 - **Commit**: author per `AGENTS.md` §4 (human identity, not an automation identity); single-line imperative subject; no body/footer; no `Co-authored-by` trailer; no Conventional-Commit prefix.
-- **Active profile**: edit the git-tracked `profiles/<full|lite>/profile.template.md` templates, NEVER the gitignored generated `.github/instructions/active-profile.instructions.md` (the harness loads it; `invoke-panel.ps1` reads it as the floor). Re-run setup to regenerate.
 
 ## Updating after reviewing PR comments on GitHub
 
@@ -83,9 +82,5 @@ Source of many instruction updates: review comments (human + the Copilot review 
 
 ## Workflow
 
-- **PR-based** (no direct-push-to-main): branch -> commit -> push -> `gh pr create` -> required checks + bot review -> merge. CI checks: always-on (`catalog-sync-check`, `pr-gate-check` comment-audit) + path-filtered (`instructions-size-check`, `catalog-generator-check`, `profile-invariants-check`, run only when their paths change).
+- **PR-based** (no direct-push-to-main): branch -> commit -> push -> `gh pr create` -> required checks + bot review -> merge. CI checks: always-on (`catalog-sync-check`, `pr-gate-check` comment-audit) + path-filtered (`instructions-size-check`, `catalog-generator-check`, run only when their paths change).
 - Commit-authoring and §0 git gates per `AGENTS.md` §0/§4.
-
-## Profiles
-
-- `full` (default; full panel) and `lite` (reduced panel) selected by the installer: `.\setup.ps1 -Profile <full|lite>` / `./setup.sh --profile <full|lite>`. Governance/instruction + safety-critical edits use full rigor on BOTH profiles. See `profiles/` + `panel-policy.md`.

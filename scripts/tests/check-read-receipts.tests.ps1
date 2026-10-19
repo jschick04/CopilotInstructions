@@ -75,6 +75,13 @@ Set-Content $receiptPath "parent_sha: $($head.Substring(0,12))`nreads=.github/in
 Assert-True ((Invoke-Checker $repo) -eq 1) 'abbreviated 12-char parent_sha -> exit 1 at commit (full 40-char required; closes the staged<->note wedge)'
 Set-Content $receiptPath "parent_sha: $($head.ToUpper())`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
 Assert-True ((Invoke-Checker $repo) -eq 0) 'uppercase 40-char parent_sha -> exit 0 (mixed-case hex accepted; case-insensitive match)'
+Set-Content $receiptPath "parent_sha: $('d' * 64)`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
+$sha256ParentOutput = & pwsh -NoProfile -File $checker -RepoRoot $repo -StagedMode -WorktreeReceipt *>&1 | Out-String
+Assert-False ($sha256ParentOutput -match 'must be a full') '64-hex parent_sha passes the shape check (rejected only as a mismatch)'
+Set-Content $receiptPath "parent_sha: $('d' * 52)`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
+$shortParentOutput = & pwsh -NoProfile -File $checker -RepoRoot $repo -StagedMode -WorktreeReceipt *>&1 | Out-String
+Assert-True ($shortParentOutput -match 'must be a full 40- or 64-char') '52-hex parent_sha fails the shape check'
+Set-Content $receiptPath "parent_sha: $head`nreads=.github/instructions/fake-cs.instructions.md@11111111`nreads=.github/instructions/fake-py.instructions.md@22222222`n" -NoNewline
 
 Write-Host "=== docs-only clean-skip + tokenless fail-closed ==="
 $repo2 = New-TestGitRepository -Prefix 'rr2'

@@ -1,17 +1,11 @@
 #Requires -Version 5.1
-# Amend / force-push sign-off gate (spec "v3 addendum"). A history rewrite (git commit
-# --amend, or any force-push) must carry a FRESH, TREE-BOUND user sign-off marker written
-# only AFTER the user approved via ask_user. The pre-commit hook calls -Mode amend (when
-# PANEL_GATE_AMEND=1); the pre-push hook calls -Mode force-push -Tree <pushed-tip-tree>.
-#
-# The marker lives in a gitignored worktree receipt; it records the index/commit tree it
-# authorizes, so a stale sign-off cannot authorize a different rewrite. Identity-gated;
-# no-op on any repo that is not this instruction set's own. Honest: --no-verify bypasses.
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)] [ValidateSet('amend', 'force-push')] [string] $Mode,
     [string] $RepoRoot = '',
     [string] $Tree = '',          # force-push: the pushed tip's tree sha. amend: derived from the index.
+    [string] $CommitSha = '',
+    [string] $RemoteSha = '',
     [string] $ReceiptPath = '.github/pr-quality-gate/audits/signoff-receipt'
 )
 
@@ -29,8 +23,22 @@ if ($RepoRoot) {
     $RepoRoot = Resolve-RepoRoot -Explicit '' -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-signoff.ps1') -RequireGitWorkTree
 }
 
-# Identity gate: the sign-off gate guards THIS repo's own history rewrites only.
-if (-not (Test-IsInstructionsRepo -RepoRoot $RepoRoot)) { exit $ExitOk }
+if ($Mode -eq 'amend') {
+    if (-not (Test-RequiresFullPanel -RepoRoot $RepoRoot)) { exit $ExitOk }
+} else {
+    if ($CommitSha -notmatch '^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') { Write-Host "check-signoff: -CommitSha (full hex SHA of the force-pushed tip) is required in force-push mode."; exit $ExitBlock }
+    $tipTree = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('rev-parse', '--verify', "$CommitSha^{tree}")
+    if ($tipTree.ExitCode -ne 0 -or $tipTree.Stdout.Count -ne 1) { Write-Host "check-signoff: cannot resolve the tree of force-pushed tip '$CommitSha'."; exit $ExitBlock }
+    $derivedTree = ([string]$tipTree.Stdout[0]).Trim()
+    if ($Tree -and -not $Tree.Trim().Equals($derivedTree, [System.StringComparison]::OrdinalIgnoreCase)) { Write-Host "check-signoff: -Tree '$Tree' does not match the tree '$derivedTree' of force-pushed tip '$CommitSha'."; exit $ExitBlock }
+    $Tree = $derivedTree
+    if ($RemoteSha -notmatch '^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') { Write-Host "check-signoff: -RemoteSha (full hex SHA of the overwritten remote tip) is required in force-push mode."; exit $ExitBlock }
+    $remoteObject = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('cat-file', '-e', "$RemoteSha^{commit}")
+    if ($remoteObject.ExitCode -ne 0) { Write-Host "check-signoff: overwritten remote tip '$RemoteSha' is not available locally; run 'git fetch' and retry the push (failing closed)."; exit $ExitBlock }
+    $overwritten = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('rev-list', $RemoteSha, '--not', $CommitSha)
+    if ($overwritten.ExitCode -ne 0) { Write-Host "check-signoff: cannot enumerate commits overwritten by this force-push (git rev-list $RemoteSha --not $CommitSha failed)."; exit $ExitBlock }
+    if (-not (Test-RewriteRequiresFullPanel -RepoRoot $RepoRoot -TipSha $CommitSha -RemoteSha $RemoteSha -OverwrittenShas @($overwritten.Stdout))) { exit $ExitOk }
+}
 
 $marker = if ($Mode -eq 'amend') { 'amend_approved' } else { 'force_push_approved' }
 
@@ -65,8 +73,8 @@ if ($row -cmatch 'tree:\s*(\S+)') {
     exit $ExitBlock
 }
 
-if ($signedTree -notmatch '^[a-fA-F0-9]{40}$') {
-    Write-Host "ERROR: the '$marker' marker's tree binding must be a full 40-char hex SHA (got '$signedTree'). Re-record with the full tree SHA."
+if ($signedTree -notmatch '^([a-fA-F0-9]{40}|[a-fA-F0-9]{64})$') {
+    Write-Host "ERROR: the '$marker' marker's tree binding must be a full 40- or 64-char hex SHA (got '$signedTree'). Re-record with the full tree SHA."
     exit $ExitBlock
 }
 

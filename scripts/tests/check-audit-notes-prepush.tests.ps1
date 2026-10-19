@@ -14,6 +14,7 @@ $script:Fail = 0
 function New-IdRepo {
     param([switch] $NoSetup)
     $dir = New-TestGitRepository -Prefix 'anp'
+    Initialize-InstructionFixtureRepository -Directory $dir
     git -C $dir remote add origin 'https://github.com/jschick04/CopilotInstructions.git'
     Set-Content -LiteralPath (Join-Path $dir 'AGENTS.md') -Value 'x' -NoNewline
     New-Item -ItemType Directory -Path (Join-Path $dir 'scripts') -Force | Out-Null
@@ -31,11 +32,14 @@ function New-IdRepo {
 }
 
 function Write-PanelNote {
-    param([string] $Dir, [string] $Sha)
+    param([string] $Dir, [string] $Sha, [string] $Artifact = '', [switch] $CheckerEdit)
     $parent = Get-CommitParentSha -RepoRoot $Dir -CommitSha $Sha
+    $transcript = @(Get-ValidPanelTranscript)
+    if ($Artifact) { $transcript = @($transcript | ForEach-Object { if ($_ -cmatch '^\s*- slot:') { $_ + " artifact:$Artifact" } else { $_ } }) }
     $body = @("parent_sha: $parent", 'commit_subject: panel commit', 'POST-CODE-CHANGE LEDGER') +
         (Get-ValidPreRows -G5 'panel-ran') +
-        @('  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed') + (Get-ValidPanelTranscript)
+        @('  post-code-change-panel: ran, unanimous', '  build: N/A: docs', '  tests: passed') + $transcript
+    if ($CheckerEdit) { $body += 'checker-edit: "checker-edit-acknowledged" ref:test paths:1' }
     Write-AuditNote -RepoRoot $Dir -NoteRef (Get-PanelNoteRef) -CommitSha $Sha -BodyLines $body
 }
 function Write-CommentNote {
@@ -73,6 +77,17 @@ function Invoke-Validator {
     $refText = ($RefLines -join "`n")
     $out = $refText | pwsh -NoProfile -File $validator -RepoRoot $Dir -RemoteName origin 2>&1
     return [PSCustomObject]@{ ExitCode = $LASTEXITCODE; Output = ($out | Out-String) }
+}
+function ConfigureAuditClone {
+    param([string] $Directory)
+    foreach ($noteRef in @((Get-PanelNoteRef), (Get-CommentNoteRef), (Get-ReadsNoteRef), (Get-PreCommitNoteRef))) {
+        git -C $Directory config --add notes.rewriteRef $noteRef
+        if ($LASTEXITCODE -ne 0) { throw 'cannot configure audit note rewrite refs' }
+    }
+    git -C $Directory config notes.rewriteMode overwrite
+    if ($LASTEXITCODE -ne 0) { throw 'cannot configure audit note rewrite mode' }
+    git -C $Directory config core.hooksPath '.githooks'
+    if ($LASTEXITCODE -ne 0) { throw 'cannot configure audit hooks path' }
 }
 
 function RefLine { param($Local, $Remote) "refs/heads/main $Local refs/heads/main $Remote" }
@@ -143,8 +158,14 @@ try {
     $d7 = New-IdRepo
     $j0 = New-TestCommit -Directory $d7 -File 'scripts/x.ps1' -Content 'code' -Message 'j0 panel'
     Write-PanelNote -Dir $d7 -Sha $j0
+    $rootDiff = @(& git -C $d7 diff $GitEmptyTreeSha $j0)
+    $rootCommentBody = @('parent_sha: EMPTY_TREE', 'commit_subject: initial fixture')
+    foreach ($site in (Get-NewCommentSites -DiffLines $rootDiff)) {
+        $rootCommentBody += "- $($site.File):$($site.StartLine): approval_turn: n/a - exempt: generated"
+    }
+    Write-AuditNote -RepoRoot $d7 -NoteRef (Get-CommentNoteRef) -CommitSha $j0 -BodyLines $rootCommentBody
     $r7 = Invoke-Validator -Dir $d7 -RefLines @(RefLine $j0 $ZERO)
-    Assert-True ($r7.ExitCode -eq 0) 'new-branch push validates the new commit(s) with valid notes -> exit 0'
+    Assert-True ($r7.ExitCode -eq 0) "new-branch push validates the new commit(s) with valid notes -> exit 0 ($($r7.Output.Trim()))"
 
     Write-Host "`n=== no-publish guard + delete-push + setup assertion + identity ==="
     $d8 = New-IdRepo
@@ -155,6 +176,14 @@ try {
     $rDel = Invoke-Validator -Dir $d8 -RefLines @(RefLine $ZERO ('b'*40))
     Assert-True ($rDel.ExitCode -eq 0) 'delete-push (local all-zero) -> exit 0 (nothing to validate)'
 
+    foreach ($badLine in @('bad-line', "refs/heads/main $('a'*40) refs/heads/main", "refs/heads/main $('a'*40) refs/heads/main $ZERO extra", "refs/heads/main not-a-sha refs/heads/main $ZERO", "refs/heads/main $('a'*40) refs/heads/main $('b'*39)")) {
+        $direct = & pwsh -NoProfile -File $validator -RepoRoot $d8 -RemoteName origin -RefUpdateLines @($badLine) 2>&1
+        $directExit = $LASTEXITCODE
+        Assert-True ($directExit -eq 1 -and (($direct | Out-String) -match 'malformed')) "malformed ref-update line fails closed via -RefUpdateLines: $badLine"
+        $rBad = Invoke-Validator -Dir $d8 -RefLines @((RefLine $ZERO ('b'*40)), $badLine)
+        Assert-True ($rBad.ExitCode -eq 1 -and $rBad.Output -match 'malformed') "malformed ref-update line fails closed via stdin even beside a valid line: $badLine"
+    }
+
     $d9 = New-IdRepo -NoSetup     # no notes.rewriteRef / hooksPath
     $m0 = New-TestCommit -Directory $d9 -File 'a.txt' -Content 'base' -Message 'm0'
     $m1 = New-TestCommit -Directory $d9 -File 'scripts/x.ps1' -Content 'code' -Message 'm1'
@@ -162,13 +191,12 @@ try {
     $r9 = Invoke-Validator -Dir $d9 -RefLines @(RefLine $m1 $m0)
     Assert-True ($r9.ExitCode -eq 1 -and $r9.Output -match 'notes.rewriteRef|hooksPath') 'missing setup -> exit 1 (fail loud)'
 
-    # identity gate: a non-instructions repo no-ops even with a panel-required, note-less commit
     $dF = New-TestGitRepository -Prefix 'anp-foreign'
     git -C $dF remote add origin 'https://github.com/someone/other.git'
     $n0 = New-TestCommit -Directory $dF -File 'a.txt' -Content 'base' -Message 'n0'
     $n1 = New-TestCommit -Directory $dF -File 'scripts/x.ps1' -Content 'code' -Message 'n1 panel (no note)'
     $rF = Invoke-Validator -Dir $dF -RefLines @(RefLine $n1 $n0)
-    Assert-True ($rF.ExitCode -eq 0) 'non-instructions repo: identity gate -> exit 0 (no-op, never enforces on a consumer)'
+    Assert-True ($rF.ExitCode -eq 0) 'non-instructions repo: activation absent -> exit 0 (no-op, never enforces on a consumer)'
 
     Write-Host "`n=== merge commit validated via first-parent (no silent --no-merges skip) ==="
     $dM = New-IdRepo
@@ -236,6 +264,68 @@ try {
     $rp2 = Invoke-Validator -Dir $dp -RefLines @(RefLine $p1 $p0)
     Assert-True ($rp2.ExitCode -eq 0) "adopted range, valid pre-commit-gate note -> pass ($($rp2.Output.Trim()))"
 
+
+    Write-Host "`n=== per-commit artifact binding adoption ==="
+    $bindingRepo = New-IdRepo
+    $bindingBase = New-TestCommit -Directory $bindingRepo -File 'base.txt' -Content 'base' -Message 'base before artifact binding'
+    $preFeature = New-TestCommit -Directory $bindingRepo -File 'scripts/pre-feature.ps1' -Content 'before' -Message 'pre-feature panel commit'
+    Write-PanelNote -Dir $bindingRepo -Sha $preFeature
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Destination (Join-Path $bindingRepo 'scripts/Get-ReviewedArtifactId.ps1')
+    git -C $bindingRepo add scripts/Get-ReviewedArtifactId.ps1 2>$null
+    git -C $bindingRepo commit -q -m 'adopt artifact binding'
+    $featureSha = (git -C $bindingRepo rev-parse HEAD).Trim()
+    $featureArtifact = [string](@(& pwsh -NoProfile -File (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Commit $featureSha -RepoRoot $bindingRepo)[0])
+    Assert-Equal 0 $LASTEXITCODE 'binding adoption commit artifact resolves'
+    Write-PanelNote -Dir $bindingRepo -Sha $featureSha -CheckerEdit
+    $featureNote = @(Read-RawAuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $featureSha)
+    $withoutTokens = @($featureNote | Where-Object { $_ -cnotmatch '^audited_tree:' } | ForEach-Object { $_ -replace '\s+artifact:[0-9a-f]{64}$', '' })
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $featureSha -BodyLines $withoutTokens
+    $missingArtifactResult = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $featureSha $bindingBase)
+    Assert-True ($missingArtifactResult.ExitCode -eq 1 -and $missingArtifactResult.Output -match 'requires an artifact token') 'adopted commit rejects missing panel artifact tokens'
+    $wrongTokenNote = @($withoutTokens | ForEach-Object { if ($_ -cmatch '^\s*- slot:') { $_ + (' artifact:' + ('0' * 64)) } else { $_ } })
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $featureSha -BodyLines $wrongTokenNote
+    $wrongArtifactResult = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $featureSha $bindingBase)
+    Assert-True ($wrongArtifactResult.ExitCode -eq 1 -and $wrongArtifactResult.Output -match 'does not match') 'adopted commit rejects wrong panel artifact tokens'
+    Write-PanelNote -Dir $bindingRepo -Sha $featureSha -Artifact $featureArtifact -CheckerEdit
+    $correctArtifactResult = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $featureSha $bindingBase)
+    Assert-True ($correctArtifactResult.ExitCode -eq 0) 'adopted commit accepts correct panel artifact tokens'
+    Write-PanelNote -Dir $bindingRepo -Sha $preFeature
+    $mixedRangeResult = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $featureSha $bindingBase)
+    Assert-True ($mixedRangeResult.ExitCode -eq 0) 'pre-adoption commit in mixed range remains relaxed without artifact tokens'
+    Remove-Item -LiteralPath (Join-Path $bindingRepo 'scripts/Get-ReviewedArtifactId.ps1')
+    git -C $bindingRepo add -A 2>$null
+    git -C $bindingRepo commit -q -m 'remove artifact binding marker'
+    $removedSha = (git -C $bindingRepo rev-parse HEAD).Trim()
+    Write-PanelNote -Dir $bindingRepo -Sha $removedSha -CheckerEdit
+    $removedArtifact = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $removedSha $featureSha)
+    Assert-True ($removedArtifact.ExitCode -eq 1 -and $removedArtifact.Output -match 'requires an artifact token') 'marker removal commit remains artifact-bound'
+    $removedArtifactId = [string](@(& pwsh -NoProfile -File (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Commit $removedSha -RepoRoot $bindingRepo)[0])
+    Write-PanelNote -Dir $bindingRepo -Sha $removedSha -Artifact $removedArtifactId -CheckerEdit
+    $removedArtifactValid = Invoke-Validator -Dir $bindingRepo -RefLines @(RefLine $removedSha $featureSha)
+    Assert-True ($removedArtifactValid.ExitCode -eq 0) 'marker removal commit accepts its correct artifact token'
+    $descendantSha = New-TestCommit -Directory $bindingRepo -File 'scripts/check-descendant.ps1' -Content 'descendant' -Message 'descendant after marker removal'
+    Write-PanelNote -Dir $bindingRepo -Sha $descendantSha -CheckerEdit
+    $cloneUri = ([System.Uri]::new($bindingRepo)).AbsoluteUri
+    $fullClone = New-TestTempDirectory -Prefix 'artifact-binding-full'
+    git clone -q $cloneUri $fullClone
+    Assert-Equal 0 $LASTEXITCODE 'full-history artifact-binding fixture clone succeeds'
+    ConfigureAuditClone -Directory $fullClone
+    Assert-Equal 'false' ((git -C $fullClone rev-parse --is-shallow-repository).Trim()) 'artifact-binding clone has full history'
+    $fullNote = @(Read-RawAuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $descendantSha)
+    Write-AuditNote -RepoRoot $fullClone -NoteRef (Get-PanelNoteRef) -CommitSha $descendantSha -BodyLines @($fullNote | Where-Object { $_ -cnotmatch '^audited_tree:' })
+    $fullCloneMissingArtifact = Invoke-Validator -Dir $fullClone -RefLines @(RefLine $descendantSha $removedSha)
+    Assert-True ($fullCloneMissingArtifact.ExitCode -eq 1 -and $fullCloneMissingArtifact.Output -match 'requires an artifact token') 'full-history descendant after marker removal rejects missing artifact tokens'
+    $descendantArtifact = [string](@(& pwsh -NoProfile -File (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Commit $descendantSha -RepoRoot $bindingRepo)[0])
+    Write-PanelNote -Dir $bindingRepo -Sha $descendantSha -Artifact $descendantArtifact -CheckerEdit
+    $shallowClone = New-TestTempDirectory -Prefix 'artifact-binding-shallow'
+    git clone -q --depth 1 $cloneUri $shallowClone
+    Assert-Equal 0 $LASTEXITCODE 'shallow artifact-binding fixture clone succeeds'
+    ConfigureAuditClone -Directory $shallowClone
+    $shallowNote = @(Read-RawAuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $descendantSha)
+    Write-AuditNote -RepoRoot $shallowClone -NoteRef (Get-PanelNoteRef) -CommitSha $descendantSha -BodyLines @($shallowNote | Where-Object { $_ -cnotmatch '^audited_tree:' } | ForEach-Object { $_ -replace '\s+artifact:[0-9a-f]{64}$', '' })
+    $shallowValidation = & pwsh -NoProfile -File $validator -RepoRoot $shallowClone -RemoteName missing -RefUpdateLines @(RefLine $descendantSha $ZERO) 2>&1
+    Assert-True ($LASTEXITCODE -eq 1 -and ($shallowValidation | Out-String) -match 'shallow clone') 'shallow descendant after marker removal fails closed when adoption history is unavailable'
+
     Write-Host "`n=== pre-commit-gate: non-adopted range (no checker anywhere in range or its base) is exempt ==="
     $dn = New-IdRepo
     $n0 = New-TestCommit -Directory $dn -File 'a.txt' -Content 'base' -Message 'n0'
@@ -243,6 +333,22 @@ try {
     Write-PanelNote -Dir $dn -Sha $n1
     $rn = Invoke-Validator -Dir $dn -RefLines @(RefLine $n1 $n0)
     Assert-True ($rn.ExitCode -eq 0) 'non-adopted range (no check-pre-commit-gate.ps1 in tree) -> pre-commit-gate not required -> pass'
+
+    $guardRepo = New-IdRepo
+    New-Item -ItemType Directory -Path (Join-Path $guardRepo 'scripts/lib') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $guardRepo 'scripts/lib/panel-ledger-helpers.psm1') -Value 'function Test-RequiresFullPanel {}'
+    $guardBase = New-TestCommit -Directory $guardRepo -File 'seed.txt' -Content 'base' -Message 'post-adoption base'
+    $guardCommit = New-TestCommit -Directory $guardRepo -File 'scripts/check-md-size.ps1' -Content 'Write-Output 1' -Message 'guarded checker'
+    Write-PanelNote -Dir $guardRepo -Sha $guardCommit
+    $missingGuard = Invoke-Validator -Dir $guardRepo -RefLines @(RefLine $guardCommit $guardBase)
+    Assert-True ($missingGuard.ExitCode -eq 1 -and $missingGuard.Output -match 'checker-edit') 'prepush rejects missing checker-edit row for guarded commit'
+    $guardBody = @(Read-RawAuditNote -RepoRoot $guardRepo -NoteRef (Get-PanelNoteRef) -CommitSha $guardCommit)
+    foreach ($count in @(2,1)) {
+        Write-AuditNote -RepoRoot $guardRepo -NoteRef (Get-PanelNoteRef) -CommitSha $guardCommit -BodyLines @($guardBody + "checker-edit: `"checker-edit-acknowledged`" ref:approval paths:$count")
+        $guardResult = Invoke-Validator -Dir $guardRepo -RefLines @(RefLine $guardCommit $guardBase)
+        if ($count -eq 2) { Assert-True ($guardResult.ExitCode -eq 1 -and $guardResult.Output -match 'paths:1') 'prepush rejects wrong guarded-path count' }
+        else { Assert-True ($guardResult.ExitCode -eq 0) "prepush accepts exact guarded count ($($guardResult.Output.Trim()))" }
+    }
 
     Write-Host "`n=== pre-commit-gate: two-commit --no-verify removal cannot self-exempt (range base is adopted) ==="
     $dx = New-IdRepo

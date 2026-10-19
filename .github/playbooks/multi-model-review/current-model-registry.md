@@ -14,18 +14,14 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 <!-- registry:tiers:begin -->
 | Tier id | Description |
 | --- | --- |
-| `heavy-claude-xhigh` | Top-of-line Claude model with extra-high / max reasoning effort. Used for deep architectural reasoning, design critique, and the slot 1 anchor reviewer. |
-| `heavy-claude-standard` | Top-of-line Claude model at standard reasoning. Used for the rubber-duck slot when the orchestrator is Claude-family. |
-| `heavy-claude-cross-profile` | A Claude model differing from `heavy-claude-standard` in reasoning profile or version line, for additional within-family diversity. Used when a panel needs Claude-family triangulation beyond the standard slot (mirrors `heavy-gpt-cross-profile`). |
-| `heavy-gpt-premium` | Top-of-line GPT model with premium reasoning. Used for slot 2 (different family from slot 1). |
-| `heavy-gpt-codex` | Top-of-line code-specialized GPT model. Used for slot 3 (within-family triangulation against premium). |
-| `heavy-gpt-cross-profile` | A GPT model differing from `heavy-gpt-premium` in reasoning profile or version line, for additional within-family diversity. Used for slot 4. |
-| `light-claude` | Lighter / faster Claude model (Haiku-tier or similar). Available for cost- and latency-sensitive per-commit panels; no default slate selects it today. |
-| `light-gpt` | Lighter / faster GPT model. Used for per-commit panels. |
-| `light-claude-balanced` | Mid-size Claude (Sonnet-tier) between heavy and light. Used for per-commit panels needing more depth than light-claude. |
-| `heavy-gemini-premium` | Top-of-line Gemini model with premium reasoning. Provides third-vendor (non-Claude, non-GPT) cross-family diversity; the required Gemini-family slot in panel slate floors. |
-| `light-gemini` | Lighter / faster Gemini model (flash-tier). Used for per-commit panels where turnaround and cost matter. |
-| `light-mai-code` | Code-specialized lightweight model (MAI-Code family). Optional fast code-focused perspective for per-commit / cost-sensitive panels. |
+| `heavy-claude-standard` | Heavy Claude reviewer for the default full slate and full-risk rubber-duck role. |
+| `heavy-gpt-premium` | Heavy GPT reviewer for the default full slate. |
+| `heavy-gemini-premium` | Heavy Gemini reviewer for the default full slate. |
+| `heavy-grok-premium` | Heavy Grok reviewer for the default full slate. |
+| `heavy-gpt-codex` | Heavy code-specialized GPT reviewer, optional fifth full-slate reviewer and fallback for unavailable Grok. |
+| `light-claude-balanced` | Light Claude reviewer used in triage mode. |
+| `light-gpt` | Light GPT reviewer used in triage mode. |
+| `light-gemini` | Light Gemini fallback reviewer used in triage mode. |
 <!-- registry:tiers:end -->
 
 ## Current mapping
@@ -35,23 +31,19 @@ This file is the canonical mapping from the abstract slate-slot capability tiers
 <!-- registry:mapping:begin -->
 | Tier id | Current model | effort | context_tier | consumers | Notes |
 | --- | --- | --- | --- | --- | --- |
-| `heavy-claude-xhigh` | `claude-opus-5` | max | long_context | default slate, sub-agent default | Top-of-line Opus; supersedes `claude-opus-4.8` for this tier (4.8 is retained as `heavy-claude-cross-profile`). |
-| `heavy-claude-standard` | `claude-opus-5` | high | long_context | default slate, sub-agent default | `high` is DELIBERATELY below `claude-opus-5`'s `max` ceiling; it is what keeps this tier distinct from `heavy-claude-xhigh`. Never sync it to the ceiling. |
-| `heavy-claude-cross-profile` | `claude-opus-4.8` | max | long_context | no default slate consumer | Prior Opus version line; decorrelates failure modes from `claude-opus-5`. |
-| `heavy-gpt-premium` | `gpt-5.6-sol` | max | long_context | default slate | Deepest-reasoning member of the 5.6 line. |
-| `heavy-gpt-codex` | `gpt-5.3-codex` | xhigh | default | default slate | Distinct 5.3 lineage; the within-GPT independence anchor. The only heavy tier at `default` context. No overflow has been observed and no substitution reason exists for one: an overflow surfaces as a reviewer drop per `panel-policy.md` drop handling (1 -> same family+role+tier replacement, which re-selects this same model and re-drops; 2 -> `ask_user`; >=3 -> abort), or as a pre-launch Checkpoint #1 abort. |
-| `heavy-gpt-cross-profile` | `gpt-5.6-terra` | max | long_context | default slate | Balanced 5.6 tuning; differs from `gpt-5.6-sol` in reasoning depth, not version line. |
-| `light-claude` | `claude-haiku-4.5` | not-supported | default | no default slate consumer | Exposes no effort control. |
-| `light-gpt` | `gpt-5.6-luna` | max | long_context | lite slate | Fast / low-cost member of the 5.6 line. |
-| `light-claude-balanced` | `claude-sonnet-5` | max | long_context | lite slate, sub-agent default | - |
-| `heavy-gemini-premium` | `gemini-3.1-pro-preview` | high | long_context | default slate | Third-vendor family; required slate-floor slot. `high` is this model's ceiling. |
-| `light-gemini` | `gemini-3.6-flash` | high | long_context | lite slate | `high` is this model's ceiling. |
-| `light-mai-code` | `mai-code-1-flash-picker` | high | default | no default slate consumer | Code-specialized light tier. |
+| `heavy-claude-standard` | `claude-opus-5.5` | xhigh | long_context | default slate | Full-slate rubber-duck reviewer. |
+| `heavy-gpt-premium` | `gpt-6.1-sol` | xhigh | long_context | default slate | Full-slate GPT code reviewer. |
+| `heavy-gemini-premium` | `gemini-4-argon` | high | long_context | default slate | Full-slate Gemini code reviewer. |
+| `heavy-grok-premium` | `grok-4.7` | xhigh | long_context | default slate | Full-slate Grok code reviewer. |
+| `heavy-gpt-codex` | `gpt-5.3-codex` | xhigh | default | default slate | Optional fifth full-slate reviewer; fallback for unavailable Grok. |
+| `light-claude-balanced` | `claude-sonnet-5.5` | high | long_context | triage | Default triage Claude reviewer. |
+| `light-gpt` | `gpt-6-luna` | high | long_context | triage | Default triage GPT reviewer. |
+| `light-gemini` | `gemini-3.8-flash` | high | long_context | triage | Triage fallback when a default family is unavailable. |
 <!-- registry:mapping:end -->
 
-## Within-family diversity note
+## Cross-family diversity note
 
-`heavy-gpt-premium` and `heavy-gpt-cross-profile` are both drawn from the `gpt-5.6` line, so they share a training lineage and can fail in correlated ways. Within-GPT independence rests on `heavy-gpt-codex`'s distinct 5.3 lineage plus the tuning spread between the two 5.6 profiles; cross-family independence (Claude + Gemini) carries the remainder of the slate floor. `heavy-claude-xhigh` and `heavy-claude-standard` resolve to the same model at different reasoning efforts (`max` vs `high`) in different roles - a real but weaker differentiator than distinct models. A six-slot panel is therefore not six model-independent observations.
+The full slate uses four model families: Claude, GPT, Gemini and Grok. The optional fifth slot adds a distinct GPT model. If Grok is unavailable, `heavy-gpt-codex` is the only sanctioned substitute. The triage slate uses two light reviewers from distinct families; `light-gemini` is the fallback when a default family is unavailable.
 
 ## Runtime fallback rule
 
@@ -61,4 +53,4 @@ When this file is present but a specific tier id has no mapping (a tier referenc
 
 ## Substitution rule when a specific model is unavailable
 
-When a model named in the table is unavailable (API down, deprecated, removed from runtime catalog) but the tier is still mapped: substitute the highest-capability successor from the same family + comparable capability tier. Record the substitution with `reason: model-unavailable` and the substitute's name.
+Substitutions follow the checker-enforced rule in `panel-policy.md` §Checker-enforced ledger rows: one `slate-substitution` row per changed slot with `reason:` `model-retired`, `model-superseded`, `tier-added`, or `family-unavailable` (Grok -> `heavy-gpt-codex` only), one acknowledged `registry-rotation` row, same-vendor rotation, and every heavy model on `data/heavy-allowlist.txt`. There is no free-form `model-unavailable` successor substitution.

@@ -1,5 +1,5 @@
 # Playbook: Post-PR-review phase
-<!-- read-receipt-token: 6b2e08d4 -->
+<!-- read-receipt-token: 358069ae -->
 
 ## Purpose
 
@@ -73,7 +73,7 @@ This block MUST be emitted in the same turn as the proposed fix, BEFORE the `ask
 
 ### 3. Run the multi-model reviewer panel in parallel - same parallel rule as `post-code-change.md`
 
-Same default panel as `post-code-change.md` §3 (profile-aware: full = the 6-reviewer heavy slate `heavy-claude-xhigh` + `heavy-gpt-premium` + `heavy-gpt-codex` + `heavy-gpt-cross-profile` + `heavy-gemini-premium` + rubber-duck at `heavy-claude-standard`; lite = 3 cross-family light-tier; tier -> model via `current-model-registry.md`), same parallel-launch rule, same anti-anchoring rules.
+Same default panel as `post-code-change.md` §3 (full = 4 distinct heavy reviewers (`heavy-claude-standard`, `heavy-gpt-premium`, `heavy-gemini-premium`, `heavy-grok-premium`); optional fifth `heavy-gpt-codex`; triage = exactly 2 distinct-family light code-reviewers; tier -> model via `current-model-registry.md`), same parallel-launch rule, same anti-anchoring rules.
 
 For PR-review work specifically, instruct the panel to:
 
@@ -81,7 +81,7 @@ For PR-review work specifically, instruct the panel to:
 - Check whether the bot findings being applied actually resolve the cited issue and don't introduce a regression.
 - Flag any new findings of their own that the bot missed.
 
-**Panel scope = the whole branch, re-attested on every review-response push.** The panel reviews the FULL whole-branch diff `panelBaseSha..HEAD` (per `pre-pr-creation-review.md` Step 2 default-full policy), NOT just the review-response fix diff. On every review-response push - the PR already exists, so this is NOT a "pre-PR" op - re-run the `pre-pr-creation-review.md` whole-branch panel (Steps 2-3) AND re-emit its Step 7 `QUALITY GATE` block with the `panel_coverage` field, so whole-branch coverage is provably re-attested for THIS push. Required surface = those two review-coverage steps ONLY; do NOT re-run the PR-creation-only tool step (G6 / Step 10 `gh pr create`), which fires once at creation. The §6 `PR review audit` block below is findings-only (no base..head / coverage scope) and does NOT satisfy that whole-branch panel-coverage requirement. Carry-forward of prior dispositions is allowed only as the explicit user-authorized exception recorded in `panel_coverage` (default is a full re-read).
+**Panel scope = the whole branch, re-attested on every review-response push.** The panel reviews the FULL whole-branch diff `panelBaseSha..panelHeadSha` (per `pre-pr-creation-review.md` Step 2 default-full policy), NOT just the review-response fix diff. On every review-response push - the PR already exists, so this is NOT a "pre-PR" op - re-run the `pre-pr-creation-review.md` whole-branch panel (Steps 2-3) AND re-emit its Step 7 `QUALITY GATE` block with the `panel_coverage` field, so whole-branch coverage is provably re-attested for THIS push. Required surface = those two review-coverage steps ONLY; do NOT re-run the PR-creation-only tool step (G6 / Step 10 `gh pr create`), which fires once at creation. The §6 `PR review audit` block below is findings-only (no base..head / coverage scope) and does NOT satisfy that whole-branch panel-coverage requirement. Carry-forward of prior dispositions is allowed only as the explicit user-authorized exception recorded in `panel_coverage` (default is a full re-read).
 
 ### 4. Propose an instructions-file delta after each fix
 

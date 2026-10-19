@@ -35,25 +35,15 @@ CopilotInstructions/.github/pr-quality-gate/
     README.md                (~30 lines - schema + locking semantics)
 ```
 
-## Modes (3 - replaces "caveman with cap")
+## Modes
 
-| Mode | Reviewers | Output cap | rg battery | `§1A` slate carve-out | Use |
-|---|---|---|---|---|---|
-| `full` (default) | 4-6 (Claude + GPT + Gemini family; rubber-duck + code-review; ≥1 heavy-tier) | none | yes | none - full slate-floor applies | normal PRs |
-| `triage` | 1 code-review role, any model | none | yes | `slate-mode: triage; slate-size=1; role=code-review` | mid-cost PRs where full panel is overkill |
-| `lint-only` | 0 (no panel invocation) | n/a | yes | `slate-mode: lint-only; no panel invoked → slate-composition NOT applicable` | token-constrained users; PRs touching trivial scope |
+| Mode | Reviewers | rg battery | Receipt | Use |
+|---|---|---|---|---|
+| `full` (default) | Four distinct heavy reviewers; optional fifth heavy reviewer | yes | none | normal PRs |
+| `triage` | Exactly two light code-reviewers from distinct families | yes | same-turn user acknowledgment | user-approved reduced review scope outside the instruction repo |
+| `lint-only` | No panel invocation | yes | same-turn user acknowledgment | mechanical checks only; never for the instruction repo |
 
-**Mode activation** (CLI flag is the ONLY robust mechanism per panel feedback):
-- `invoke-panel.ps1 -Mode full|triage|lint-only` (default: `full`)
-- Env vars and `plan.md` flags are NOT honored - too persistent, bypass-prone
-- For `triage` AND `lint-only`: SAME-TURN `ask_user` receipt required. Prompt MUST name the mode + diff scope. User response MUST contain literal acknowledgment token:
-  - `triage`: response must contain `triage-acknowledged`
-  - `lint-only`: response must contain `lint-only-acknowledged`
-  - Prior-turn `ask_user` calls do NOT satisfy this - per-PR receipt must be fresh
-- For `lint-only`, the orchestrator skips `invoke-panel.ps1` entirely and emits QUALITY GATE block with `slate: lint-only - no panel`
-- Caveman-with-cap design **explicitly rejected** - 200-word cap suppresses findings, creating self-bypass surface
-
-`triage` and `lint-only` are user-opted-in exceptions (`caveman_decision=both`). `full` preserves the hard requirement; other modes require fresh per-PR `ask_user` receipts.
+**Mode activation**: `invoke-panel.ps1 -Mode full|triage` defaults to `full`. A same-turn user acknowledgment is required for `triage`; the acknowledgment names the mode and diff scope. `lint-only` runs mechanical checks without invoking a panel and is unavailable for instruction-set changes. Prior-turn acknowledgments do not carry forward. Full mode has no output cap and no convergence-round cap.
 
 ## QUALITY GATE block
 
@@ -235,15 +225,11 @@ Auto-retry is bounded to ONE attempt to prevent infinite re-run loops on a runaw
 
 Single file; orchestrator reads it before invoking `invoke-panel.ps1`. Contents (one-sentence summary per section; full prose in the actual file):
 
-1. **Slate composition floor** by mode:
-   - `full`: ≥4 reviewers; ≥1 Claude family + ≥2 GPT family + ≥1 Gemini family; ≥1 rubber-duck + ≥2 code-review; ≥1 heavy-tier
-   - `triage`: 1 code-review reviewer, any model; `convergence_model: single-reviewer` (not `unanimous`); fresh `ask_user` mode-receipt required per PR
-   - `lint-only`: no panel; `ask_user` mode-receipt required per PR
-2. **Convergence model**: default `unanimous` for `full`. Waive floor: `threshold ≥75%` or `confidence-weighted ≥80%`. `triage` MUST use `single-reviewer`.
-3. **Drop handling** (`full` mode only; `triage` and `lint-only` have no drops): 0 drops → proceed; 1 drop → launch replacement (same family, highest-capability successor); 2 drops → `ask_user`; ≥3 → hard escalate.
-4. **Fix-iteration cap**: default 3 cycles. `cap-with-regressions` vs `cap-with-new-clean-categories` classification on cap-exceeded; user authorizes override or routes via G4 `routed-deferred-with-tracker-and-ask_user`.
-5. **Reviewer same-state re-checks**: each reviewer's prompt MUST re-fetch `git rev-parse HEAD` at start and abort if drifted from launch SHA.
-6. **Review-pass-only pattern forwarding**: `invoke-panel.ps1` reads catalog entries with `scope_mode: review-pass-only` and appends each entry's `review_pass_only_prompt` to the reviewer system prompt. Without this, doc-impl-mismatch (26/229 hits historically) is undetectable by rg alone.
+1. **Slate composition floor**: `full` requires at least four distinct heavy models, covering Claude, GPT, Gemini, and one additional GPT or Grok; at least one rubber-duck and two code-review roles. `triage` requires exactly two distinct-family light code reviewers and a same-turn receipt. `lint-only` runs no panel and requires a same-turn receipt.
+2. **Convergence model**: hard-gate panels converge unanimously. Triage also requires both reviewers to agree.
+3. **Drop handling**: replace dropped reviewers at the required tier while preserving the floor; unresolved drops stop the panel. Re-review continues until convergence; no round cap.
+4. **Reviewer same-state checks**: each reviewer reads the target artifact and verifies its artifact id at start and end; any drift invalidates the verdict.
+5. **Review-pass-only pattern forwarding**: `invoke-panel.ps1` reads catalog entries with `scope_mode: review-pass-only` and appends each entry's `review_pass_only_prompt` to the reviewer system prompt. Without this, doc-impl-mismatch is undetectable by rg alone.
 
 ## coding-preferences.md (declarative metadata - NOT arbitrary shell)
 

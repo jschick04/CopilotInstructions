@@ -1,6 +1,6 @@
 # Workflow conventions
 
-<!-- read-receipt-token: e6fabcfc -->
+<!-- read-receipt-token: 9f4dfc52 -->
 
 ## Ask-first principle for all playbooks
 
@@ -59,7 +59,7 @@ The user may explicitly skip any playbook step or entire phase. When they do:
    - Skipping pre-PR-push branch-wide sweep for any push intended for review (PR-opening, request-for-review, push to a shared branch others may pull from).
    - Skipping verification-of-fix when the change is justified by a perf metric, bug repro, or security claim.
    - Skipping the pre-implementation multi-model panel on changes touching any safety-critical class (below).
-   **Safety-critical classes (canonical list; includes but is not limited to):** concurrency; security; cryptography; native interop; payment or financial logic; authentication; authorization; shared global state; data integrity / schema / data migration; destructive or irreversible operations (deletion, bulk update, purge); permissions / access control / ACLs; secrets / credentials; privacy / PII; release / deployment / CI infrastructure; governance / instruction-set artifacts. This is the single canonical safety-critical definition referenced across the instruction set (e.g. AGENTS.md §1, the lite-profile trivial fast-path); extend it HERE, not in copies.
+   **Safety-critical classes (canonical list; includes but is not limited to):** concurrency; security; cryptography; native interop; payment or financial logic; authentication; authorization; shared global state; data integrity / schema / data migration; destructive or irreversible operations (deletion, bulk update, purge); permissions / access control / ACLs; secrets / credentials; privacy / PII; release / deployment / CI infrastructure; governance / instruction-set artifacts. This is the single canonical safety-critical definition referenced across the instruction set (e.g. AGENTS.md §1, the triage fast-path); extend it HERE, not in copies.
    When in doubt about whether a class of work is safety-critical, default to "yes - re-confirm" (fail closed: if classification is uncertain, treat the change as safety-critical).
 
 ## In-session self-audit - forget-class reminder (NOT a gate)

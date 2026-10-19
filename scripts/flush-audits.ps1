@@ -3,13 +3,10 @@
 # clear them. Called by the post-commit hook (after each commit) and directly by the
 # agent after a rebase/squash (where post-commit does NOT fire for the rewritten tips).
 #
-# Identity-gated (spec R5): writes NOTHING unless the repo IS this instruction set's own
-# repo, so the loaded instructions never modify a consuming project's .git.
-#
-# Freshness: each note is stamped with the commit's tree (audited_tree). Because that
-# binds the WHOLE tree, ANY amend/rebase makes carried notes stale -> re-author the
-# receipts and re-run this script. The three refs (panel + comment + reads) are independent
-# so a single-receipt re-flush never destroys the other refs' notes (spec R1).
+# Freshness: each note is stamped with the full tree, so amend/rebase makes carried notes stale.
+# Rebind the rewritten commit with Get-ReviewedArtifactId.ps1 -Commit <new sha>; before git commit --amend,
+# use -Staged -ParentSha <HEAD^ full SHA|none>. Old verdicts never carry forward. The panel, comment, and reads refs
+# are independent, so re-flushing one receipt preserves the others.
 [CmdletBinding()]
 param(
     [string] $RepoRoot = '',
@@ -31,9 +28,8 @@ if ($RepoRoot) {
 
 function Write-Info { param([string] $Message) if (-not $Quiet) { Write-Host $Message } }
 
-# Identity gate: on any repo that is not this instruction set's own, do ABSOLUTELY nothing.
-if (-not (Test-IsInstructionsRepo -RepoRoot $RepoRoot)) {
-    Write-Info "flush-audits: repo is not this instruction set's own (identity gate); no notes written."
+if (-not (Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $CommitSha)) {
+    Write-Info "flush-audits: instruction-set git-object activation absent; no notes written."
     exit 0
 }
 

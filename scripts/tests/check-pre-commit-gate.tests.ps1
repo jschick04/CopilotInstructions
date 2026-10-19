@@ -51,7 +51,21 @@ Assert-True  (Test-Valid (New-Block))                                    'a comp
 Assert-True  (Test-Valid (New-Block -Slugs @() -RuleCoverage 'false') 0) 'tier 0 relaxes the slug + rule_coverage sub-checks'
 Assert-True  (Test-Valid (New-Block -Parent 'NONE') 2 $GitEmptyTreeSha)  'root commit: parent_sha NONE matches empty-tree sentinel'
 
+foreach ($profileName in @('full-default','lite')) {
+    $legacyBlock = @(New-Block | ForEach-Object { $_ -replace '\|profile=full\|', "|profile=$profileName|" })
+    Assert-True ((Test-PreCommitGateBlock -BlockLines $legacyBlock -ExpectedParentSha $ValidParent -GovernanceTier 2).Valid) 'legacy profile remains accepted before adoption'
+    Assert-False ((Test-PreCommitGateBlock -BlockLines $legacyBlock -ExpectedParentSha $ValidParent -GovernanceTier 2 -PostAdoption $true).Valid) 'obsolete profile rejected after adoption'
+}
+foreach ($nonFull in @('lite','triage')) {
+    $nonFullBlock = @(New-Block | ForEach-Object { $_ -replace '\|profile=full\|', "|profile=$nonFull|" })
+    Assert-False ((Test-PreCommitGateBlock -BlockLines $nonFullBlock -ExpectedParentSha $ValidParent -GovernanceTier 2 -RequiresFull $true).Valid) "profile $nonFull rejected whenever full panel is required, even before adoption"
+}
+Assert-True ((Test-PreCommitGateBlock -BlockLines (New-Block) -ExpectedParentSha $ValidParent -GovernanceTier 2 -RequiresFull $true).Valid) 'profile full accepted when full panel is required before adoption'
 Write-Host "`n=== parent_sha freshness ===" -ForegroundColor Cyan
+$sha256Parent = 'ab' * 32
+Assert-True (Test-Valid (New-Block -Parent $sha256Parent) 2 $sha256Parent) '64-hex parent_sha accepted'
+Assert-False (Test-Valid (New-Block -Parent $sha256Parent) 2 ('cd' * 32)) 'stale 64-hex parent_sha rejected'
+Assert-False (Test-Valid (New-Block -Parent ('ab' * 26)) 2 ('ab' * 26)) '52-hex parent_sha rejected'
 Assert-False (Test-Valid (New-Block) 2 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa') 'stale parent_sha -> invalid'
 Assert-False (Test-Valid (New-Block -Parent 'NONE') 2 $ValidParent)      'root placeholder but a real parent expected -> invalid'
 Assert-False ((Test-PreCommitGateBlock -BlockLines (New-Block | Where-Object { $_ -notmatch '^parent_sha:' }) -ExpectedParentSha $ValidParent -GovernanceTier 2).Valid) 'missing parent_sha header -> invalid'
@@ -129,6 +143,7 @@ Assert-False (Test-Valid (New-Block -Staged @('  - <path>')))            'placeh
 function New-CheckerRepo {
     # A repo that CONTAINS the checker anchor so Resolve-RepoRoot resolves + staged diffs can be built.
     $dir = New-TestGitRepository -Prefix 'pcg'
+    Initialize-InstructionFixtureRepository -Directory $dir
     New-Item -ItemType Directory -Path (Join-Path $dir 'scripts') -Force | Out-Null
     Copy-Item $checkerPath (Join-Path $dir 'scripts/check-pre-commit-gate.ps1')
     Set-Content -LiteralPath (Join-Path $dir 'seed.txt') -Value 'seed'
@@ -157,6 +172,9 @@ Assert-True ($rc.ExitCode -eq 0) 'staged code, valid receipt -> exit 0'
 Write-Receipt -Dir $repo -Block (New-Block -Parent 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' -Staged @('  - code.cs'))
 $rc = Invoke-Checker -Dir $repo -CheckerArgs @('-StagedMode', '-WorktreeReceipt')
 Assert-True ($rc.ExitCode -eq 1) 'staged code, stale receipt (wrong parent) -> exit 1'
+Write-Receipt -Dir $repo -Block (New-Block -Parent $head -Staged @('  - code.cs'))
+$rc = Invoke-Checker -Dir $repo -CheckerArgs @('-StagedMode')
+Assert-True ($rc.ExitCode -eq 2 -and $rc.Output -match 'staged mode requires -WorktreeReceipt') 'staged mode without -WorktreeReceipt -> exit 2 even with a valid receipt (index receipts never read)'
 
 Write-Host "`n=== amend path: PANEL_GATE_AMEND (PR#89 Copilot) ===" -ForegroundColor Cyan
 Remove-Item Env:\PANEL_GATE_AMEND -ErrorAction SilentlyContinue
@@ -208,4 +226,58 @@ $rc = Invoke-Checker -Dir $hRepo -CheckerArgs @('-BaseRef', $base)
 Assert-True ($rc.ExitCode -eq 1) 'history mode: a commit missing the in-tree receipt -> exit 1'
 
 Remove-TestTempDirectories
+
+try {
+    $hookRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    $hookRepo = New-TestGitRepository -Prefix 'enforcement-hook'
+    foreach ($folder in @('.githooks','scripts/lib','.github/instructions')) { New-Item -ItemType Directory -Path (Join-Path $hookRepo $folder) -Force | Out-Null }
+    Copy-Item -LiteralPath (Join-Path $hookRoot '.githooks/pre-commit') -Destination (Join-Path $hookRepo '.githooks/pre-commit')
+    if ($env:OS -ne 'Windows_NT') { & chmod +x (Join-Path $hookRepo '.githooks/pre-commit') }
+    Copy-Item -LiteralPath (Join-Path $hookRoot 'scripts/check-instructions-refs.ps1') -Destination (Join-Path $hookRepo 'scripts/check-instructions-refs.ps1')
+    Copy-Item -LiteralPath (Join-Path $hookRoot 'scripts/lib/repo-root.psm1') -Destination (Join-Path $hookRepo 'scripts/lib/repo-root.psm1')
+    Set-Content -LiteralPath (Join-Path $hookRepo 'scripts/check-post-code-change.ps1') -Value 'exit 0'
+    [void](New-TestCommit -Directory $hookRepo -File '.github/instructions/valid.instructions.md' -Content 'fixture' -Message 'hook fixture')
+    Set-Content -LiteralPath (Join-Path $hookRepo '.github/instructions/active-profile.instructions.md') -Value 'stale profile'
+    $hookOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+    Assert-True ($LASTEXITCODE -ne 0 -and ($hookOutput -join ' ') -match 'active-profile.instructions.md') 'precommit hook runs instruction refs checker and rejects stale local profile'
+    Remove-Item -LiteralPath (Join-Path $hookRepo '.github/instructions/active-profile.instructions.md')
+    Remove-Item -LiteralPath (Join-Path $hookRepo 'scripts/check-instructions-refs.ps1')
+    & git -C $hookRepo add scripts/check-instructions-refs.ps1 2>$null
+    $missingCheckerOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+    Assert-True ($LASTEXITCODE -ne 0 -and ($missingCheckerOutput -join ' ') -match 'cannot run required scripts/check-instructions-refs.ps1') 'hook fails closed when committed instruction refs checker is missing from worktree'
+    Copy-Item -LiteralPath (Join-Path $hookRoot 'scripts/check-instructions-refs.ps1') -Destination (Join-Path $hookRepo 'scripts/check-instructions-refs.ps1')
+    & git -C $hookRepo add scripts/check-instructions-refs.ps1 2>$null
+    Set-Content -LiteralPath (Join-Path $hookRepo 'scripts/check-post-code-change.ps1') -Value 'exit 1'
+    $divergentOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+    Assert-True ($LASTEXITCODE -ne 0 -and ($divergentOutput -join ' ') -match 'unstaged hook or checker edits.*scripts/check-post-code-change\.ps1') 'hook rejects unstaged hook-invoked checker before executing it'
+    Set-Content -LiteralPath (Join-Path $hookRepo 'scripts/check-post-code-change.ps1') -Value 'exit 0'
+    foreach ($guardedScript in @('scripts/Get-ReviewedArtifactId.ps1','scripts/sync-critical-rules.sh')) {
+        Set-Content -LiteralPath (Join-Path $hookRepo $guardedScript) -Value 'original'
+        & git -C $hookRepo add $guardedScript 2>$null
+        & git -C $hookRepo -c core.hooksPath= commit -q --no-verify -m "seed $guardedScript" 2>$null
+        Set-Content -LiteralPath (Join-Path $hookRepo $guardedScript) -Value 'unstaged edit'
+        $scriptOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+        Assert-True ($LASTEXITCODE -ne 0 -and ($scriptOutput -join ' ') -match "unstaged hook or checker edits.*$([regex]::Escape($guardedScript))") "hook rejects unstaged $guardedScript"
+        Set-Content -LiteralPath (Join-Path $hookRepo $guardedScript) -Value 'original'
+    }
+    Add-Content -LiteralPath (Join-Path $hookRepo 'scripts/lib/repo-root.psm1') -Value "`nWrite-Output 'changed'"
+    $libraryOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+    Assert-True ($LASTEXITCODE -ne 0 -and ($libraryOutput -join ' ') -match 'unstaged hook or checker edits.*scripts/lib/repo-root\.psm1') 'hook rejects unstaged enforcement library'
+    Add-Content -LiteralPath (Join-Path $hookRepo '.githooks/pre-commit') -Value "`nprintf 'changed hook'"
+    $hookChangedOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+    Assert-True ($LASTEXITCODE -ne 0 -and ($hookChangedOutput -join ' ') -match 'unstaged hook or checker edits.*\.githooks/pre-commit') 'hook rejects its own unstaged changes'
+    & git -C $hookRepo checkout -q -- .githooks/pre-commit scripts/lib/repo-root.psm1
+    & git -C $hookRepo add -A 2>$null
+    & git -C $hookRepo -c core.hooksPath= commit -q --no-verify -m 'settle hook fixture' 2>$null
+    foreach ($flag in '--skip-worktree', '--assume-unchanged') {
+        & git -C $hookRepo update-index $flag -- scripts/check-post-code-change.ps1
+        Set-Content -LiteralPath (Join-Path $hookRepo 'scripts/check-post-code-change.ps1') -Value 'exit 0 # hidden edit'
+        Assert-True ([string]::IsNullOrWhiteSpace((git -C $hookRepo status --porcelain -- scripts/check-post-code-change.ps1 | Out-String))) "fixture: $flag hides the checker edit from git status"
+        $hiddenOutput = @(& git -C $hookRepo -c core.hooksPath=.githooks commit --allow-empty -m probe 2>&1)
+        Assert-True ($LASTEXITCODE -ne 0 -and ($hiddenOutput -join ' ') -match 'unstaged hook or checker edits.*scripts/check-post-code-change\.ps1') "hook rejects a $flag-hidden checker edit"
+        & git -C $hookRepo update-index ($flag -replace '^--', '--no-') -- scripts/check-post-code-change.ps1
+        & git -C $hookRepo checkout -q -- scripts/check-post-code-change.ps1
+    }
+} finally { Remove-TestTempDirectories }
+
 Complete-TestRun

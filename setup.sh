@@ -9,19 +9,25 @@
 
 set -eu
 
-PROFILE=""
+GIT_VERSION="$(git --version 2>/dev/null | sed -E 's/^git version ([0-9]+\.[0-9]+)(\.[0-9]+)?.*/\1\2/')"
+if ! [[ "$GIT_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+    echo "ERROR: Git 2.31 or newer is required; could not parse git --version." >&2
+    exit 1
+fi
+GIT_MAJOR="${GIT_VERSION%%.*}"
+GIT_MINOR="${GIT_VERSION#*.}"
+GIT_MINOR="${GIT_MINOR%%.*}"
+if [ "$GIT_MAJOR" -lt 2 ] || { [ "$GIT_MAJOR" -eq 2 ] && [ "$GIT_MINOR" -lt 31 ]; }; then
+    echo "ERROR: Git 2.31 or newer is required; found $GIT_VERSION." >&2
+    exit 1
+fi
+
 while [ $# -gt 0 ]; do
     case "$1" in
-        --profile=*) PROFILE="${1#*=}" ;;
-        --profile) if [ $# -ge 2 ]; then PROFILE="$2"; shift; fi ;;
-        *) echo "ERROR: unknown argument '$1'. Usage: ./setup.sh --profile <full|lite>" >&2; exit 2 ;;
+        --profile|--profile=*) echo "ERROR: profiles removed; re-run without --profile." >&2; exit 2 ;;
+        *) echo "ERROR: unknown argument '$1'. Usage: ./setup.sh" >&2; exit 2 ;;
     esac
-    shift
 done
-if [ "$PROFILE" != "full" ] && [ "$PROFILE" != "lite" ]; then
-    echo "ERROR: required argument --profile <full|lite> was not supplied (got '$PROFILE'). Re-run, e.g.: ./setup.sh --profile full" >&2
-    exit 2
-fi
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 ENV_VAR_NAME="COPILOT_CUSTOM_INSTRUCTIONS_DIRS"
@@ -38,6 +44,10 @@ fi
 if [ ! -d "$REPO_ROOT/.github/instructions" ]; then
     echo "ERROR: .github/instructions/ directory not found. Repo layout looks wrong." >&2
     exit 1
+fi
+if [ -e "$REPO_ROOT/.github/instructions/active-profile.instructions.md" ]; then
+    rm -f "$REPO_ROOT/.github/instructions/active-profile.instructions.md"
+    echo "Profiles were consolidated. Removed the stale active-profile file."
 fi
 
 TOPIC_COUNT="$(find "$REPO_ROOT/.github/instructions" -name '*.instructions.md' -type f | wc -l | tr -d ' ')"
@@ -74,29 +84,6 @@ if [ -n "$PROFILE_FILE" ]; then
 fi
 echo ""
 
-# --- Configure active profile (full | lite) --------------------------------
-echo "=== Configuring active profile: $PROFILE ==="
-
-PROFILE_TEMPLATE="$REPO_ROOT/profiles/$PROFILE/profile.template.md"
-ACTIVE_PROFILE_FILE="$REPO_ROOT/.github/instructions/active-profile.instructions.md"
-
-if [ ! -f "$PROFILE_TEMPLATE" ]; then
-    echo "ERROR: profile template not found: $PROFILE_TEMPLATE" >&2
-    exit 1
-fi
-
-sha256() { if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'; else shasum -a 256 "$1" | awk '{print $1}'; fi; }
-
-if [ -f "$ACTIVE_PROFILE_FILE" ] && [ "$(sha256 "$ACTIVE_PROFILE_FILE")" = "$(sha256 "$PROFILE_TEMPLATE")" ]; then
-    echo "Active profile already '$PROFILE' and current. No change."
-else
-    cp "$PROFILE_TEMPLATE" "$ACTIVE_PROFILE_FILE"
-    echo "Active profile set to '$PROFILE'."
-fi
-echo "  Wrote $ACTIVE_PROFILE_FILE (gitignored; per-machine; never committed)."
-echo "  After 'git pull', re-run this script to refresh the active file if the template changed."
-echo "  To revert to full-default, delete it: rm '$ACTIVE_PROFILE_FILE'"
-echo ""
 
 # --- Configure git hooks path (catalog-sync drift safeguard) ---------------
 echo "=== Configuring git hooks path ==="

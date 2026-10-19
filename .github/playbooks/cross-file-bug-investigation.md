@@ -51,7 +51,7 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 **Intake-time:**
 
 1. **Lane-symptom matching** - auto-selected lanes for the user's symptom (per `lanes-catalog.md` truth table) MUST be a subset of the user's final lane selection. User can ack-override explicitly (recorded in domain-state record).
-2. **Reviewer count ≥ 3** (matches `multi-model-review.md` minimum). Default 4: `heavy-claude-xhigh` + `heavy-gpt-premium` + `heavy-gpt-codex` + `heavy-gemini-premium` (tier → model via `current-model-registry.md`).
+2. **Reviewer count ≥ 4** (the `multi-model-review.md` full floor; triage exactly 2). Default full slate: `heavy-claude-standard` + `heavy-gpt-premium` + `heavy-gemini-premium` + `heavy-grok-premium`; optional fifth `heavy-gpt-codex` (tier → model via `current-model-registry.md`).
 3. **Scope-size ceiling** - scope ≥ 500 files requires explicit user override recorded as safety-critical-skip-equivalent per AGENTS *User-skip policy*.
 4. **Single-file gate** - 1-file scope surfaces `ask_user` with options: expand-scope / route-to-code-review / override-and-proceed (recorded).
 5. **Recent-changes gate** - pre-flight runs `git status --porcelain` AND `git diff --name-only <merge-base>...HEAD`. When matches exist, `ask_user` (route to `post-code-change` / continue investigation). **Default to continue** when scope is named in cross-file form (Bundle-A Q1 lists ≥2 files OR contains an interaction/flow noun like `between` / `flow` / `interaction`) - computable from intake without trigger-phrase memory.
@@ -68,12 +68,12 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 **Synthesis-time:**
 
 9. **Citation verification with ≤1 rework cap** - orchestrator `view`s each cited `file:line` and confirms the claim is supported BEFORE rendering the report. Outcomes per finding: `verified` / `verification-failed-dropped` / `verification-invalid-dropped` (citation file:line doesn't exist) / `verification-ambiguous-rework-1` (re-prompt originating reviewer once via `write_agent`) / `verification-twice-ambiguous-dropped` (after 1 rework, still ambiguous).
-10. **Convergence applies to BLOCKING findings only** - reviewer's `VERDICT:` emission rule (specified in `multi-model-review/procedure.md`'s `bug-investigation` prompt template): emit `VERDICT: DESIGN_READY` when no BLOCKING-severity findings remain; emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration. Non-blocking findings recorded as advisory; do NOT drive verdict. Model A's evaluation rule (unanimous DESIGN_READY + 0 unaddressed blocking) is unchanged.
+10. **Convergence applies to BLOCKING findings only** - reviewer's `VERDICT:` emission rule (specified in `multi-model-review/procedure.md`'s `bug-investigation` prompt template): emit `VERDICT: DESIGN_READY` when no BLOCKING-severity findings remain; emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING finding requires another iteration. Non-blocking findings recorded as advisory; do NOT drive verdict. The unanimous convergence rule (all DESIGN_READY + 0 unaddressed blocking) is unchanged.
 
 **Post-report:**
 
 11. **Fix-transition must be asked** - agent NEVER silently enters `pre-implementation.md` after report. C2 routing (step 11A) ALWAYS happens; fix-transition picker (step 11B) only when intake Q8 ≠ `none`.
-12. **Mandatory persistence on fix-transition** - file is PRIMARY (`<session-state>/files/bug-investigation-<ts>.md` per persistence schema below); SQL session-todo OPTIONAL audit pointer. File write failure → re-ack → hard-stop per AGENTS recording chain. Other (non-fix-transition) use cases keep canonical SQL → file → re-ack → hard-stop chain.
+12. **Mandatory persistence on fix-transition** - file is PRIMARY (`<session-state>/files/bug-investigation-<ts>.md` per persistence schema below); SQL session-todo OPTIONAL audit pointer. File write failure → re-ack → hard-stop per the `workflow-conventions.md` *User-skip policy* recording chain. Other (non-fix-transition) use cases keep canonical SQL → file → re-ack → hard-stop chain.
 13. **G3 / G5 / G6 inheritance on fix-transition** - resulting pre-impl cycle runs FULL phase. Investigation report does NOT bypass any pre-impl gate.
 
 ## Intake - 3 bundles (Bundle B split per dependency rules)
@@ -95,12 +95,12 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 ### Bundle B2 (asked third - Q3 pre-filled with symptom-based defaults from B1)
 
 - **Q3: Lanes** - multi-select from 9 lanes (per `lanes-catalog.md`); pre-filled with auto-defaults for the symptom; user can override.
-- **Q4: Reviewer count** - default 4. Minimum 3.
-- **Q5: Convergence model** - default `unanimous` (Model A). See `multi-model-review/convergence-models.md`.
-- **Q6: Max-loop count** - default 3 (lower than `multi-model-review.md`'s 5; investigation panels usually converge fast).
+- **Q4: Reviewer count** - default 4. Minimum 4 (full floor).
+- **Q5: Convergence model** - fixed `unanimous`, no round cap. See `multi-model-review/convergence-models.md`.
+- **Q6: Convergence handling** - continue review rounds until the panel converges; escalate unresolved availability or safety blockers.
 - **Q7: Output destination** - `chat-only` / `chat + session-state file` / `chat + GitHub issue` (default `chat-only`). Q7 governs durability when Q8 = `none` (since fix-transition handoff is skipped).
 - **Q8: Fix-transition mode** - `offer-per-finding` (default) / `offer-all-at-once` / `none`. `none` is a per-investigation user opt-out from fix-transition entry; the locked system-capability `offer_pre_impl` (cycle-4 scope) is unchanged - the system always SUPPORTS fix-transition; this Q controls whether THIS investigation USES it.
-- **Q9: Session suppression** - `session-only` (default; decline-then-no-retry per AGENTS) / `until-explicit-invoke` (suppress auto-offer for this session; user must explicitly name the playbook) / `always-offer` (auto-offer every session). Recorded on the domain-state record.
+- **Q9: Session suppression** - `session-only` (default; decline-then-no-retry per `workflow-conventions.md`) / `until-explicit-invoke` (suppress auto-offer for this session; user must explicitly name the playbook) / `always-offer` (auto-offer every session). Recorded on the domain-state record.
 
 ## Procedure
 
@@ -108,7 +108,7 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
 2. **Pre-flight** (natural scope resolution → combined recent-changes + single-file gate → scope-size guard).
 3. **Bundle B1 intake** (Q2 symptom).
 4. **Bundle B2 intake** (Q3-Q9; Q3 pre-filled from B1's symptom).
-5. **Domain-state record** - write `domain-state-cross-file-bug-investigation-<ts>` to the canonical session-todos location (SQL preferred per AGENTS chain; `<session-state>` file fallback). Fields: `phase: cross-file-bug-investigation`, `time_entered`, `playbook_viewed`, `intake_status`, `user_approved_skips`, `scope_files`, `symptom`, `selected_lanes`, `reviewer_count`, `convergence_model`, `max_loops`, `output_destination`, `fix_transition_mode`, `suppression_mode`. Allowed inside hard gate 7's read-only window per its session-state carve-out.
+5. **Domain-state record** - write `domain-state-cross-file-bug-investigation-<ts>` to the canonical session-todos location (SQL preferred per the `workflow-conventions.md` recording chain; `<session-state>` file fallback). Fields: `phase: cross-file-bug-investigation`, `time_entered`, `playbook_viewed`, `intake_status`, `user_approved_skips`, `scope_files`, `symptom`, `selected_lanes`, `reviewer_count`, `convergence_model`, `artifact id`, `output_destination`, `fix_transition_mode`, `suppression_mode`. Allowed inside hard gate 7's read-only window per its session-state carve-out.
 6. **Panel launch** - invoke `multi-model-review.md` (utility-call) with `target-type=bug-investigation`; lane-specialized critique focus per slot; **round-robin lane-to-slot mapping; when `lanes_selected > reviewers`, double-up per-slot per M8 default** with per-reviewer lane-budget hint added to prompt; VERDICT-emission rule applied per hard gate 10.
 7. **Synthesis** - dedup findings by theme; rank severity (`blocking` / `major` / `minor`); assign `F-NNNN` ids.
 8. **Citation verification** (≤1 rework cap; per hard gate 9). Outcomes recorded per finding.
@@ -197,7 +197,7 @@ This playbook is for investigating BUGS in **unchanged code** the user has point
     ## F-0002: ...
     ```
 
-    SQL session-todo (optional audit pointer): `bug-investigation-handoff-<ts>` with `description` = `file=<path>; selection_mode=<mode>; finding_count=<N>; summary=<≤200 chars>`. File write failure → re-ack on each subsequent turn until evidence recorded → hard-stop per AGENTS recording chain.
+    SQL session-todo (optional audit pointer): `bug-investigation-handoff-<ts>` with `description` = `file=<path>; selection_mode=<mode>; finding_count=<N>; summary=<≤200 chars>`. File write failure → re-ack on each subsequent turn until evidence recorded → hard-stop per the `workflow-conventions.md` *User-skip policy* recording chain.
 
 15. **Pre-impl handoff** - enter `pre-implementation.md` NORMALLY with persisted file path as Q1 diagnosis source. Pre-impl's Entry points subsection documents reading the YAML frontmatter (schema_version: 1) + per-finding diagnose-loop iteration.
 
@@ -308,7 +308,7 @@ DOMAIN playbook (strong-trigger; user-invoked). Not a phase playbook.
 - **Post-code-change phase**: not directly triggered by investigation (investigation is read-only). When the fix-transition lands code edits, post-code-change runs normally including the multi-model panel hard gate.
 - **Pre-PR-creation review**: not directly triggered by investigation. When the fix-transition's PR is opened, the §2D publish gate runs normally.
 - **POST-CODE-CHANGE LEDGER**: investigation does NOT add to ledger sub-blocks (it's a domain playbook fired on user trigger; the orchestrator hard gates above are runtime-enforced, NOT panel-time review-pass checks at commit time).
-- **Decline-then-no-retry + session suppression**: per AGENTS rule, decline of the strong-trigger offer doesn't re-offer in the same thread. Q9 (`session_suppression`) extends this with `until-explicit-invoke` (suppress for whole session; user must explicitly name the playbook) and `always-offer` (re-offer every session). Documented in intake; recorded on domain-state record.
+- **Decline-then-no-retry + session suppression**: per the `workflow-conventions.md` trigger-detection rule, decline of the strong-trigger offer doesn't re-offer in the same thread. Q9 (`session_suppression`) extends this with `until-explicit-invoke` (suppress for whole session; user must explicitly name the playbook) and `always-offer` (re-offer every session). Documented in intake; recorded on domain-state record.
 
 ## Cross-references
 

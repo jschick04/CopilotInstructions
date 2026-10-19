@@ -35,7 +35,7 @@ if ($RepoRoot) {
 
 $ExitOk = 0; $ExitViolation = 1; $ExitInvocation = 2
 
-$modelTokens   = '\bgpt|\bgemini|\bclaude|\bcodex|\bduck\b|re-panel|rd-enforce'
+$modelTokens   = '\bgrok|\bgpt|\bgemini|\bclaude|\bcodex|\bduck\b|re-panel|rd-enforce'
 $findingTokens = 'gap ?#|forcing ?#|forcing re-review|R[0-9]+-[A-Z]+|PR #[0-9]+ review|bot-flagged|bot caught|\b(?-i:Slot) [A-Z0-9]|\b(?-i:Round) [0-9]+'
 $pattern = "($modelTokens|$findingTokens)"
 
@@ -48,7 +48,7 @@ if ($grepExit -gt 1) {
     exit $ExitInvocation
 }
 
-$modelNamingAllowed = '(\.github/pr-quality-gate/invoke-panel\.ps1|scripts/lib/panel-ledger-helpers\.psm1|scripts/tests/test-common\.ps1|scripts/tests/check-post-code-change\.tests\.ps1):'
+$modelNamingAllowed = '(\.github/pr-quality-gate/invoke-panel\.ps1|scripts/lib/panel-ledger-helpers\.psm1|scripts/check-model-registry\.ps1|scripts/tests/test-common\.ps1|scripts/tests/check-post-code-change\.tests\.ps1):'
 $hitList = @($hits | Where-Object { $_ } | Where-Object {
     if ($_ -match $modelNamingAllowed) { $_ -match "($findingTokens)" } else { $true }
 })

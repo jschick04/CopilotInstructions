@@ -1,6 +1,6 @@
 # Phase-state tracking convention
 
-<!-- read-receipt-token: 5f9271a7 -->
+<!-- read-receipt-token: 4256035b -->
 
 At each phase entry, record in **session todos** (canonical mechanism - same as User-skip policy in `workflow-conventions.md`) using a parallel schema so a resumed session can read the evidence back unambiguously:
 
@@ -41,7 +41,7 @@ hard_gates_satisfied: yes'
 WHERE id = 'phase-state-pre-implementation-20240115093045';
 ```
 
-When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<yyyymmddHHMMSS>` heading with key:value lines under it in `<copilot-session-state>/<session-id>/files/phase-state.md`. **Reader contract** (LLM consuming the record in a resumed session): parse `key: value` lines from the description; treat unknown keys as informational; require `phase`, `time_entered`, `intake_status` (description) AND `status` (read from the SQL `status` column directly, or - in the markdown fallback - from a `status: <value>` line) to consider the record valid. Any phase-specific required fields (e.g. the 11-field pre-PR-push state predicate below) must additionally be present for the readiness check that consumes them.
+When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<yyyymmddHHMMSS>` heading with key:value lines under it in `<copilot-session-state>/<session-id>/files/phase-state.md`. **Reader contract** (LLM consuming the record in a resumed session): parse `key: value` lines from the description; treat unknown keys as informational; require `phase`, `time_entered`, `intake_status` (description) AND `status` (read from the SQL `status` column directly, or - in the markdown fallback - from a `status: <value>` line) to consider the record valid. Any phase-specific required fields (e.g. the pre-PR-push state predicate below) must additionally be present for the readiness check that consumes them.
 
 ## Per-phase additional fields
 
@@ -66,8 +66,9 @@ When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<
 
 **Pre-PR-push readiness state is a state predicate** (per §3.7) - every required field must be enumerated. Record the following keys in addition to the minimum canonical shape above when running the pre-PR-push phase:
 
-- `baseRef` - what the branch is being merged into (e.g. `origin/main`).
-- `baseSha` - resolved SHA at sweep time (NOT later-resolved symbolic ref, which may have advanced).
+- **Binding fields (canonical list; every consumer records, reads back, and copies forward exactly these):** `base_remote`, `base_branch`, `base_url`, `base_tip_sha`, `base_identity`, `base_nwo`, `base_project_path`, `head_remote`, `head_url`, `head_identity`, `head_owner`, `head_nwo`, `head_project_path`, `gh_host` (`gh_host` / `*_nwo` GitHub only, `*_project_path` other forges; `n/a` where not applicable). Derivations: `quality-gate-block.md` G6.
+- `baseRef` - display-only: `<base_remote>/<base_branch>`.
+- `baseSha` - sweep base (consumed by `when-to-re-run-sweep.md`): `git merge-base <base_tip_sha> <sweepHeadSha>`, captured at sweep time. Not an alias of `panelBaseSha` = `git merge-base <base_tip_sha> <panelHeadSha>` (`quality-gate-block.md`).
 - `sweepHeadSha` - branch HEAD SHA at sweep time.
 - **`isFirstReviewExposurePush`** (boolean) - *Is THIS push the first one intended for review?* (PR-opening, request-for-review, or first push to a shared branch others may pull from.) Drives whether the branch-wide sweep is required. **Per-push, not branch-sticky:** a personal-sandbox / backup push records `false` (a sandbox push is not a review push); the FIRST subsequent review push of the same branch records `true`. Independence from `remoteExposureExists` is the point - prior sandbox pushes do NOT latch this boolean to `false` for the upcoming review push. Named as a verb-shaped predicate so a reader can't misread it as "this branch has never been pushed before".
 - **`remoteExposureExists`** (boolean) - has this branch been pushed anywhere before, in any form (including personal sandbox)? **Historical evidence only** - the primary amend-safety force-push gate is `isFirstReviewExposurePush=false` (the branch is already under review on a shared remote). **Sandbox exemption is conditional, not automatic**: when `(isFirstReviewExposurePush=true && remoteExposureExists=true)` (first review push of a previously sandbox-pushed branch), before any operation that rewrites already-pushed history the agent MUST ask a one-question sandbox-privacy confirmation (*"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"*). On **yes/private/unwatched**: silent amend is safe. On **no/unsure**: do NOT silently amend - use the explicit force-push approval choices from the `(false, true)` *amend-safety subflow only* (the recorded booleans and decision-tree routing are NOT remapped - Step 2 first-review sweep still runs, Step 4 is NOT entered). The question fires **lazily** - only when an amend is about to happen, NOT preemptively at intake. Recorded for audit and as input to the `(false, true)` truth-table row's re-run logic. These two booleans are independent - a branch pushed only to a personal sandbox has `remoteExposureExists=true` AND `isFirstReviewExposurePush=true` on its first subsequent review push.
@@ -89,9 +90,9 @@ When SQL is unavailable, write the same field set as a `## phase-state-<phase>-<
   - `user-confirmed-unverifiable` - verification mechanism couldn't expose the cached principal (e.g., Windows Credential Manager / macOS Keychain / libsecret) and the user confirmed via `ask_user` that the cached credential is theirs (not a Copilot / bot / shared account).
   - `blocked` - verification revealed (or strongly suggested) a non-user principal (e.g., `gh` logged in as a `[bot]` account; ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` set; `SSH_AUTH_SOCK` pointing at an agent-controlled socket; user could not confirm in the unverifiable case). **A `blocked` value FAILS the readiness gate - the push MUST NOT proceed.**
   
-  This is a required predicate field - §4.2 applies to EVERY push including sandbox-exits (no `n/a-sandbox-exit` sentinel; sandbox pushes must verify credentials too). A "ready to push" claim requires `yes` OR `user-confirmed-unverifiable`. The pre-PR-push state predicate is **11 fields** (1-9 above + `pushCredentialsVerified` + `preCreationReviewStatus`); the `sandboxPriorExposureConfirmation` field remains the always-present informational twelfth entry in the read-back block.
+  This is a required predicate field - §4.2 applies to EVERY push including sandbox-exits (no `n/a-sandbox-exit` sentinel; sandbox pushes must verify credentials too). A "ready to push" claim requires `yes` OR `user-confirmed-unverifiable`. The pre-PR-push state predicate contains every required field listed here; `sandboxPriorExposureConfirmation` is informational and remains present in the read-back block.
 
-**Sandbox-exit record** (used when the pre-PR-push pre-check exits because the current push is personal-sandbox / backup-only): write the standard minimum canonical shape PLUS `branchWideSweepStatus: not-applicable`, the booleans `isFirstReviewExposurePush: false` + `remoteExposureExists: <true|false per actual remote history>`, AND `pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>` per §4.2 (NOT a `n/a-sandbox-exit` sentinel - credentials must be verified for sandbox pushes too; record the real verification outcome). Other 11-field-predicate keys (`baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `rerunConditionsChecked`, `preCreationReviewStatus`) may be written as the literal sentinel `n/a-sandbox-exit` (NOT omitted - predicate completeness still requires the keys to appear). The record is a normal `done` phase-state record, not a "skipped" record; it documents that the pre-PR-push playbook explicitly resolved as not-applicable for this push.
+**Sandbox-exit record** (used when the pre-PR-push pre-check exits because the current push is personal-sandbox / backup-only): write the standard minimum canonical shape PLUS `branchWideSweepStatus: not-applicable`, the booleans `isFirstReviewExposurePush: false` + `remoteExposureExists: <true|false per actual remote history>`, AND `pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>` per §4.2 (NOT a `n/a-sandbox-exit` sentinel - credentials must be verified for sandbox pushes too; record the real verification outcome). Other predicate keys (the binding fields, `baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `rerunConditionsChecked`, `preCreationReviewStatus`) may be written as the literal sentinel `n/a-sandbox-exit` (NOT omitted - predicate completeness still requires the keys to appear). The record is a normal `done` phase-state record, not a "skipped" record; it documents that the pre-PR-push playbook explicitly resolved as not-applicable for this push.
 
 **Concrete example record - pre-PR-push first review push, sweep ran clean:**
 
@@ -105,7 +106,21 @@ time_entered: 2024-01-15T14:03:12Z
 playbook_viewed: .github/playbooks/pre-pr-push.md
 intake_status: complete
 user_approved_skips: none
-baseRef: origin/main
+base_remote: <remote>
+base_branch: <branch>
+base_url: <configured URL>
+base_tip_sha: <ls-remote SHA>
+base_identity: <host/owner/repo>
+base_nwo: <owner/repo | n/a>
+base_project_path: <path | n/a>
+head_remote: <remote>
+head_url: <push URL>
+head_identity: <host/owner/repo>
+head_owner: <owner>
+head_nwo: <owner/repo | n/a>
+head_project_path: <path | n/a>
+gh_host: <host | n/a>
+baseRef: <remote>/<branch>
 baseSha: a1b2c3d4e5f6...
 sweepHeadSha: 9z8y7x6w5v4...
 isFirstReviewExposurePush: true

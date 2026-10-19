@@ -9,14 +9,14 @@ Runs ONCE before the first push intended for review (PR-opening, request-for-rev
 ## Hard gates
 
 - All comments added / modified in `<base>..HEAD` enumerated and re-evaluated against `AGENTS.md` §3.1.
-- Resolved base SHA + sweep HEAD SHA + base ref name **recorded in canonical session todos** (per `AGENTS.md` *Phase-state tracking convention* - same `phase-state-<phase>-<yyyymmddHHMMSS>` schema, with the SHAs in the `description` field; AGENTS fail-closed fallbacks apply if SQL is unavailable) at sweep time (NOT later-resolved symbolic refs like `origin/main`, which may have advanced).
+- Resolved base SHA + sweep HEAD SHA + base ref name **recorded in canonical session todos** (per `phase-state-convention.md` - same `phase-state-<phase>-<yyyymmddHHMMSS>` schema, with the SHAs in the `description` field; the `phase-state-convention.md` fallback chain applies if SQL is unavailable) at sweep time (not later-resolved symbolic refs, which may have advanced).
 - C# files: XML doc rules in `csharp.instructions.md` re-applied across the branch.
 
 ## Intake questions
 
 Bundle these in one prompt:
 
-1. **Confirm base ref** for this branch. (Default: `origin/main`. Resolve to a SHA *now* and record it.)
+1. **Resolve the approved base binding** from the pre-PR-push intake: fetch `<base_remote> <base_branch>`, verify its fetched tip equals `ls-remote <base_url> refs/heads/<base_branch>`, then set `$BaseSha = git merge-base <base_tip_sha> HEAD`. Never use a local `origin/*` ref.
 2. **Are there pre-existing comments in `<base>` that this branch's code touches** (e.g. branch added a method body next to an old comment)? Those re-enter scope.
 3. **Has any non-review-driven work landed since the last sweep**, if there was one? (New scope, new files, merge / rebase touches.)
 
@@ -27,12 +27,12 @@ Bundle these in one prompt:
 Capture the resolved SHAs at sweep start. Symbolic refs are NOT enough - they may advance later, and the re-run logic depends on stable SHA references.
 
 ```powershell
-$BaseRef = 'origin/main'
-$BaseSha = git rev-parse $BaseRef
+$BaseTipSha = <verified ls-remote tip>
+$BaseSha = git merge-base $BaseTipSha HEAD
 $HeadSha = git rev-parse HEAD
 ```
 
-Record `<BaseRef, BaseSha, HeadSha>` in canonical session todos (per AGENTS.md Phase-state tracking convention). The "out of scope at initial sweep" set later will be reconstructed from `git diff $BaseSha..$HeadSha`.
+Record the binding fields (`phase-state-convention.md`), `baseSha` (`$BaseSha`), and `sweepHeadSha` (`$HeadSha`) in canonical session todos (per `phase-state-convention.md`). The "out of scope at initial sweep" set later will be reconstructed from `git diff $BaseSha..$HeadSha`.
 
 ### 2. Enumerate every NEW or MODIFIED comment line across the branch
 
@@ -62,20 +62,20 @@ If the sweep modified files, the next step is committing the changes. Fetch `cle
 
 ### 6. If the sweep finds nothing
 
-The branch is clean to push for the comment-hygiene dimension. Record `branchWideSweepStatus = done-clean` in the pre-PR-push phase-state record (per `AGENTS.md` Phase-state tracking convention) and move on. The PR is still subject to all other pre-push gates (build, tests, multi-model review on each commit, etc.).
+The branch is clean to push for the comment-hygiene dimension. Record `branchWideSweepStatus = done-clean` in the pre-PR-push phase-state record (per `phase-state-convention.md`) and move on. The PR is still subject to all other pre-push gates (build, tests, multi-model review on each commit, etc.).
 
 ### 7. Record sweep results
 
-Record in canonical session todos (per AGENTS.md Phase-state tracking convention):
+Record in canonical session todos (per `phase-state-convention.md`):
 
-- `<BaseRef, BaseSha, HeadSha>` (the recorded sweep SHAs).
+- the binding fields, `baseSha`, `sweepHeadSha` (the recorded sweep SHAs).
 - Number of comments enumerated.
 - Number deleted vs kept (with justification).
 - Number of rename-first cases that triggered (and whether any escalated to cross-boundary scope per the cleanup-commit-buckets logic).
 - Cleanup commits created (SHAs).
 - `branchWideSweepStatus` - write `done-clean` if no cleanup was needed (per Step 6 above), or `done-cleanup-committed` if cleanup commits were created (per `cleanup-commit-buckets.md`). Use `skipped-with-reason` only if the user explicitly authorized skipping the sweep per the User-skip policy.
-- `rerunConditionsChecked` - write the documented sentinel `n/a-first-push` (the first review push has no prior sweep to re-run-check, so the field is predicate-complete via this sentinel per `AGENTS.md` *Per-phase additional fields*). The pre-PR-push readiness predicate consumes this field; omitting it makes the record fail the 10-field predicate even with the sweep done clean.
-- `pushCredentialsVerified` - record the outcome of `pre-pr-push.md` *Pre-check 0* (one of `yes` / `user-confirmed-unverifiable` / `blocked`). This is the 10th predicate field per `AGENTS.md` *Per-phase additional fields*; omitting it fails the readiness predicate.
+- `rerunConditionsChecked` - write the documented sentinel `n/a-first-push` (the first review push has no prior sweep to re-run-check, so the field is predicate-complete via this sentinel per `phase-state-convention.md` *Per-phase additional fields*). The pre-PR-push readiness predicate consumes this field; omitting it makes the record fail the pre-PR-push predicate even with the sweep done clean.
+- `pushCredentialsVerified` - record the outcome of `pre-pr-push.md` *Pre-check 0* (one of `yes` / `user-confirmed-unverifiable` / `blocked`). This is a required predicate field per `phase-state-convention.md` *Per-phase additional fields*; omitting it fails the readiness predicate.
 
 These are needed by `when-to-re-run-sweep.md` if more pushes happen on this branch.
 

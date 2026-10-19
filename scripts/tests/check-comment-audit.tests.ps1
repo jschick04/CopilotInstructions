@@ -333,6 +333,11 @@ Assert-True $result.Valid 'full 40-char parent_sha exactly matching expected -> 
 $auditLines = @('parent_sha: a5da51f4', 'commit_subject: Add foo', 'Comment audit: zero count')
 $result = Test-AuditFile -AuditLines $auditLines -ExpectedParentSha 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74'
 Assert-False $result.Valid '7-char hex prefix of expected -> INVALID (exact 40-char binding; no prefix match)'
+$sha256Parent = 'a5da51f4f3dcdbffda9f2b5d5aad03f2554ebd74a5da51f4f3dcdbffda9f2b5d'
+$result = Test-AuditFile -AuditLines @("parent_sha: $sha256Parent", 'commit_subject: Add foo', 'Comment audit: zero count') -ExpectedParentSha $sha256Parent
+Assert-True $result.Valid 'full 64-char parent_sha exactly matching expected -> valid'
+$result = Test-AuditFile -AuditLines @("parent_sha: $($sha256Parent.Substring(0, 52))", 'commit_subject: Add foo', 'Comment audit: zero count') -ExpectedParentSha $sha256Parent
+Assert-False $result.Valid '52-char parent_sha is neither a 40- nor 64-char SHA -> invalid'
 
 Write-Host ""
 Write-Host "=== Test-CommentCoverage (site + sha bijection) ===" -ForegroundColor Cyan

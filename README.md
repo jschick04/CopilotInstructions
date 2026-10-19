@@ -62,7 +62,7 @@ CopilotInstructions/
 │       ├── multi-model-review/                         # 6 panel support files (intake + procedure + convergence-models + evidence-gate-spec + current-model-registry + mirror-prompt)
 │       │   ├── intake.md                              # 10 intake questions + model defaults
 │       │   ├── procedure.md                           # parallel-launch + sub-agent prompt template (incl. bug-investigation target-type)
-│       │   ├── convergence-models.md                  # unanimous / threshold ≥75% / confidence-weighted ≥80% + asymptotic-convergence pattern
+│       │   ├── convergence-models.md                  # unanimous convergence, no round cap
 │       │   ├── evidence-gate-spec.md                  # per-round log + C2 audit + bug-investigation extensions
 │       │   ├── current-model-registry.md              # tier → model name mapping (decouples playbooks from model deprecations)
 │       │   └── pr-creation-mirror-prompt.md           # 11-category Copilot-mirror prompt template for the publish-gate panel
@@ -116,22 +116,13 @@ Pointing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` at this cloned repo makes every edit
 
 Razor markup files (`*.razor`, `*.cshtml`) intentionally match both the C# file (for codebehind / `@code` blocks) and the HTML file (for markup syntax).
 
-## Profiles (full / lite)
+## Review tiers
 
-This instruction set ships two **profiles** that trade review thoroughness against token cost. Both keep the full file-split + enforcement core; they differ only in panel slate size, an optional trivial fast-path, and output verbosity.
+`full` is the default panel: four distinct heavy reviewers (Claude, GPT, Gemini, plus a fourth GPT or Grok slot; default Grok), with at least one rubber-duck and two code-review roles. An optional fifth heavy GPT reviewer may be added for code-heavy changes. `triage` is a receipt-gated fast path with exactly two distinct-family light code reviewers; it is unavailable for governance or safety-critical changes. `lint-only` runs no panel and is receipt-gated. All multi-reviewer panels require unanimous convergence and have no round cap.
 
-- **full** (default): pre-implementation / pre-PR panels use 4-6 reviewers (>=1 Claude + >=2 GPT + >=1 Gemini family, >=1 heavy-tier). No trivial fast-path. For work where token cost is not the constraint but context limits + loading-failure avoidance still matter.
-- **lite**: panels use 3 cross-family **light-tier** reviewers (>=1 each Claude / GPT / Gemini, i.e. the `light-claude-balanced` / `light-gpt` / `light-gemini` tiers per `.github/playbooks/multi-model-review/current-model-registry.md`). Quantified-trivial, non-safety-critical, non-governance changes may use a single-reviewer `triage` pass (with a `triage-acknowledged` receipt) instead of the full panel. For personal / paid-token work.
+Panel reviewer slots are pinned to the model and effort in `.github/playbooks/multi-model-review/current-model-registry.md`. Other sub-agents use Auto and the user's `/subagents` preferences. Users may choose light models as their explore/task defaults in `/subagents`; this is a user setting, not an agent rule.
 
-**Safety-critical and governance/instruction edits always use the full slate on both profiles** (see `AGENTS.md` + `.github/playbooks/workflow-conventions.md` §5). The lite `triage` fast-path saves reviewer COUNT only - it still performs the full per-rule acknowledgement and does NOT skip rule coverage.
-
-**How selection works (per-machine, never committed):**
-
-- The install script copies the chosen profile's template (`profiles/full/profile.template.md` or `profiles/lite/profile.template.md`) to `.github/instructions/active-profile.instructions.md`, which is **gitignored**. That generated file is the runtime authority (its `profile-id` header). If it is absent, behavior is `full-default` (identical to full).
-- The two templates are version-controlled and shared by everyone; the *selection* (which one is active here) lives only in the gitignored generated file, so a profile choice never lands in a commit that would change other users' behavior.
-- `invoke-panel.ps1` reads the on-disk active-profile file directly to enforce the panel floor: running a mode below the active profile's floor (e.g. `lite` while `full` is active) requires an explicit `<mode>-acknowledged` `ask_user` receipt. (The "same file the harness loaded" guarantee assumes a single instruction-set clone - `COPILOT_INSTRUCTIONS_CLONE` points at the repo root carrying `.github/instructions/`.)
-
-Select or switch with the setup script (below): `.\setup.ps1 -Profile lite` (Windows) or `bash ./setup.sh --profile lite` (macOS/Linux). Re-run after `git pull` to refresh the active file if the template changed. To revert to full-default, delete `.github/instructions/active-profile.instructions.md`.
+Setup migrates and removes the former per-machine selector file. Do not recreate that selector.
 
 ## PR quality gate (catalog + ack + drift safeguard)
 
@@ -225,7 +216,7 @@ multi-model-review diff      = panel reviewing a DIFF (change).
 system-framing               = layered map for ORIENTATION (not bug-hunt).
 ```
 
-Bare unpaired *"review"* / *"audit"* / *"trace this through the code"* are ambiguous-clarify per AGENTS - these playbooks fire only on artifact-shaped phrases (e.g., cross-file qualifier required for `cross-file-bug-investigation`'s review/audit forms).
+Bare unpaired *"review"* / *"audit"* / *"trace this through the code"* are ambiguous-clarify per `workflow-conventions.md` - these playbooks fire only on artifact-shaped phrases (e.g., cross-file qualifier required for `cross-file-bug-investigation`'s review/audit forms).
 
 ## Workflows at a glance
 
@@ -236,7 +227,7 @@ Quick reference for what's in `.github/playbooks/`. Each file is loaded only whe
 | `pre-implementation.md` | Phase trigger - code edit requested before any implementation | Deepened diagnosis (reproduce → minimise → hypothesise → instrument → reproduction-locked) + G3 approach-selection + G5 safety-critical-skip evaluation + rubber-duck-reviewed plan |
 | `post-code-change.md` | Phase trigger - files modified, diff not yet shown | Hygiene cleanup + touched-file LPA + recurring-pattern sweep + §3.1 comment audit gate + `multi-model-review.md` panel + verify-the-fix + builds/tests |
 | `pre-commit.md` | Phase trigger - user approved diff | Single-line commit (per `AGENTS.md` §2), no `Co-authored-by` trailer, §4.1 author-identity verify (prompt-when-missing → local config; global opt-in) + commit-ownership prompt with resolved identity + explicit `the agent` / `you (the user)` actor labels |
-| `pre-pr-push.md` (INDEX) | Phase trigger - user asks to push, open PR, or request review | §4.2 push-credential verification (mechanism-aware) BEFORE sandbox pre-check + per-commit audit + branch-wide rename-first sweep + branch-wide LPA + state read-back of **10-field predicate** (incl. `pushCredentialsVerified`) before "ready" + separate push-ownership prompt with explicit actor labels |
+| `pre-pr-push.md` (INDEX) | Phase trigger - user asks to push, open PR, or request review | §4.2 push-credential verification (mechanism-aware) BEFORE sandbox pre-check + per-commit audit + branch-wide rename-first sweep + branch-wide LPA + state read-back of every predicate field (incl. `pushCredentialsVerified`) before "ready" + separate push-ownership prompt with explicit actor labels |
 | `.github/playbooks/pre-pr-push/per-commit-micro-hygiene.md` | Sub-trigger - per-commit comment audit needed | Audited / amended commit + `perCommitAuditCoverage` entry |
 | `.github/playbooks/pre-pr-push/branch-wide-sweep.md` | Sub-trigger - first push intended for review | Sweep evidence (base SHA + head SHA + base ref) recorded |
 | `.github/playbooks/pre-pr-push/cleanup-commit-buckets.md` | Sub-trigger - sweep produced changes | Default-coarser grouping (file / SUT family / lens / audit category / slice) + 3 cleanup buckets + staging-sprawl guard |
@@ -257,7 +248,7 @@ Quick reference for what's in `.github/playbooks/`. Each file is loaded only whe
 | `cross-file-bug-investigation.md` + `cross-file-bug-investigation/` | Strong trigger - panel-driven cross-file bug hunt on UNCHANGED code | Lane-specialized panel report (9 lanes via `multi-model-review.md` target-type `bug-investigation`); citation-verified findings (≤1 rework cap); C2 routing per finding (always) + optional fix-transition picker (when Q8 ≠ none) handing selected findings to `pre-implementation.md` via persisted YAML file (`schema_version: 1`) |
 | `design-exploration.md` | Strong trigger - throwaway design prototype | Working variants + decision log; throwaway-hardening (folder + header + build-isolation + 0 production imports + cleanup gate) |
 | `performance-comparison.md` | Strong trigger - throwaway benchmark prototype | Variants + benchmark metric + delta + decision log; mandatory `software-install.md` handoff when tooling needs install |
-| `multi-model-review.md` + `multi-model-review/` | Strong trigger (panel review) + utility-called by `post-code-change.md` panel hard gate | ≥3 reviewers across model families with mandatory `VERDICT:` per reviewer; 3 convergence models (unanimous / threshold ≥75% / confidence ≥80%); max-loop escalation; C2 status enum for findings dispositions |
+| `multi-model-review.md` + `multi-model-review/` | Strong trigger (panel review) + utility-called by `post-code-change.md` panel hard gate | Mode-specific reviewer slate with mandatory `VERDICT:` per reviewer; unanimous convergence for hard-gate panels; no round cap; C2 status enum for findings dispositions |
 
 Cross-cutting (not playbooks - always-loaded in `AGENTS.md`):
 
@@ -265,7 +256,7 @@ Cross-cutting (not playbooks - always-loaded in `AGENTS.md`):
 - **Evidence-gate pattern** - structured chat-visible audit output (scope + file:line citations + zero-count justification) required for §3.1 comment audit, cross-cutting findings audit (C2 status enum), pre-PR-push state read-back (carve-out from zero-count - state printed verbatim), post-pr-review per-finding audit, and every new domain playbook's procedure section.
 - **Ask-first principle** - every playbook's first executable block is Intake Questions.
 - **User-skip policy** - explicit skips warned + recorded; safety-critical skips require re-confirmation. G5 augments the safety-critical set with public-API / folder-restructure / test-migration triggers + ≥3-of-N softer signals.
-- **Phase-state tracking** - every phase entry records `phase`, `time_entered`, `intake_status`, `playbook_viewed`, plus per-phase additional fields (e.g. the 10-field pre-PR-push state predicate - incl. `pushCredentialsVerified`).
+- **Phase-state tracking** - every phase entry records `phase`, `time_entered`, `intake_status`, `playbook_viewed`, plus per-phase additional fields (e.g. the pre-PR-push state predicate - incl. `pushCredentialsVerified`).
 - **Git identity & push credentials** (`AGENTS.md` §4) - always-loaded. Commit attribution + `git push` authentication MUST belong to the human user, never a disallowed automation identity (case-insensitive match: `Copilot`, `copilot[bot]`, `github-actions[bot]`, `223556219+Copilot@users.noreply.github.com`, other `[bot]` accounts). §4.1: prompt user via `ask_user` when `user.name` / `user.email` missing (local scope by default; global opt-in); author-preservation check on `--amend` / `cherry-pick` / `rebase` / `am`; commit-ownership prompt displays resolved identity + uses explicit `the agent` / `you (the user)` actor labels. §4.2: mechanism-aware push verification (HTTPS+`gh`, system credential helper, SSH, ambient tokens) before EVERY push (incl. sandbox + `gh pr create`); recorded as `pushCredentialsVerified` in pre-PR-push state predicate; push-ownership prompt separate from commit-ownership.
 - **Output-write ordering** - documentation playbooks render the draft in chat first.
 
@@ -273,12 +264,12 @@ Cross-cutting (not playbooks - always-loaded in `AGENTS.md`):
 
 This repo introduces six cross-cutting patterns layered on top of the existing phase + topic-file architecture. Each is detailed in `.github/playbooks/README.md` *Authoring conventions cross-reference*:
 
-- **Manifest frontmatter** on trigger-fired playbooks (`name` + `description` + optional `triggers`) - metadata only; does NOT drive trigger detection. AGENTS.md semantic discriminator stays canonical.
+- **Manifest frontmatter** on trigger-fired playbooks (`name` + `description` + optional `triggers`) - metadata only; does NOT drive trigger detection. The `workflow-conventions.md` semantic discriminator stays canonical.
 - **Evidence gates** - structured chat-visible audit output (with scope + citations + zero-count justification) required before declaring a phase / task complete or producing an artifact. Applied to §3.1 comment audit, cross-cutting findings audit, pre-PR-push state read-back, post-pr-review per-finding, and every new domain playbook's procedure.
 - **`.github/playbooks/manifest.yaml`** - sibling-of-the-router discoverability index, generated / derived from playbook frontmatter. Consulted only AFTER AGENTS.md router has shortlisted; never drives initial detection. Carries optional `discrimination` prose for ambiguous trigger pairs.
-- **Multi-model review loop** (`multi-model-review.md`) - codifies the panel-of-reviewers convergence pattern. Trigger-fired domain + utility-called by `post-code-change.md`'s panel hard gate. Three convergence models; max-loop escalation; C2 status enum for findings dispositions.
-- **Model registry decoupling** (`.github/playbooks/multi-model-review/current-model-registry.md`) - capability tier → current model name mapping for multi-model-review panel slots. Playbooks reference abstract tiers (`heavy-claude-xhigh`, `heavy-gpt-premium`, `heavy-gpt-cross-profile`, `heavy-gemini-premium`, `light-gpt`, `light-claude`, etc.) instead of literal model names, so model deprecations / renames update in ONE place. See the registry for the full 12-tier table, the current mappings, and the runtime-fallback / substitution rules.
-- **Sharpened defaults** - §3.1 stale-comment-disposition (rename-first runs first; then default DELETE) + canonical THROWAWAY: header exception; §3.6 convention precedence (dominant or closest-in-purpose sibling first); pre-implementation G3 (in-scope-only approach-selection) + G5 (safety-critical-skip augmenting User-skip set); cleanup-commit-buckets default coarser grouping; G6 dead-code default-delete folded into LPA Axis 1; worktree-setup stacked-PR discipline.
+- **Multi-model review loop** (`multi-model-review.md`) - codifies the panel-of-reviewers convergence pattern. Trigger-fired domain + utility-called by `post-code-change.md`'s panel hard gate. Unanimous convergence for hard-gate panels; re-review continues until the final artifact converges; C2 status enum for findings dispositions.
+- **Model registry decoupling** (`.github/playbooks/multi-model-review/current-model-registry.md`) - capability tier → current model name mapping for multi-model-review panel slots. Playbooks reference abstract tiers (`heavy-claude-standard`, `heavy-gpt-premium`, `heavy-gpt-codex`, `heavy-gemini-premium`, `heavy-grok-premium`, `light-gpt`, `light-gemini`, etc.) instead of literal model names, so model deprecations / renames update in ONE place. See the registry for the current tier table, the current mappings, and the runtime-fallback / substitution rules.
+- **Sharpened defaults** - §3.1 stale-comment-disposition (rename-first runs first; then default DELETE); canonical `THROWAWAY:` header exception (`comment-protocol.md` exempt category `THROWAWAY-header`); `implementation-planning.md` greenfield-module convention precedence (dominant or closest-in-purpose sibling first); pre-implementation G3 (in-scope-only approach-selection) + G5 (safety-critical-skip augmenting User-skip set); cleanup-commit-buckets default coarser grouping; G6 dead-code default-delete folded into LPA Axis 1; worktree-setup stacked-PR discipline.
 
 ## Setup (one-time)
 
@@ -286,10 +277,10 @@ This repo introduces six cross-cutting patterns layered on top of the existing p
 
 ```powershell
 cd <path-to-this-repo>
-.\setup.ps1 -Profile full   # or: -Profile lite
+.\setup.ps1
 ```
 
-The script is idempotent: it reads the existing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` value, asks before overwriting other entries, and backs up `~/.copilot/copilot-instructions.md` (without deleting it) so you can validate the new layout before removing the old monolith. `-Profile <full|lite>` is **required** - it writes the gitignored active-profile file (see [Profiles](#profiles-full--lite)).
+The script is idempotent: it reads the existing `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` value, asks before overwriting other entries, and backs up `~/.copilot/copilot-instructions.md` (without deleting it) so you can validate the new layout before removing the old monolith.
 
 ### Manual setup (Windows)
 
@@ -307,7 +298,7 @@ The env var works identically. Run:
 
 ```bash
 cd <path-to-this-repo>
-bash ./setup.sh --profile full   # or: --profile lite
+bash ./setup.sh
 ```
 
 Or manually add to your shell rc file (`~/.bashrc`, `~/.zshrc`, etc.):
@@ -338,7 +329,7 @@ CI (`.github/workflows/catalog-sync-check.yml`) is the backstop - even without t
 2. Inside the session, run the `/instructions` slash command. Confirm:
    - The repo's `AGENTS.md` is listed every session.
    - The matching topic file appears when the working directory contains files of that type. For example, `cd` into a folder with `*.cs` files and `csharp.instructions.md` should be listed.
-   - **The active profile is loaded:** exactly one `active-profile.instructions.md` appears and its `profile-id` matches the profile you selected (none from the other profile). Confirm the profile is actually honored in a review-only turn (e.g. the agent reports `profile=lite` when it runs a panel), not merely that the file is listed.
+   - No stale selector file is loaded.
 3. **After successful validation, remove the legacy file** so the context-reduction actually takes effect:
    ```powershell
    Remove-Item "$HOME\.copilot\copilot-instructions.md"

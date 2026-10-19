@@ -2,6 +2,10 @@
 
 Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits evidence-gate output per `evidence-gate-spec.md`; applies convergence per `convergence-models.md`.
 
+## Per-commit diff inputs
+
+Order: implementation -> slug review -> user stages -> INDEX-ONLY diff panel. Capture `Get-ReviewedArtifactId.ps1 -Staged` before dispatch and after every round. For an amend, pass `-ParentSha <HEAD^ full SHA | none>` to the staged artifact command and launcher; cherry-picks and rebase replays use plain `-Staged`. Review `git diff --cached` and `git show :path`, or export the index and read only that tree, including unchanged context. Working-tree reads are not panel evidence. Record `evidence-tree: worktree-clean` only when `worktree_divergent=0`; otherwise use `evidence-tree: index-export tree:<full-tree-sha>`. Any index change invalidates all panel verdicts and requires re-review of the new index. Branch/range panels use committed blobs instead.
+
 ## Parallel-launch protocol
 
 1. **Launch all N reviewers in parallel** as background sub-agents. Do NOT serialize the launches - parallel diversity is the point.
@@ -11,7 +15,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    ADVERSARIAL REVIEW: assume this **<target type>** contains defects; FIND and enumerate them, do NOT confirm the author, and accept no author claim without a falsification attempt. Actively attempt to falsify; report ONLY evidence-backed defects; a clean result is a valid verdict; do NOT invent findings.
 
    You are reviewing **<target type>** at **<path or reference>**.
-   <Round context if iterating: round N of max M; prior-round findings shared per intake; v<N> incorporates amendments from round <N-1> - verify amendments address prior findings without introducing new issues.>
+   <Round context if iterating: round N; re-read the target from its bound index export or git blobs (never the worktree for a staged panel) and review the new artifact state, including the delta and prior findings. Recompute the artifact id at start and end; verdict must echo it.>
 
    **Key context files to read**:
    - <list of file paths the reviewer should view>
@@ -31,7 +35,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
    **REQUIRED: end your output with this single line**: `VERDICT: <success verdict | NEEDS_ANOTHER_ROUND>` - the success verdict is `DESIGN_READY` for a `plan`/`design`/`spec` target and `CODE_REVIEW_READY` for a `diff` target (match the target type stated above)
 
    **Tooling discipline**:
-   - **Read-only inspection allowed**: `view`, `grep`, `glob`, and `powershell` for read-only git commands (`git --no-pager diff`, `git --no-pager show`, `git --no-pager log`, `git --no-pager status`) - reviewers reviewing a `diff` target MUST be able to inspect the diff independently.
+   - **Read-only inspection allowed**: `view`, `grep`, `glob`, and `powershell` for read-only git commands (`git --no-pager diff`, `git --no-pager show`, `git --no-pager log`, `git --no-pager status`) - staged panels MUST use index-only sources as above; reviewers reviewing a `diff` target MUST be able to inspect the diff independently.
    - Do NOT call `ask_user` or any other tool that prompts the user. Make reasonable assumptions, document them, continue.
    - Do NOT modify any files - this is a review pass.
    - Do NOT launch sub-agents.
@@ -45,7 +49,7 @@ Procedure for `multi-model-review.md`. Consumes intake from `intake.md`; emits e
 
 When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), the sub-agent prompt template extends the base structure with:
 
-- **Lane-to-slot mapping**: round-robin lane-to-slot assignment until every selected lane has ≥1 reviewer; when `lanes_selected > reviewers`, double-up per-slot per M8 default and add a per-reviewer lane-budget hint ("Focus first on your primary lane; expand to secondary lanes only as evidence requires. Document which lane each finding belongs to.").
+- **Lane-to-slot mapping**: round-robin lane-to-slot assignment until every selected lane has >=1 reviewer; when `lanes_selected > reviewers`, double-up per-slot per M8 default and add a per-reviewer lane-budget hint ("Focus first on your primary lane; expand to secondary lanes only as evidence requires. Document which lane each finding belongs to.").
 - **Lane-specific critique-focus paragraphs** injected from `cross-file-bug-investigation/lanes-catalog.md` - for each lane assigned to the slot, the lane's "Reviewer prompt clause" (≤200 words per lane) is inserted into the prompt under the per-slot Critique focus section.
 - **Required 7-field finding schema** - every finding the reviewer reports MUST include:
   1. `id`: a reviewer-local stable id `F-<n>` (`F-1`, `F-2`, ...) that the orchestrator maps to a global `F-NNNN`; a `probing_evidence` outcome may reference it as `finding:<F-n>`.
@@ -58,7 +62,7 @@ When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md
 - **VERDICT-emission rule** (target-type-specific):
   - Emit `VERDICT: DESIGN_READY` when you have NO BLOCKING-severity findings remaining. Non-blocking findings (major / minor) are acceptable; they will be recorded as advisory C2 dispositions and do NOT require another round.
   - Emit `VERDICT: NEEDS_ANOTHER_ROUND` only when ≥1 BLOCKING-severity finding requires another iteration.
-  - This rule is target-type-specific reviewer behavior; the orchestrator's convergence check (Model A unanimous: ALL reviewers DESIGN_READY + `unaddressed_blocking=0`) is UNCHANGED.
+  - This rule is target-type-specific reviewer behavior; the orchestrator's convergence check (unanimous: ALL reviewers DESIGN_READY + `unaddressed_blocking=0`) is UNCHANGED.
 - **Tooling discipline** (re-emphasized): read-only inspection only (`view` / `grep` / `glob` / read-only git). NO `ask_user`. NO file modifications. NO sub-agent launches.
 
 Full prompt template (added to the base prompt at step 2):
@@ -113,35 +117,28 @@ Return findings + the `probing_evidence` block (or `probe:` chat lines, covering
 
 ## Convergence check
 
-10. **Apply chosen convergence model** per `convergence-models.md`:
-    - `unanimous` - all reviewers emit their success verdict AND 0 unaddressed blocking → CONVERGED.
-    - `threshold` - ≥75% emit their success verdict AND 0 unaddressed blocking → CONVERGED.
-    - `confidence-weighted` - avg confidence ≥80% AND 0 unaddressed blocking → CONVERGED.
+10. **Apply unanimous convergence** per `convergence-models.md`: all reviewers emit their success verdict for the same artifact id and 0 unaddressed blocking findings.
 
 ## C2 routing (ALWAYS - converged rounds may still have non-blocking findings)
 
 11. **Route each finding via the C2 status enum** (`fixed | routed-now | routed-deferred | dismissed-source-grounded`):
     - `fixed` - apply the change now (citation: file:line).
     - `routed-now` - route via `ask_user`; user decides this turn (citation: `ask_user` call ref).
-    - `routed-deferred` - defer with external-record citation (session todo / issue / tracker URL). Asymptotic-convergence per `convergence-models.md` may auto-route precise polish here with an auto-created session-todo citation.
+    - `routed-deferred` - defer with external-record citation (session todo / issue / tracker URL).
     - `dismissed-source-grounded` - refuted by explicit source citation.
     Default to `ask_user` for ambiguous routing. Converged rounds with 0 unaddressed blocking but ≥1 non-blocking finding still need C2 routing of those findings.
 
-    **Target-type variation: `bug-investigation` - C2 routing DEFERRED to caller.** When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), step 11 C2 routing is DEFERRED to the caller's Step 11A (which happens AFTER user report approval per the caller's fix-transition protocol). The engine here records `C2 dispositions this round: deferred-to-caller-step-11A` in step 12's evidence emission instead of resolving individual finding statuses. The caller owns C2 resolution end-to-end for bug-investigation rounds; the engine's responsibility narrows to citation-verification + VERDICT collection + per-round agreement counting. Asymptotic-convergence auto-routing is DISABLED for this target-type (the caller handles all finding dispositions including precise polish).
+    **Target-type variation: `bug-investigation` - C2 routing DEFERRED to caller.** When `target-type=bug-investigation` (called by `cross-file-bug-investigation.md`), step 11 C2 routing is DEFERRED to the caller's Step 11A (which happens AFTER user report approval per the caller's fix-transition protocol). The engine here records `C2 dispositions this round: deferred-to-caller-step-11A` in step 12's evidence emission instead of resolving individual finding statuses. The caller owns C2 resolution end-to-end for bug-investigation rounds; the engine's responsibility narrows to citation-verification + VERDICT collection + per-round agreement counting.
 
 ## Per-round evidence emission (ALWAYS - converged OR not, with complete fields populated)
 
 12. **Emit per-round evidence-gate output** per `evidence-gate-spec.md` AFTER convergence check + C2 routing - by this point all template fields (verdicts, findings, agreement counts, **Convergence outcome**, **C2 dispositions this round**, **Next directive**) are knowable. This output is the canonical per-round audit trail; skipping emission on any round (converged or not) is a workflow violation. **For `target-type=bug-investigation`**, the `C2 dispositions this round` field carries the sentinel value `deferred-to-caller-step-11A` (per step 11's target-type variation above); all other fields are populated normally.
 
-## Loop-vs-escalate decision
+## Re-review loop
 
-13. **If CONVERGED** → append the round's evidence-gate output to the cumulative log; return to caller (Next directive: `DONE`).
-14. **If NOT CONVERGED AND current_round < max_loop** (Next directive: `LOOP_AGAIN_ROUND_<N+1>`):
-    - Increment round counter (accepted `fixed` findings already applied at step 11; do NOT re-apply here).
-    - Go to step 1 with the updated target and prior-round findings as context.
-15. **If NOT CONVERGED AND current_round = max_loop** - **escalate** (Next directive: `ESCALATE_TO_USER`):
-    - Surface remaining dissent to the user via `ask_user`: *"max-loop reached at N rounds. Remaining dissent: <reviewer> says NEEDS because <findings summary>. Options: (a) apply final tightenings and run round N+1 (user-authorized exceedance), (b) accept threshold convergence with documented C2 dispositions, (c) document remaining findings as `routed-deferred` and proceed, (d) stop and reconsider plan."*
-    - Do NOT silently loop past max-loop.
+13. If all reviewers converge, append the round evidence and return `DONE`.
+14. Otherwise, address every blocking finding and send the delta plus target paths to the SAME idle reviewer agents via `write_agent`. Do not paste the artifact or its hash into the prompt; reviewers re-read it and compute the hash themselves. Each verdict must echo the new artifact id. A previous READY is void until the reviewer returns a fresh verdict for the current id.
+15. If a reviewer is gone or unresponsive, launch a replacement at the same registry tier (or the single sanctioned Grok-to-codex fallback) and record the substitution. Continue without a round cap until unanimous convergence.
 
 ## Output
 
@@ -167,4 +164,4 @@ where `<assembled-prompt-ref>` resolves to the exact inspectable prompt text so 
 
 ## Adversarial red-team reviewer - methodology
 
-On full-mode `diff`-target panels, AT LEAST ONE `code-review`-role reviewer slot is designated the red-team: it receives the panel's OWN target diff (a per-commit post-code panel = the commit diff; the pre-PR review-exposure gate = the whole branch `<base>..HEAD`) plus all standing reviewer controls (read-only inspection, tooling discipline, forwarded catalog rules, the required VERDICT), but WITHOUT the author's design narrative, plan summary, or `Author claims to DISPROVE` list - it reconstructs intent from the code alone and is told "assume defects exist; enumerate every defect (correctness, concurrency, ordering, resource, contract, error-handling); do not invent findings; an empty result is a clean verdict". This is the author-framing-free pass whose absence let a confirmatory panel converge on a real defect. Small diffs are NOT exempt. On lite mode the red-team angle is assigned when the 3-slot slate allows; governance / safety-critical changes (always full) always carry it. This is reviewer-methodology guidance; a mechanically-validated red-team slate property is future work.
+On full-mode `diff`-target panels, AT LEAST ONE `code-review`-role reviewer slot is designated the red-team: it receives the panel's OWN target diff (a per-commit post-code panel = the staged index diff; the pre-PR review-exposure gate = the whole branch `<base>..HEAD`) plus all standing reviewer controls (read-only inspection, tooling discipline, forwarded catalog rules, the required VERDICT), but WITHOUT the author's design narrative, plan summary, or `Author claims to DISPROVE` list - it reconstructs intent from the code alone and is told "assume defects exist; enumerate every defect (correctness, concurrency, ordering, resource, contract, error-handling); do not invent findings; an empty result is a clean verdict". This is the author-framing-free pass whose absence let a confirmatory panel converge on a real defect. Small diffs are NOT exempt. On triage mode assign a red-team angle only when the two-slot slate permits; instruction-repo and safety-critical changes use full. This is reviewer-methodology guidance; a mechanically-validated red-team slate property is future work.

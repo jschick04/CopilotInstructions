@@ -260,7 +260,7 @@ Outstanding questions / undecided design points / areas the spec deliberately le
 
 | # | Issue | Owner | Decision needed by |
 | --- | --- | --- | --- |
-| 1 | `<question>` | `<role>` | `<milestone / date - be careful with dates per AGENTS.md>` |
+| 1 | `<question>` | `<role>` | `<milestone / date - only if user-provided>` |
 
 ### 9. Cut Deliverables and Behavior
 
@@ -293,4 +293,4 @@ ADO items, related design-change requests, related current-state surveys, source
 - **§9 Cut Deliverables is intentionally about what's NOT here.** Don't skip it - listing what was descoped is part of the contract with reviewers.
 - **Mark every system claim as verified or assumed.** Use `grep` / `view` / `explore` to verify; mark unverified claims `*(ASSUMED - not verified in source)*` inline.
 - **Use real names from the source** for components, files, IDs, configuration keys. Never invent.
-- **Do NOT introduce dates / time estimates** unless the user provides them - per `AGENTS.md`, agents must not generate time / date estimates.
+- **Do NOT introduce dates / time estimates** unless the user provides them - agents must not generate time / date estimates.
