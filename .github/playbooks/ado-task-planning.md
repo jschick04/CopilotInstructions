@@ -29,7 +29,7 @@ Triggered when the user is asking to **draft a NEW work item or its content** - 
 - *"plan out an ADO task / story / feature for..."*
 - *"write up an ADO bug for..."*
 
-The semantic discriminator (artifact-requested vs exploratory-question, including the bare-*"review"*/*"audit"* and ambiguous-artifact-adjacent rules) is canonical per `AGENTS.md` *Trigger detection - strong vs weak*. The phrases above are illustrative - they help readers recognize the shape of an ADO drafting ask but are not exhaustive and do not override the discriminator.
+The semantic discriminator (artifact-requested vs exploratory-question, including the bare-*"review"*/*"audit"* and ambiguous-artifact-adjacent rules) is canonical per `workflow-conventions.md` *Trigger detection - strong vs weak*. The phrases above are illustrative - they help readers recognize the shape of an ADO drafting ask but are not exhaustive and do not override the discriminator.
 
 These are **strong triggers**: agent immediately offers via `ask_user` (*"this looks like an ADO planning ask - want me to run the ADO task planning playbook?"*). Decline-then-no-retry rule applies.
 
@@ -370,7 +370,7 @@ Per the destination intake answer:
 
 ### 6. Record state
 
-Record in canonical session todos (per `AGENTS.md` *Phase-state tracking convention*):
+Record in canonical session todos (per `phase-state-convention.md`):
 
 - Work item type drafted.
 - Title.

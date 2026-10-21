@@ -14,21 +14,11 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 2. **Review-target location** - a file path, branch range, or chat-attached content. Reviewers receive this as a path or reference; each reviewer reads the source independently via `view` / `grep` rather than receiving inline content (preserves diversity of interpretation + reduces token cost in the panel prompt).
 
-3. **Reviewer count** - number of reviewers. Default = the active profile's panel mode (full = **6**: one Claude-family flagship + three GPT-family models for premium / codex / cross-profile diversity + one Gemini-family model for third-vendor diversity + one rubber-duck-style critique; lite = **3** cross-family light-tier, >=1 each Claude/GPT/Gemini); if no profile is loaded, default **6** (full-default). Minimum **3** per hard gate (both profiles). Hard-gate convergence stays unanimous on both.
+3. **Reviewer count** - default full slate is 4 distinct heavy reviewers (Claude rubber-duck; GPT, Gemini and Grok code-review). Optional fifth heavy GPT for code-heavy changes. Triage is exactly 2 distinct-family light code-reviewers and requires the same-turn receipt and all fast-path predicates. Full-mode hard-gate panels have a floor of 4 distinct heavy reviewers; triage is the receipt-gated fast path with exactly 2.
 
-4. **Model selection** - defaults maximize cross-family diversity and reasoning depth. Tier → current model via `current-model-registry.md`:
-   - `heavy-claude-xhigh` - Claude family, extra-high reasoning. `code-review` slot.
-   - `heavy-gpt-premium` - GPT family, premium reasoning. `code-review` slot.
-   - `heavy-gpt-codex` - GPT family, code-specialized. `code-review` slot (different perspective via codex tuning).
-   - `heavy-gpt-cross-profile` - GPT family, cross-profile. `code-review` slot (different reasoning profile from premium).
-   - `heavy-gemini-premium` - Gemini family, premium reasoning. `code-review` slot (third-vendor cross-family diversity).
-   - **rubber-duck** agent at `heavy-claude-standard` tier - independent design / blind-spot critique (per AGENTS.md sub-agent model selection defaults).
+4. **Model selection** - pin panel slots to the capability tier and effort in `current-model-registry.md`: full uses `heavy-claude-standard`, `heavy-gpt-premium`, `heavy-gemini-premium`, and `heavy-grok-premium`; optional `heavy-gpt-codex`. Triage uses `light-claude-balanced` + `light-gpt`; use `light-gemini` as a distinct-family fallback. Agents outside panel slots use Auto and the user's `/subagents` settings.
 
-   The user can override individual slots, swap families, or add an additional model when convergence is critical.
-
-5. **Convergence model** - `unanimous` (default; all reviewers emit their success verdict) / `threshold` (≥75% success verdict + 0 unaddressed blocking) / `confidence-weighted` (≥80% avg confidence + 0 unaddressed blocking). See `convergence-models.md` for details and selection guidance.
-
-6. **Max-loop count** - default **5**. On exceedance, agent escalates via `ask_user` per the asymptotic-convergence-pattern lesson (do NOT silently loop past max-loop).
+5. **Convergence model** - unanimous for every multi-reviewer panel. Re-review without a round cap until unanimous convergence.
 
 ## Optional intake (pre-fillable from upfront input)
 
@@ -38,7 +28,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 9. **Per-reviewer prompt customization** - when reviewers should bring genuinely different angles, the orchestrator may give each a different critique-focus emphasis (e.g., "fresh-eyes cross-family" vs "technical-design depth" vs "coding-discipline angle"). Defaults to standard differentiation per the model selection above.
 
-10. **Asymptotic-convergence behavior** - default **ON**: a sole-NEEDS-reviewer dissent on precise polish (1-2 line fixes, no architectural concern) auto-routes to C2 `routed-deferred` per `convergence-models.md` *Asymptotic-convergence pattern*, with an auto-created session-todo citation. Set OFF when the user wants strict iteration until full convergence (no auto-routing; every NEEDS verdict triggers another round). On panels invoked by `post-code-change.md` (multi-model hard gate), this defaults to OFF - hard-gate panels iterate to unanimous unless the user explicitly authorizes auto-routing.
+10. **Dissent handling** - fixed, not configurable: every NEEDS verdict triggers another round; dissent is never auto-routed (`convergence-models.md`).
 
 11. **Prompt-hygiene pre-dispatch scan (methodology)** - the orchestrator scans the assembled panel prompt for pre-stated conclusions / confirm-the-author language and emits a re-derivable `prompt-hygiene-scan:` disclosure before launch (see `multi-model-review/procedure.md` §"Prompt hygiene (adversarial framing)"). Honest-ceiling disclosure, not a fail-closed gate in this increment.
 
@@ -46,7 +36,7 @@ Intake questions for `multi-model-review.md`. Bundle independent questions in on
 
 ## Pre-fill rules
 
-- When the user opens with structured detail (e.g., `target=plan.md, model=unanimous, max-loop=5`), pre-fill those fields and ask only the unfilled questions.
+- When the user opens with structured detail (e.g., `target=plan.md, model=unanimous`), pre-fill those fields and ask only the unfilled questions.
 - Re-confirm overloaded terms before using them in the panel prompts: *team*, *owner*, *scope*, *destination*, *target* are tentative.
 
 ## Output

@@ -89,10 +89,7 @@ Fetching review comments for 10 PRs is ~20 API calls. Use `gh api --paginate` on
 
 ### The problem
 
-The pre-implementation phase has a single named certification block (`DESIGN PANEL CONVERGED` per §1A) whose presence is enforced by §1B  -  implementation tools are forbidden until it appears. The post-code-change phase has no analogous block. Multiple hard gates exist in `AGENTS.md` (`post-code-change.md` step 2.5 sweep, §2A prior-PR-review sweep, touched-file LPA, hygiene cleanup, comment audit, build, tests), but each gate enforces only its own one-liner. There is no single attestation that **all** of them ran for a given commit, so a `git add` / `git commit` pair can execute with one or two gates having silently skipped  -  and the user has no easy way to detect it after the fact.
-
-This guards the failure mode where one plan-time `DESIGN PANEL CONVERGED`, or a single earlier diff-approval waiver, is treated as blanket post-code-change coverage  -  later implementation commits then proceed with build + tests + diff-approval but **without** the §2.5 sweep, §2A sweep, LPA, or comment audit running.
-
+§1B requires a plan-bound DESIGN PANEL CONVERGED block before edits. Post-code-change has many independent gates but lacked one aggregate attestation; a commit could proceed with missed hygiene, sweeps, least-privilege, or comment audit. A prior plan panel or diff-approval waiver does not prove those gates ran. This ledger records every applicable post-code-change gate for the staged content so the user can verify the complete set at commit.
 ### Rule
 
 Before ANY `git commit` (incl. `--amend`, or a `git stash pop` / cherry-pick / rebase resolving into a commit), the agent MUST emit a literal `POST-CODE-CHANGE LEDGER` block in the **current turn**. The block enumerates the status of every post-code-change gate that applies to the staged content. Without the ledger, the commit is forbidden  -  extending §1B's hard-stop list to cover the commit boundary, not just the pre-implementation boundary. The user stages code; the agent stages only its regenerated gate artifacts, not the gitignored audit receipts.
@@ -103,16 +100,13 @@ Before ANY `git commit` (incl. `--amend`, or a `git stash pop` / cherry-pick / r
 POST-CODE-CHANGE LEDGER
   commit-subject: <one-line subject the agent will use for git commit>
   files-touched: <count + brief shape, e.g. "21 (370+/0-)">
-  profile: <full|lite|full-default>
   gates:
     hygiene-cleanup: <ran (incl. §3.1 quality pass) | N/A: reason>
     touched-file-LPA: <ran (N findings, K unjustified[; production-ivt: <reason> for a non-test IVT target]) | N/A - <playbook>:<line>>
     vsa-audit: <ran (N placements checked, K misplaced) | N/A - <playbook>:<line>>
     dependency-injection-fit: <ran (new injectable: static-utility|owned-disposable|service) | N/A - <playbook>:<line>>
-      # DI-shape only; visibility+IVT under touched-file-LPA (B1-forced on a DI signal).
     emdash-scan: <ran, clean | ran, N replaced | N/A: no text changes>
     comment-hygiene-purge: <ran, N removed, H held | N/A: no comments in touched files | N/A: only generated/vendored files touched>
-      # step 2.4 purge; removals counted here ONLY. See comment-hygiene-purge.md.
     recurring-pattern-sweep: <ran, N findings | N/A: reason>
       - <pattern>: <N matches | no matches>
       - ...
@@ -123,46 +117,36 @@ POST-CODE-CHANGE LEDGER
       - <pattern shape>: <file:line, file:line, ...> → <refactored to <abstraction> | waived ("<user quote>")>
       - ...
     pre-code-change-panel: <ran, unanimous | user-waived: "panel-waive-acknowledged" ref:<call-ref> | N/A: reason>
-      # tier>=1: ran|user-waived (N/A rejected). tier 2 (safety-critical path): ran ONLY. N/A only when not panel-required. `<...>` fails closed.
+      # tier>=1: ran|user-waived (N/A rejected). full-floor (tier 2, or a `Test-RequiresFullPanel` path in the activated instruction repo): ran ONLY. N/A only when not panel-required. `<...>` fails closed.
     pre-panel-transcript:
-      # verdict DESIGN_READY; REQUIRED iff `ran, unanimous`. Records the pre-impl (plan) panel. Exactly-1 `- findings:`.
-      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini|grok> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<DESIGN_READY|NEEDS_REWORK> rounds:<n>
       - findings: <one-line pre-panel summary; what was caught + how resolved>
     diagnosis-repro-ref: <reproduction-locked: <ref> | benchmark: <name+number> | N/A: reason>
       # author-asserted repro REFERENCE; shape-checked only (not a verified lock). Required when tier>=1.
     approach-selection-G3: <fix-cause | document-symptom: "<rationale>" | N/A: no in-scope findings>
     safety-critical-eval-G5: <not-applicable | panel-ran | safety-critical-confirmed-skip: ref:<call-ref>>
-      # disclosure, not truth: only the path-detectable subset is forced (tier 2). Required when tier>=1.
+      # disclosure, not truth: full-floor paths force panel-ran. Required when tier>=1.
     implementation-checkpoint:
       # D3 middle node, co-presence check (REQUIRED iff DESIGN panel ran); Test-LedgerImplementationCheckpoint; design_ready_ref lives on phase-state; `<...>` fails closed.
       status: complete
       design_ready: yes
       diff_matches_design: <yes | diverged:"<one-line what+why>">
     post-code-change-panel: <ran, unanimous | N/A: reason | user-waived: "panel-waive-acknowledged" ref:<call-ref>>
-      # tier 2 (safety-critical path): ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
+      # full-floor: ran ONLY (waive + N/A rejected), same as pre-code-change-panel.
     panel-transcript:
-      # REQUIRED iff `ran, unanimous`; Test-PanelLedger (full floor; panel-policy.md §27-32). dup slot = fatal; `<...>` fails closed. Exactly-1 `- findings:`.
-      - slot:<id> model:<model-id> family:<claude|gpt|gemini> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n>
+      - slot:<id> model:<model-id> family:<claude|gpt|gemini|grok> role:<rubber-duck|code-review> tier:<heavy|light> verdict:<CODE_REVIEW_READY|NEEDS_REWORK> rounds:<n> artifact:<sha256>
       - findings: <one-line post-panel summary; what was caught + how resolved>
     intent-driven-testing-audit: <ran: prospective | ran: retrospective | N/A: <reason>>
-      # Enforced by catalog rule `intent-driven-testing-required-on-test-or-SUT-delta` (HIGH).
-      # Fires on NEW/modified tests OR any SUT-surface change (exported member, signature, new
-      # branch, state mutation, public OR private method, try/catch/throw). `N/A` MUST cite an
-      # `intent-driven-testing.md` carve-out (rename-only, mechanical-port §3.4, generated, whitespace,
-      # deletion). Bare `N/A` / `N/A: private-only` NOT valid (private branches need coverage, §3.4 B).
+      # HIGH rule `intent-driven-testing-required-on-test-or-SUT-delta`: fires on test or SUT-surface delta (incl. private branches). `N/A` MUST cite an `intent-driven-testing.md` carve-out; bare `N/A` / `N/A: private-only` invalid.
     delta-g-sweeps: <ran, N patterns swept, M sites enumerated | N/A: reason>
-      # Format/semantics in `multi-model-review/pr-creation-mirror-prompt.md` Delta K (status enum,
-      # evidence/rationale, branch_new_files_verified, falsifiability). Unlike other §2B rows, this
-      # uses a richer nested sub-block per pattern; grammar-tightening passes must preserve the nesting.
+      # Semantics: `multi-model-review/pr-creation-mirror-prompt.md` Delta K. Nested sub-block per pattern; preserve the nesting.
       - pattern: <slug; lowercase-hyphenated; e.g. "js-import-jsexception-wrap">
         discovery_query: <exact command the agent ran; reviewer can re-run and diff>
         sites:
           - path: <relative path>
             status: applied | already-applies | not-applicable
-            evidence: <file:line-range>     # REQUIRED for applied + already-applies; cites
-                                             #   the exact line range where P is present at HEAD
-            rationale: <one line>            # REQUIRED for not-applicable; (a) code property
-                                             #   verifiable from the cited file OR (b) repo invariant
+            evidence: <file:line-range>     # REQUIRED for applied + already-applies (P present at HEAD)
+            rationale: <one line>            # REQUIRED for not-applicable: cited-file code property or repo invariant
         branch_new_files_verified: yes: merge-base <SHA8>
     pre-impl-trigger-detections:
       # Cycle-3 G6 (`pre-implementation.md`): mirrors the chat-visible `trigger-detected-<playbook>:` lines; audit anchor for OFFERED rules 6/7/8/10/11; updated on G6 re-entry if scope changes.
@@ -193,9 +177,20 @@ POST-CODE-CHANGE LEDGER
     tests: <passed, N/total | failed: ...>
     diff-shown: <yes (ask_user turn ...) | user-waived: "<quote>">
     commit-message-approved: <PENDING | yes (ask_user turn ...)>
+evidence-tree: <worktree-clean | index-export tree:<full-tree-sha>>
+profile: <full|triage>
+checker-edit: "checker-edit-acknowledged" ref:<call-ref> paths:<n>
+triage-ack: "triage-acknowledged" ref:<call-ref>
+slate-substitution: slot:<id> tier:<tier-id> from:<model|none> to:<model> reason:<model-retired|model-superseded|tier-added|family-unavailable>
+registry-rotation: "registry-rotation-acknowledged" ref:<call-ref> map:<tier-id>=<from>><to>[,...]
+slug-review: ran findings:<n> fixed:<k> routed:<j>
 ```
 
-Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped". The `profile` field records the active profile (from the loaded `active-profile.instructions.md`; `full-default` if none) and MUST match the `PRE-COMMIT GATE PASSED` and `CODE-REVIEW PANEL CONVERGED` copies.
+Each line is mandatory. If a gate is not applicable, the entry MUST say `N/A: <reason>`, not blank, not omitted, not "skipped".
+
+**Review order:** implementation -> slug review -> user stages -> INDEX-ONLY diff panel (`git diff --cached`, `git show :path`, or index export). Worktree reads are not panel evidence; any index change invalidates the panel and requires re-review.
+
+**Slug-review row:** Before staging, one unpinned Auto code-review sub-agent checks only the written diff against `HIGH-TIER-SLUGS.md` and applicable catalog slugs; it does not call `ask_user`. Fix or C2-route findings. In staged-bound mode, require exactly one unbound top-level row after panel blocks and outside `gates:`: `slug-review: ran findings:<n> fixed:<k> routed:<j>`, with `n = k + j`. Refuted findings routed as `dismissed-source-grounded` count as routed; any `dismissed:` field FAILS. **Top-level rows (column 0):** `profile` is the mode run and MUST match the other panel blocks. Conditional: `checker-edit` iff guarded paths are staged, after an `ask_user` listing EVERY guarded path (`paths:` = their count); `triage-ack` iff triage; `slate-substitution` (one per changed slot) + one `registry-rotation` iff a heavy model rotates or falls back, after an `ask_user` showing each mapping. Canonical semantics: `panel-policy.md` §Checker-enforced ledger rows.
 
 ### Chat-emission form (compressed KV v1)
 
@@ -203,8 +198,9 @@ Chat emits the LEDGER in this frozen grammar; the schema above is canonical/audi
 
 ```
 POST-CODE-CHANGE LEDGER (KV v1)
-core|profile=<full|lite|full-default>|commit=<json-string>|files=<N>(+<added>/-<removed>)
+core|profile=<full|triage>|commit=<json-string>|files=<N>(+<added>/-<removed>)
 gates|hygiene=<ran|na:CODE>|lpa=<ran:N/K|na:CODE>|vsa=<ran:N/K|na:CODE>|difit=<ran|na:CODE>|emdash=<clean|N-replaced|na:CODE>|purge=<ran:N/H|na:no-comments-in-touched-files|na:generated-vendored-only>|recurring=<ran:N|na:CODE>|priorpr=<ran:M/N|na:CODE>|dry=<ran:N/K/J|na:CODE>|prepanel=<ran:unanimous:rN|na:CODE|user-waived>|diag=<ref|bench|na:CODE>|g3=<fix|doc|na:CODE>|g5=<na|panel|skip:ref>|g6=<complete|violations:N>|impl=<complete:diff-yes|complete:diff-diverged|na:no-pre-panel>|panel=<ran:unanimous:rN|na:CODE|user-waived>|itd=<prospective|retrospective|na:CODE>|delta-g=<ran:P/S|na:CODE>|comment=<ran:N|na:CODE>|build=<pass|fail>|tests=<pass:N/M|fail:N/M>|diff=<yes:tN|pending>|msg=<approved:tN|pending>
+slug-review: ran findings:<n> fixed:<k> routed:<j>
 ```
 
 **Rules:**
@@ -343,29 +339,21 @@ If the same duplication pattern is detected in a subsequent commit (i.e., the us
 
 ### Rule
 
-Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), the unified publish gate MUST be satisfied: `gate-runner.ps1`/`.sh` full-mode runs the rg-battery AND a multi-model heavy panel (≥4-reviewer slate floor per the `pre-pr-creation-review.md` waive matrix) runs on the FULL branch diff (`<base>..HEAD`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Steps 2 and 7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). The composite `QUALITY GATE` block MUST emit in that same tool-call turn (G3). **Canonical schema + the G6 enforcement AND-list + the `BLOCKED-*` taxonomy: [`.github/pr-quality-gate/quality-gate-block.md`](../pr-quality-gate/quality-gate-block.md).**
+Before any PR-creation or review-visibility transition tool call (full list in `pre-pr-creation-review.md` G6), the unified publish gate MUST be satisfied: `gate-runner.ps1`/`.sh` full-mode runs the rg-battery AND a multi-model heavy panel (full slate floor per `panel-policy.md`) runs on the FULL branch diff (`<panelBaseSha>..<panelHeadSha>`; default full re-read, carry-forward only as the cited `panel-coverage` exception per Steps 2 and 7) with the 11-category Copilot-mirror prompt template (`multi-model-review/pr-creation-mirror-prompt.md`). Every reviewer-flagged `blocking` finding MUST be resolved via `fixed` / `dismissed-source-grounded` / `routed-deferred-with-tracker-and-ask_user` (G4 conditions). The composite `QUALITY GATE` block MUST emit in that same tool-call turn (G3). **Canonical schema + the G6 enforcement AND-list + the `BLOCKED-*` taxonomy: [`.github/pr-quality-gate/quality-gate-block.md`](../pr-quality-gate/quality-gate-block.md).**
 
-Strict mandatory  -  G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Convergence model and slate composition ARE user-waivable within floors (see waive matrix in the consumer playbook).
+Strict mandatory  -  G1 (panel run), G2 (must-fix=0), G3 (block emission), G5 (disposition per finding), G6 (forbidden-tool list), and G7 conditions are NOT user-waivable. Unanimous convergence and the slate floor are NOT user-waivable either.
 
 ### Publish authorization
 
 When the gate is in scope (review-targeting push per `pre-pr-push.md` Step 5), the publish-readiness signal is the QUALITY GATE block's agent-asserted `pr_creation_status` (distinct from the mechanical `gate_status`). The PR-creation tool call is forbidden unless `pr_creation_status` reads `READY-re-emitted-after-user-approval` in the same turn (after the §0 user-approval `ask_user` returns + same-state re-check passes). The full `BLOCKED-*` taxonomy and the complete G6 AND-list live in `quality-gate-block.md`.
 
-### Bootstrap exemption (narrow scope)
+### Bootstrap exemption - only a gate's own self-application
 
-The PR that introduces a NEW mandatory gate is EXEMPT from THAT gate for THAT specific PR (when §2D was first introduced this covered its whole companion set: the gate, the consumer playbook, the cross-cutting AGENTS.md bullet, this section, the `pre-pr-push.md` Step 5 hook, the `multi-model-review/pr-creation-mirror-prompt.md` template, and the `manifest.yaml` registration). The exemption requires ALL of:
-
-1. The PR introduces a NEW mandatory gate that did not exist on `origin/<base>` pre-PR.
-2. The PR body contains the literal token `BOOTSTRAP-EXEMPTION: <gate-name> gate`.
-3. The PR includes ALL companion edits required for the gate to be operative post-merge (listed above).
-
-PRs that modify, tighten, loosen, or refactor an already-shipped gate are NOT bootstrap-exempt  -  they go through the gate normally. If the bootstrap token is removed from the PR body before merge, the exemption is revoked.
-
-This template applies to any future meta-change introducing a new mandatory gate at the §2-level: the introducing PR is exempt from the gate it introduces; subsequent modification PRs go through the gate normally.
+A BOOTSTRAP-EXEMPTION skips only the newly introduced gate P's self-application on the PR that introduces P. P must be a newly added `.github/playbooks/<name>.md`; the full `git diff -M -C --name-status <panelBaseSha> <panelHeadSha>` must contain exactly one P record with leading status `A`, and P must be absent from the verified current base tip (`ls-remote`). Unknown status letters, renames/copies into P, an unconfirmed gate-scope companion path, or any failed command invalidate the exemption. Confirm every other gate-scope companion path, including both paths for renames/copies. The Step 8 approved and live PR bodies must both contain `BOOTSTRAP-EXEMPTION: <name>`, and companion edits must make P operative post-merge. Removing the token revokes the exemption; subsequent pushes run P's own check. G7 never exempts from §2D or any other existing gate; it skips only P's self-application. The §2D whole-branch panel, QUALITY GATE block, and publish-gate receipt always run. (Historical: §2D's own introduction.) A new gate P needs the companion edits that make P itself operative post-merge.
 
 ### Full procedure
 
-See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1 invocation mode, Step 2 ancestry-based re-run-trigger detection, Steps 3-6 panel + synthesis + fix loop, Steps 7-10 QUALITY GATE block emissions and user approval flow). Deferred features (capability-tier registry, context-budget circuit breaker, branch-level fix-iteration cap, citation-preserving compaction format, etc.) live in `pre-pr-creation-review/implementation-roadmap.md` for follow-up PRs.
+See `.github/playbooks/pre-pr-creation-review.md` for the full procedure (Step 1 invocation mode, Step 2 ancestry-based re-run-trigger detection, Steps 3-6 panel + synthesis + fix loop, Steps 7-10 QUALITY GATE block emissions and user approval flow). Deferred features (capability-tier registry, context-budget circuit breaker, branch-level fix-loop policy, citation-preserving compaction format, etc.) live in `pre-pr-creation-review/implementation-roadmap.md` for follow-up PRs.
 
 ### Why this gate exists
 

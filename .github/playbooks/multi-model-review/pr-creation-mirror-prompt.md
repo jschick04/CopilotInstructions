@@ -185,9 +185,9 @@ pre-existing pattern shape without itself being pre-existing.
 Verification mechanism (any one):
 - `git ls-tree <merge-base> -- <path>` - empty output means the file is
   branch-new (NOT pre-existing); fall back to the cumulative sweep above.
-- `git log <merge-base>..HEAD -- <path> --reverse --pretty=format:%H` - if
+- `git log <merge-base>..<headSha> -- <path> --reverse --pretty=format:%H` - if
   the file's first commit is on this branch, the file is branch-new.
-- `<merge-base>` here is `git merge-base origin/main HEAD` or the equivalent
+- `<merge-base>` here is the supplied `panelBaseSha` or the equivalent
   base ref the consumer playbook names.
 
 When to apply: any time a finding is about to be dismissed with rationale
@@ -217,13 +217,13 @@ entry per pattern. Absence or structural invalidity of the row blocks the commit
 under `sites:` with `status: applied`, alongside any branch-existing or branch-new
 sister sites discovered by `discovery_query`. The originating-site entry is the
 minimum evidence the falsifiability check #2 (evidence-range re-open) can verify on
-every commit. A row with `sites: []` is only valid when the discovery_query at HEAD
+every commit. A row with `sites: []` is only valid when the discovery_query at `<headSha>`
 returned zero sister sites AND no originating site exists - which together imply
 the Delta K trigger did not fire (the row should be `N/A - discovery <command>
 returned zero matches`, not `ran`).
 
 `discovery_query` MUST scope to AT MINIMUM the unique directory parents of every
-file in the commit's diff. Concretely: take `git diff --name-only <merge-base>..HEAD`,
+file in the commit's diff. Concretely: take `git diff --name-only <merge-base>..<headSha>`,
 extract the unique directory parents (a file at repo root with dirname `.` expands
 to the repo's source roots - typically `src/`, `tests/` - and excludes generated/
 vendored trees such as `node_modules/`, `vendor/`, `obj/`, `bin/` per the repo's
@@ -232,7 +232,7 @@ permitted and encouraged for cross-cutting patterns; narrower scope is forbidden
 If a sister site outside the recorded scope is later discovered, the LEDGER is
 falsified per §2B.
 
-The `delta-g-sweeps:` row uses N/A ONLY when the `discovery_query` executed at HEAD
+The `delta-g-sweeps:` row uses N/A ONLY when the `discovery_query` executed at `<headSha>`
 returned zero sister sites (record the executed query in the reason). "No plausible
 sister sites" or "single-file branch-new" without a recorded zero-result query is
 NOT a valid N/A - the row must show `N/A - discovery <command> returned zero matches`.
@@ -260,7 +260,7 @@ the LEDGER's commit SHA, NOT current HEAD):
    per §2B's falsified-ledger remediation.
 2. Open each site's `evidence: <file:line-range>` at the LEDGER's commit SHA. If
    the range does not contain P, the sweep is falsified per §2B.
-3. Run `git merge-base origin/main <commit-SHA>` and verify it matches
+3. Run `git merge-base <base_tip_sha> <commit-SHA>` and verify it matches
    `branch_new_files_verified: yes - merge-base <SHA8>`. Mismatches trigger
    §2B falsified-ledger remediation.
 

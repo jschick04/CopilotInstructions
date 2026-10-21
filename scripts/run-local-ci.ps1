@@ -17,6 +17,7 @@
 param(
     [string] $RepoRoot = '',
     [string] $BaseBranch = 'main',
+    [string] $BaseRef = '',
     [switch] $CoverageOnly
 )
 # Only enable strict mode + stop-on-error when INVOKED, not when dot-sourced by tests (else they leak into the caller scope).
@@ -27,7 +28,7 @@ if ($MyInvocation.InvocationName -ne '.') {
 
 Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
 $pwshExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-$baseRef = "origin/$BaseBranch"
+$resolvedBaseRef = if ($PSBoundParameters.ContainsKey('BaseRef')) { $BaseRef } else { "origin/$BaseBranch" }
 
 # --- SINGLE SOURCE OF TRUTH: every scripts/ entrypoint the workflows invoke (excl. this harness itself). -----------
 $mirror = @(
@@ -37,6 +38,7 @@ $mirror = @(
     [pscustomobject]@{ Name = 'model-registry unit tests';   Script = 'scripts/tests/check-model-registry.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instruction file refs';       Script = 'scripts/check-instructions-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'instructions-refs unit tests';Script = 'scripts/tests/check-instructions-refs.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'guarded-path completeness tests'; Script = 'scripts/tests/guarded-paths.tests.ps1'; LocalArgs = @(); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'catalog cede refs';           Script = 'scripts/check-catalog-cede-refs.ps1';           LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'catalog-cede-refs unit tests';Script = 'scripts/tests/check-catalog-cede-refs.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'catalog fp refs';             Script = 'scripts/check-catalog-fp-refs.ps1';             LocalArgs = @();                     EnvSkippable = $false }
@@ -47,10 +49,10 @@ $mirror = @(
     [pscustomobject]@{ Name = 'hygiene-signals unit tests';Script = 'scripts/tests/hygiene-signals.tests.ps1';      LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'quotePath-convention guard';Script = 'scripts/tests/quotepath-convention.tests.ps1'; LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'read-receipts unit tests';  Script = 'scripts/tests/check-read-receipts.tests.ps1';   LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'diff-consistency (commits)';  Script = 'scripts/check-diff-consistency-ci.ps1';         LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'diff-consistency (commits)';  Script = 'scripts/check-diff-consistency-ci.ps1';         LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'diff-consistency unit tests'; Script = 'scripts/tests/check-diff-consistency.tests.ps1';LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'checker-registry parity';     Script = 'scripts/check-checker-registry.ps1';            LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'commit-message format';       Script = 'scripts/check-commit-message.ps1';              LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'commit-message format';       Script = 'scripts/check-commit-message.ps1';              LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'commit-message unit tests';   Script = 'scripts/tests/check-commit-message.tests.ps1';  LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'markdown size budgets';       Script = 'scripts/check-md-size.ps1';                     LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'smart-punctuation ban';       Script = 'scripts/check-no-smart-punctuation.ps1';        LocalArgs = @();                     EnvSkippable = $false }
@@ -63,9 +65,8 @@ $mirror = @(
     [pscustomobject]@{ Name = 'publish-gate prepush unit tests'; Script = 'scripts/tests/check-publish-gate-prepush.tests.ps1'; LocalArgs = @();                EnvSkippable = $false }
     [pscustomobject]@{ Name = 'duplication unit tests';   Script = 'scripts/tests/check-duplication.tests.ps1';          LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'local-CI harness unit tests'; Script = 'scripts/tests/run-local-ci.tests.ps1';            LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'structural conformance';   Script = 'scripts/check-structural-conformance.ps1';           LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'duplication check';        Script = 'scripts/check-duplication.ps1';                      LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'profile invariants';          Script = 'scripts/check-profile-invariants.ps1';          LocalArgs = @();                     EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'structural conformance';   Script = 'scripts/check-structural-conformance.ps1';           LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'duplication check';        Script = 'scripts/check-duplication.ps1';                      LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'critical-rules sync verify';  Script = 'scripts/sync-critical-rules.ps1';               LocalArgs = @('-Verify');            EnvSkippable = $false }
     [pscustomobject]@{ Name = 'sync pwsh==bash parity';      Script = 'scripts/check-sync-parity.ps1';                 LocalArgs = @();                     EnvSkippable = $true }
     [pscustomobject]@{ Name = 'catalog generator verify';    Script = 'scripts/verify-pattern-catalog.ps1';            LocalArgs = @();                     EnvSkippable = $false }
@@ -77,13 +78,13 @@ $mirror = @(
     [pscustomobject]@{ Name = 'yaml-emit helper tests';       Script = 'scripts/tests/yaml-emit-helpers.tests.ps1';      LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'pr-text leakage scan';        Script = 'scripts/check-pr-text.ps1';                     LocalArgs = @();                     EnvSkippable = $false }
     [pscustomobject]@{ Name = 'pr-text unit tests';          Script = 'scripts/tests/check-pr-text.tests.ps1';         LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'machine-path scan';           Script = 'scripts/check-no-machine-paths.ps1';            LocalArgs = @('-BaseRef', $baseRef);    EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'machine-path scan';           Script = 'scripts/check-no-machine-paths.ps1';            LocalArgs = @('-BaseRef', $resolvedBaseRef);    EnvSkippable = $false }
     [pscustomobject]@{ Name = 'machine-path unit tests';     Script = 'scripts/tests/check-no-machine-paths.tests.ps1'; LocalArgs = @();                    EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'encoding-loss scan';          Script = 'scripts/check-encoding-loss.ps1';                LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'encoding-loss scan';          Script = 'scripts/check-encoding-loss.ps1';                LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'encoding-loss unit tests';    Script = 'scripts/tests/check-encoding-loss.tests.ps1';    LocalArgs = @();                     EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'automation-identity scan';    Script = 'scripts/check-no-automation-identity.ps1';       LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'automation-identity scan';    Script = 'scripts/check-no-automation-identity.ps1';       LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
     [pscustomobject]@{ Name = 'automation-identity unit tests'; Script = 'scripts/tests/check-no-automation-identity.tests.ps1'; LocalArgs = @();            EnvSkippable = $false }
-    [pscustomobject]@{ Name = 'PR quality gate rg-battery';   Script = 'scripts/run-quality-gate-ci.ps1';                LocalArgs = @('-BaseRef', $baseRef); EnvSkippable = $false }
+    [pscustomobject]@{ Name = 'PR quality gate rg-battery';   Script = 'scripts/run-quality-gate-ci.ps1';                LocalArgs = @('-BaseRef', $resolvedBaseRef); EnvSkippable = $false }
 )
 # The harness invokes itself in the coverage CI job; it is not a check to mirror.
 $harnessSelf = 'scripts/run-local-ci.ps1'
@@ -287,8 +288,9 @@ if ($CoverageOnly) {
     exit 0
 }
 
+
 Write-Host "run-local-ci: running $($mirror.Count) checks locally (loop-tightener; CI is the authoritative gate)..." -ForegroundColor Cyan
-& git -C $RepoRoot fetch origin $BaseBranch 2>$null | Out-Null   # best-effort; non-fatal if offline
+if (-not $PSBoundParameters.ContainsKey('BaseRef')) { & git -C $RepoRoot fetch origin $BaseBranch 2>$null | Out-Null }
 
 $results = New-Object System.Collections.Generic.List[object]
 Push-Location $RepoRoot

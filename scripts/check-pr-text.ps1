@@ -62,7 +62,7 @@ $script:Tier1Patterns = @(
 $script:Tier2Patterns = @(
     [pscustomobject]@{ Name = 'bare-short-id'; Regex = '(?<![A-Za-z0-9_-])(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
     [pscustomobject]@{ Name = 'per-anchored-short-id'; Regex = '(?i)\bper\s*[:#-]?\s*(?:T\d+|A\d+|C\d+|D\d+)(?![A-Za-z0-9_-])' }
-    [pscustomobject]@{ Name = 'context-sha';   Regex = '(?i)\b(?:upstream|already shipped|shipped|backported|cherry[- ]picked|rebased from|introduced in)\b.{0,40}\b[0-9a-f]{7,40}\b' }
+    [pscustomobject]@{ Name = 'context-sha';   Regex = '(?i)\b(?:upstream|already shipped|shipped|backported|cherry[- ]picked|rebased from|introduced in)\b.{0,40}\b[0-9a-f]{7,64}\b' }
 )
 
 function Get-PrTextFindings {

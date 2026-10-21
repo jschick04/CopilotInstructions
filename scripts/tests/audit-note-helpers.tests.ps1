@@ -19,6 +19,7 @@ function New-TempRepo {
         New-Item -ItemType Directory -Path (Join-Path $dir 'scripts') -Force | Out-Null
         Set-Content -LiteralPath (Join-Path $dir 'scripts/check-post-code-change.ps1') -Value 'x' -NoNewline
         New-Item -ItemType Directory -Path (Join-Path $dir '.github/pr-quality-gate/audits') -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $dir '.github/pr-quality-gate/panel-policy.md') -Value 'fixture policy'
     }
     return $dir
 }
@@ -83,6 +84,49 @@ try {
     $vBad = Read-PanelNoteValidated -RepoRoot $r -CommitSha $c1 -GovernanceTier 1
     Assert-True (-not $vBad.Valid) 'note with wrong parent_sha -> invalid (stale)'
 
+
+    Write-Host "`n=== panel artifact binding ==="
+    $bindingRepo = New-TempRepo
+    New-Item -ItemType Directory -Path (Join-Path $bindingRepo 'scripts') -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Destination (Join-Path $bindingRepo 'scripts/Get-ReviewedArtifactId.ps1')
+    $bindingSha = New-TestCommit -Directory $bindingRepo -File 'scripts/Get-ReviewedArtifactId.ps1' -Content (Get-Content -LiteralPath (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Raw) -Message 'artifact binding feature'
+    $bindingParent = Get-CommitParentSha -RepoRoot $bindingRepo -CommitSha $bindingSha
+    $artifactResult = @(& pwsh -NoProfile -File (Join-Path $repoRoot 'scripts/Get-ReviewedArtifactId.ps1') -Commit $bindingSha -RepoRoot $bindingRepo)
+    Assert-Equal 0 $LASTEXITCODE 'commit artifact resolver succeeds for binding fixture'
+    $bindingArtifact = [string]$artifactResult[0]
+    $bindingBody = @(New-PanelBody $bindingParent)
+    $missingBindingBody = @($bindingBody)
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $bindingSha -BodyLines $missingBindingBody
+    $missingBinding = Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1 -RequireArtifactBinding $true
+    Assert-True (-not $missingBinding.Valid -and (@($missingBinding.Errors) -join ' ') -match 'requires an artifact token') 'adopted binding rejects panel notes with missing tokens'
+    $wrongBindingBody = @($bindingBody | ForEach-Object { if ($_ -cmatch '^\s*- slot:') { $_ + (' artifact:' + ('0' * 64)) } else { $_ } })
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $bindingSha -BodyLines $wrongBindingBody
+    $wrongBinding = Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1 -RequireArtifactBinding $true
+    Assert-True (-not $wrongBinding.Valid -and (@($wrongBinding.Errors) -join ' ') -match 'does not match') 'adopted binding rejects the wrong artifact token'
+    $correctBindingBody = @($bindingBody | ForEach-Object { if ($_ -cmatch '^\s*- slot:') { $_ + " artifact:$bindingArtifact" } else { $_ } })
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $bindingSha -BodyLines $correctBindingBody
+    $correctBinding = Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1 -RequireArtifactBinding $true
+    Assert-True $correctBinding.Valid 'adopted binding accepts the exact commit artifact token'
+    Write-AuditNote -RepoRoot $bindingRepo -NoteRef (Get-PanelNoteRef) -CommitSha $bindingSha -BodyLines $missingBindingBody
+    Assert-True (Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1).Valid 'legacy binding mode accepts missing artifact tokens'
+    $auditHelpersModule = Get-Module audit-note-helpers
+    $actualHelperRoot = Join-Path $repoRoot 'scripts/lib'
+    try {
+        & $auditHelpersModule { $script:here = $args[0] } (Join-Path $bindingRepo 'lib')
+        $missingScriptBinding = Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1 -RequireArtifactBinding $true
+        Assert-True (-not $missingScriptBinding.Valid -and (@($missingScriptBinding.Errors) -join ' ') -match 'missing') 'required binding fails closed when artifact script is absent'
+    } finally { & $auditHelpersModule { $script:here = $args[0] } $actualHelperRoot }
+    $failureRoot = Join-Path $bindingRepo 'failure/scripts'
+    $failureHelperRoot = Join-Path $failureRoot 'lib'
+    New-Item -ItemType Directory -Path $failureHelperRoot -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $failureRoot 'Get-ReviewedArtifactId.ps1') -Value "Write-Output 'fixture child failure'`nexit 1"
+    try {
+        & $auditHelpersModule { $script:here = $args[0] } $failureHelperRoot
+        $failedCommitBinding = Read-PanelNoteValidated -RepoRoot $bindingRepo -CommitSha $bindingSha -GovernanceTier 1 -RequireArtifactBinding $true
+        $failedCommitError = (@($failedCommitBinding.Errors) -join ' ')
+        Assert-True (-not $failedCommitBinding.Valid -and $failedCommitError -match 'exit 1' -and $failedCommitError -match 'fixture child failure') 'failed commit artifact includes child exit code and output'
+    } finally { & $auditHelpersModule { $script:here = $args[0] } $actualHelperRoot }
+
     Write-Host "`n=== Read-ReadsNoteValidated: parent_sha binding (rebase parity with panel/comment) ==="
     $rc = New-TestCommit -Directory $r -File 'reads.txt' -Content 'rr' -Message 'reads commit'
     $rcParent = Get-CommitParentSha -RepoRoot $r -CommitSha $rc
@@ -94,6 +138,9 @@ try {
     Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note missing parent_sha -> invalid (fail-closed)'
     Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody ($rcParent.Substring(0, 7)))
     Assert-True (-not (Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc).Valid) 'reads note with a 7-char prefix parent_sha -> invalid (full 40-char required; parity with panel/comment)'
+    Write-AuditNote -RepoRoot $r -NoteRef (Get-ReadsNoteRef) -CommitSha $rc -BodyLines (New-ReadsBody ('f' * 64))
+    $reads256 = Read-ReadsNoteValidated -RepoRoot $r -CommitSha $rc
+    Assert-True (-not $reads256.Valid -and (@($reads256.Errors) -match 'does not match the commit parent')) '64-hex reads parent_sha passes the shape check (rejected only as stale)'
 
     Write-Host "`n=== freshness: stale tree (direct + real rewriteRef amend-carry) ==="
     # direct: a note whose audited_tree points at a different commit's tree
@@ -109,6 +156,9 @@ try {
     $prefixNote = @("audited_tree: $($treeD0.Substring(0,12))", 'parent_sha: x', 'commit_subject: y')
     $freshPrefix = Test-AuditNoteFreshness -NoteLines $prefixNote -RepoRoot $rd -CommitSha $d0
     Assert-True (-not $freshPrefix.Fresh) 'note with a 12-char prefix of the real audited_tree -> NOT fresh (no prefix match)'
+    $sha256TreeNote = @("audited_tree: $('e' * 64)", 'parent_sha: x', 'commit_subject: y')
+    $fresh256 = Test-AuditNoteFreshness -NoteLines $sha256TreeNote -RepoRoot $rd -CommitSha $d0
+    Assert-True (-not $fresh256.Fresh -and -not (@($fresh256.Errors) -match 'must be a full')) '64-hex audited_tree passes the shape check (stale only by mismatch)'
 
     # real path: notes.rewriteRef copies the note across commit --amend; the carried note is stale
     $ra = New-TempRepo
@@ -151,7 +201,7 @@ try {
     Assert-True ([bool](@($commentB1) | Where-Object { $_ -cmatch 'Comment audit:' })) 'comment note body intact'
     Assert-True (-not (Test-AuditNoteFreshness -NoteLines $commentB1 -RepoRoot $r2 -CommitSha $b1).Fresh) 'carried comment note is STALE (whole-tree freshness; agent re-authors both receipts on amend)'
 
-    Write-Host "`n=== Get-NormalizedRemoteIdentity + Test-IsInstructionsRepo ==="
+    Write-Host "`n=== Get-NormalizedRemoteIdentity + Test-RequiresFullPanel ==="
     Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'https://github.com/jschick04/CopilotInstructions.git') 'https url normalized' -CaseSensitive
     Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'git@github.com:jschick04/CopilotInstructions.git') 'scp-style url normalized' -CaseSensitive
     Assert-Equal 'github.com/jschick04/copilotinstructions' (Get-NormalizedRemoteIdentity 'ssh://git@github.com/jschick04/CopilotInstructions') 'ssh url (no .git) normalized' -CaseSensitive
@@ -159,18 +209,17 @@ try {
 
     $idRepo = New-TempRepo -WithIdentity
     [void](New-TestCommit -Directory $idRepo -File 'seed.txt' -Content 's' -Message 'seed')
-    Assert-True (Test-IsInstructionsRepo -RepoRoot $idRepo) 'identity repo (jschick04 remote + sentinels) -> true'
+    Assert-True (Test-RequiresFullPanel -RepoRoot $idRepo) 'identity repo (jschick04 remote + sentinels) -> true'
     $foreign = New-TempRepo
     [void](New-TestCommit -Directory $foreign -File 'seed.txt' -Content 's' -Message 'seed')
-    Assert-True (-not (Test-IsInstructionsRepo -RepoRoot $foreign)) 'repo without the identity remote -> false'
+    Assert-True (-not (Test-RequiresFullPanel -RepoRoot $foreign)) 'repo without the identity remote -> false'
     git -C $idRepo remote set-url origin 'https://github.com/someone/Else.git'
-    Assert-True (-not (Test-IsInstructionsRepo -RepoRoot $idRepo)) 'identity repo with a foreign remote URL -> false (vendoring leak closed)'
-    # origin-scoped gate scenario: a consumer that vendors the sentinels + adds THIS repo
-    # as an extra remote (e.g. upstream) but keeps its OWN origin must NOT trip the gate.
+    Assert-True (Test-RequiresFullPanel -RepoRoot $idRepo) 'object activation survives fork remote URL'
     $consumer = New-TempRepo -WithIdentity
     git -C $consumer remote set-url origin 'https://github.com/acme/their-app.git'
     git -C $consumer remote add upstream 'https://github.com/jschick04/CopilotInstructions.git'
-    Assert-True (-not (Test-IsInstructionsRepo -RepoRoot $consumer)) 'consumer with origin=their-repo + upstream=this-repo -> false (origin-scoped; no all-remote false-positive)'
+    [void](New-TestCommit -Directory $consumer -File 'seed.txt' -Content 'seed' -Message 'activate')
+    Assert-True (Test-RequiresFullPanel -RepoRoot $consumer) 'committed activation does not depend on origin identity'
 
     Write-Host "`n=== flush-audits.ps1 end-to-end (identity repo) + identity no-op ==="
     $fr = New-TempRepo -WithIdentity
@@ -204,6 +253,14 @@ try {
     & (Join-Path $repoRoot 'scripts/flush-audits.ps1') -RepoRoot $nr -CommitSha HEAD -Quiet
     Assert-True ($null -eq (Read-RawAuditNote -RepoRoot $nr -NoteRef (Get-PanelNoteRef) -CommitSha $nc)) 'no-identity repo: flush wrote NO note'
     Assert-True (Test-Path (Join-Path $nr '.github/pr-quality-gate/audits/post-code-change-last.md')) 'no-identity repo: receipt left untouched'
+
+    foreach ($remoteForm in @('https://github.example/fork/instructions.git','git@instructions-alias:owner/repository.git','none')) {
+        if ($remoteForm -eq 'none') { & git -C $fr remote remove origin }
+        else { & git -C $fr remote set-url origin $remoteForm }
+        Set-Content -LiteralPath (Join-Path $fr '.github/pr-quality-gate/audits/post-code-change-last.md') -Value (New-PanelBody $fp)
+        & pwsh -NoProfile -File (Join-Path $repoRoot 'scripts/flush-audits.ps1') -RepoRoot $fr -CommitSha $fc 2>&1 | Out-Null
+        Assert-True ($LASTEXITCODE -eq 0 -and -not (Test-Path -LiteralPath (Join-Path $fr '.github/pr-quality-gate/audits/post-code-change-last.md'))) "note writer activates on git objects for remote form $remoteForm"
+    }
 
     Write-Host "`n=== idempotent re-flush (audited_tree not doubled) ==="
     $ir = New-TempRepo

@@ -41,7 +41,16 @@ if (-not (Test-Path -LiteralPath $modulePath)) {
 }
 Import-Module $modulePath -Force
 $gitEmptyTreeSha = Get-GitEmptyTreeSha
-
+if ($StagedMode) {
+    try { $activated = Test-RequiresFullPanel -RepoRoot $RepoRoot } catch {
+        Write-Violation $_.Exception.Message
+        exit $script:ExitViolation
+    }
+    if (-not $activated) {
+        Write-Host 'OK: instruction-set activation sentinel absent; pre-commit-gate validation is inactive.'
+        exit $script:ExitOk
+    }
+}
 
 function Invoke-Git {
     [CmdletBinding()]
@@ -67,6 +76,7 @@ function Get-ChangedPaths {
 }
 
 if ($StagedMode) {
+    if (-not $WorktreeReceipt) { Write-Invocation 'staged mode requires -WorktreeReceipt; audit receipts cannot be staged'; exit $script:ExitInvocation }
     $stagedResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '--name-only', '--no-renames', '--diff-filter=ACMRTD')
     $changedPaths = Get-ChangedPaths -GitResult $stagedResult
     if (-not $changedPaths) {
@@ -79,6 +89,8 @@ if ($StagedMode) {
     $nameStatusResult = Invoke-Git -Arguments @('-c', 'core.quotePath=false', 'diff', '--cached', '--name-status', '-M', '--diff-filter=ACMRTD')
     $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
     $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
+    $requiresFull = $activated
+    $postAdoption = Test-IsPostAdoption -RepoRoot $RepoRoot -StagedMode
 
     # Parent must be HEAD (fresh commit). For `git commit --amend` set PANEL_GATE_AMEND=1 to also accept HEAD^ (CI stays strict).
     $amendAllowed = ($env:PANEL_GATE_AMEND) -and ($env:PANEL_GATE_AMEND -ne '0')
@@ -103,26 +115,17 @@ if ($StagedMode) {
     $hintParent = if ($amendAllowed -and $acceptableParents.Count -gt 1) { $acceptableParents[-1] } else { $acceptableParents[0] }
     $hintParentDisplay = if ($hintParent -eq $gitEmptyTreeSha) { 'EMPTY_TREE' } else { $hintParent.Substring(0, [Math]::Min(8, $hintParent.Length)) }
 
-    if ($WorktreeReceipt) {
-        # Local-only adoption: the receipt is git-excluded (never staged), so read it from disk.
-        $receiptFull = Join-Path $RepoRoot $AuditPath
-        if (-not (Test-Path -LiteralPath $receiptFull)) {
-            Write-Violation "staged diff needs a PRE-COMMIT GATE PASSED receipt but no '$AuditPath' exists on disk. Emit the block, write it (parent_sha=$hintParentDisplay), and keep it on disk."
-            exit $script:ExitViolation
-        }
-        $blockLines = @(Get-Content -LiteralPath $receiptFull)
-    } else {
-        $receiptResult = Invoke-Git -Arguments @('show', ":$AuditPath") -AllowFailure
-        if ($receiptResult.ExitCode -ne 0 -or -not $receiptResult.Stdout) {
-            Write-Violation "staged diff needs a PRE-COMMIT GATE PASSED receipt but no fresh '$AuditPath' is present. Emit the block and write it (parent_sha=$hintParentDisplay) to '$AuditPath'."
-            exit $script:ExitViolation
-        }
-        $blockLines = @($receiptResult.Stdout) | ForEach-Object { $_ }
+    # Local-only adoption: the receipt is git-excluded (never staged), so read it from disk.
+    $receiptFull = Join-Path $RepoRoot $AuditPath
+    if (-not (Test-Path -LiteralPath $receiptFull)) {
+        Write-Violation "staged diff needs a PRE-COMMIT GATE PASSED receipt but no '$AuditPath' exists on disk. Emit the block, write it (parent_sha=$hintParentDisplay), and keep it on disk."
+        exit $script:ExitViolation
     }
+    $blockLines = @(Get-Content -LiteralPath $receiptFull)
 
     $check = $null
     foreach ($candidateParent in $acceptableParents) {
-        $candidate = Test-PreCommitGateBlock -BlockLines $blockLines -ExpectedParentSha $candidateParent -GovernanceTier $governanceTier
+        $candidate = Test-PreCommitGateBlock -BlockLines $blockLines -ExpectedParentSha $candidateParent -GovernanceTier $governanceTier -RequiresFull:$requiresFull -PostAdoption:$postAdoption
         if ($candidate.Valid) { $check = $candidate; break }
         if (-not $check) { $check = $candidate }
     }
@@ -154,11 +157,11 @@ if ($baseSha -eq $headSha) {
     exit $script:ExitOk
 }
 
-$commitsForwardResult = Invoke-Git -Arguments @('log', '--reverse', '--no-merges', '--format=%H', "$baseSha..$HeadRef")
+$commitsForwardResult = Invoke-Git -Arguments @('log', '--reverse', '--format=%H', "$baseSha..$HeadRef")
 $commitsForward = @($commitsForwardResult.Stdout) | Where-Object { $_ } | ForEach-Object { $_.Trim() }
 
 if (-not $commitsForward) {
-    Write-Host "OK: no non-merge commits in range."
+    Write-Host "OK: no commits in range."
     exit $script:ExitOk
 }
 
@@ -183,6 +186,9 @@ foreach ($commitSha in $commitsForward) {
     }
     $nameStatusLines = @($nameStatusResult.Stdout) | Where-Object { $_ }
     $governanceTier = Get-ChangedGovernanceTier -ChangedPaths $changedPaths -NameStatusLines $nameStatusLines
+    $requiresFull = Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $commitSha
+    if (-not $requiresFull) { continue }
+    $postAdoption = Test-IsPostAdoption -RepoRoot $RepoRoot -CommitSha $commitSha
 
     $receiptResult = Invoke-Git -Arguments @('show', "${commitSha}:$AuditPath") -AllowFailure
     if ($receiptResult.ExitCode -ne 0 -or -not $receiptResult.Stdout) {
@@ -191,7 +197,7 @@ foreach ($commitSha in $commitsForward) {
     }
     $blockLines = @($receiptResult.Stdout) | ForEach-Object { $_ }
 
-    $check = Test-PreCommitGateBlock -BlockLines $blockLines -ExpectedParentSha $expectedParentSha -GovernanceTier $governanceTier
+    $check = Test-PreCommitGateBlock -BlockLines $blockLines -ExpectedParentSha $expectedParentSha -GovernanceTier $governanceTier -RequiresFull:$requiresFull -PostAdoption:$postAdoption
     if (-not $check.Valid) {
         foreach ($err in $check.Errors) { $violations += "Commit ${shortSha}: $err" }
         continue

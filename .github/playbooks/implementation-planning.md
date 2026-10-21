@@ -51,7 +51,7 @@ Bundle in one `ask_user` prompt:
 
 1. **Greenfield pre-check** - if the user-stated change scope has no in-scope code yet, branch:
    - **Empty repo / no prior code**: output one-line not-applicable; offer `scope-planning.md` instead. Stop.
-   - **New module in established repo**: continue, using sibling-module conventions (per AGENTS.md §3.6 *dominant or closest-in-purpose*) for the greenfield structure. Surface those conventions explicitly in the plan.
+   - **New module in established repo**: continue, following the conventions of the dominant (or, if none dominates, the closest-in-purpose) sibling module for the greenfield structure. Surface those conventions explicitly in the plan.
 2. **Read change scope** - `view` / `grep` the named modules / files. Build a working list of:
    - Public API entry points.
    - Direct callers (cross-module / cross-project).

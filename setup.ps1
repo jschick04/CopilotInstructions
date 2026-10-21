@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     One-time setup for Copilot CLI custom instructions hosted in this repo.
 
@@ -23,15 +23,14 @@
 #>
 
 [CmdletBinding()]
-param(
-    [ValidateSet('full', 'lite')] [string] $Profile
-)
+param()
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $Profile) {
-    throw "Required parameter -Profile <full|lite> was not supplied. Re-run, e.g.: .\setup.ps1 -Profile full"
-}
+$gitVersionOutput = & git --version 2>$null
+if ($LASTEXITCODE -ne 0 -or $gitVersionOutput -notmatch '^git version (\d+\.\d+)(?:\.\d+)?') { throw 'Git 2.31 or newer is required.' }
+$gitVersion = [version]$Matches[1]
+if ($gitVersion -lt [version]'2.31') { throw "Git 2.31 or newer is required; found $gitVersionOutput." }
 
 function Write-Heading {
     param([string]$Text)
@@ -124,6 +123,12 @@ if (-not (Test-Path $agentsFile)) {
 }
 if (-not (Test-Path $instructionsDir)) {
     throw "Expected '$instructionsDir' to exist. Repo layout looks wrong."
+}
+
+$activeProfileFile = Join-Path $instructionsDir 'active-profile.instructions.md'
+if (Test-Path -LiteralPath $activeProfileFile) {
+    Remove-Item -LiteralPath $activeProfileFile -Force
+    Write-Host 'Profiles were consolidated. Removed the stale active-profile file.' -ForegroundColor Yellow
 }
 
 $topicFiles = Get-ChildItem -Path $instructionsDir -Filter '*.instructions.md' -File -ErrorAction SilentlyContinue
@@ -264,35 +269,7 @@ Write-Host @"
        Remove-Item '$homeFile'
 "@
 
-# --- Configure active profile (full | lite) -----------------------------------
-
-Write-Heading "Configuring active profile: $Profile"
-
-$profileTemplate  = Join-Path $repoRoot "profiles\$Profile\profile.template.md"
-$activeProfileFile = Join-Path $repoRoot '.github\instructions\active-profile.instructions.md'
-
-if (-not (Test-Path $profileTemplate)) {
-    throw "Profile template not found: '$profileTemplate'. Expected profiles\full\ and profiles\lite\ in the repo."
-}
-
-if (Test-Path $activeProfileFile) {
-    $sameContent = (Get-FileHash -Path $activeProfileFile -Algorithm SHA256).Hash -eq (Get-FileHash -Path $profileTemplate -Algorithm SHA256).Hash
-    if ($sameContent) {
-        Write-Host "Active profile already '$Profile' and current. No change." -ForegroundColor Green
-    } else {
-        Copy-Item -Path $profileTemplate -Destination $activeProfileFile -Force
-        Write-Host "Refreshed active profile to '$Profile' (was a different or stale profile)." -ForegroundColor Green
-    }
-} else {
-    Copy-Item -Path $profileTemplate -Destination $activeProfileFile -Force
-    Write-Host "Active profile set to '$Profile'." -ForegroundColor Green
-}
-
-Write-Host "  Wrote $activeProfileFile (gitignored; per-machine; never committed)."
-Write-Host "  After 'git pull', re-run this script to refresh the active file if the template changed." -ForegroundColor Yellow
-Write-Host "  To revert to full-default behavior, delete it: Remove-Item '$activeProfileFile'" -ForegroundColor Yellow
-
-# --- 7. Configure git hook path (catalog-sync drift safeguard) ----------------
+# --- Configure git hook path (catalog-sync drift safeguard) ----------------
 
 Write-Heading "Configuring git hooks path"
 
@@ -348,7 +325,7 @@ if ($LASTEXITCODE -ne 0) {
     }
 }
 
-# --- 8. Configure local git-notes audit refs (zero remote footprint) ----------
+# --- Configure local git-notes audit refs (zero remote footprint) ----------
 
 Write-Heading "Configuring local audit-note refs"
 

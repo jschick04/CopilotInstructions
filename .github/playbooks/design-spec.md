@@ -32,7 +32,7 @@ Triggered when the user asks for a **durable artifact** describing a system or d
 - *"dev design spec for..."* / *"implementation spec for..."* / *"build spec for..."*
 - *"how will we build / ship / test (the approved feature) X?"* (when phrased as a request for a written spec, not a casual question)
 
-These are **strong triggers**: the agent immediately offers this playbook via `ask_user` (*"this looks like a design-spec ask - want me to run the design-spec playbook?"*). Decline-then-no-retry rule applies (per `AGENTS.md` trigger detection).
+These are **strong triggers**: the agent immediately offers this playbook via `ask_user` (*"this looks like a design-spec ask - want me to run the design-spec playbook?"*). Decline-then-no-retry rule applies (per `workflow-conventions.md` *Trigger detection - strong vs weak*).
 
 **Not a strong trigger:** factual existence questions or exploratory factual questions that do NOT request a document. Examples that should be answered directly (or with a single non-blocking offer of this playbook):
 
@@ -40,7 +40,7 @@ These are **strong triggers**: the agent immediately offers this playbook via `a
 - *"how does X work?"*
 - *"what do we have in prod for X?"* (asked casually, not as *"document what we have in prod for X"*)
 
-Strong triggers require an artifact-request signal. **The canonical verb / noun discriminator lives in `AGENTS.md` *Trigger detection - strong vs weak*** - defer to that single source rather than maintaining a duplicate list here. Notably (per AGENTS canonical): bare *"review"* / *"audit"* are NOT strong on their own; they only become strong when paired with an artifact noun (*"architect review of"*, *"audit report"*, etc.). Bare unpaired forms fall into AGENTS' *ambiguous artifact-adjacent* category and trigger one short clarifying `ask_user`.
+Strong triggers require an artifact-request signal. **The canonical verb / noun discriminator lives in `workflow-conventions.md` *Trigger detection - strong vs weak*** - defer to that single source rather than maintaining a duplicate list here. Notably (per that canonical source): bare *"review"* / *"audit"* are NOT strong on their own; they only become strong when paired with an artifact noun (*"architect review of"*, *"audit report"*, etc.). Bare unpaired forms fall into its *ambiguous artifact-adjacent* category and trigger one short clarifying `ask_user`.
 
 ## Hard gates
 
@@ -119,7 +119,7 @@ Mark assumptions inline: *"(ASSUMED - not verified in source)"* in italics.
 
 ### 4. Draft the doc IN CHAT first
 
-Render the full document in chat, regardless of intended destination. This is mandatory per the output-write ordering rule (`AGENTS.md`).
+Render the full document in chat, regardless of intended destination. This is mandatory per the output-write ordering rule (`phase-state-convention.md` *Output-write ordering for documentation playbooks*).
 
 Use:
 

@@ -1,5 +1,5 @@
 # Playbook: Pre-PR-push phase (INDEX)
-<!-- read-receipt-token: 5c3d9a71 -->
+<!-- read-receipt-token: d9ed5c9d -->
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Fires when the user is preparing to push for code review - opening a PR, request
 - **Branch-wide vertical-slice (VSA) audit** run when `git diff <base>..HEAD` adds / moves / renames any type or file, adds a root-level file to a folder-organized assembly, adds a new top-level type to an existing file, or introduces a multi-type file. Procedure: the vertical-slice lens of `.github/playbooks/codebase-architecture-audit.md` at branch-wide scope, re-grepped against the final branch state. Skipped only when the branch has no such structural delta, that fact recorded. A uniformly-flat small assembly is not folderized (see that playbook's scoped-invocation section for the objective bound); a documented prior CLEAN verdict stands unless the user overrides it.
 - **PR title + body free of internal plan markers** - mechanically enforced by `scripts/check-pr-text.ps1` (a CI `pull_request` backstop that scans the title + body, plus a pre-create agent run). Before `gh pr create` / `gh pr edit`, run it against the PROPOSED title + body and strip whatever it flags: plan IDs (`T1`, `F16e-2`, `FX-3`, `C5`), session paths (`session-state` / `files/<x>.md` / `<id>/plan.md`), pre-rebase commit SHAs, stage / phase markers. The audience is the public repo, not the planning workspace - **use the SUT names, the behavior change, and the test-count delta, never the internal phase IDs.** (The gate raises the floor on MODELED markers - tier-1 hard-fail, tier-2 warn; it does not replace this judgment, and an unmodeled phrasing escapes.)
 - Sweep base SHA + sweep HEAD SHA + base ref recorded for re-run logic.
-- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim - structured chat block enumerating the 12-field state predicate + sandbox-confirmation informational field (13 lines total), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
+- **Pre-PR-push state read-back evidence-gate output emitted** before any "ready to push" claim - structured chat block enumerating the state predicate + sandbox-confirmation informational field (one line per field), verbatim from session-todo phase-state records, NOT from memory (see *Evidence-gate output before declaring "ready"* below).
 - No "ready to push" claim until push credentials verified (§4.2), per-commit audit, branch-wide sweep, AND branch-wide least-privilege audit plus branch-wide vertical-slice (VSA) audit (each when applicable) done OR user explicitly skipped (with recorded warning per User-skip policy).
 
 ## Loop-tightener: run the local-CI mirror before pushing
@@ -55,7 +55,7 @@ If any of `GH_TOKEN`, `GITHUB_TOKEN`, `GIT_ASKPASS` is set, OR `SSH_AUTH_SOCK` p
 | SSH | `ssh -T git@<host>` (when host supports a greeting, e.g. github.com prints `Hi <username>!`) | Greeting matches the user's known account | `yes` |
 | Ambient `GH_TOKEN` / `GITHUB_TOKEN` / `GIT_ASKPASS` / `SSH_AUTH_SOCK` (from step 2) | n/a | STOP and ask via `ask_user`; default to `blocked` unless user explicitly confirms ownership + intent | `yes` only on explicit confirmation; otherwise `blocked` |
 
-**4. Record `pushCredentialsVerified` in the pre-PR-push phase-state record** (per `AGENTS.md` *Per-phase additional fields*). One of:
+**4. Record `pushCredentialsVerified` in the pre-PR-push phase-state record** (per `phase-state-convention.md` *Per-phase additional fields*). One of:
 
 - `yes` - mechanism returned the user's principal.
 - `user-confirmed-unverifiable` - mechanism couldn't expose the principal; user confirmed via `ask_user` that the cached credential is theirs.
@@ -96,7 +96,7 @@ Default to the user. The prompt MUST use the literal `the agent` / `you (the use
 Before consulting the truth table or fetching any sub-file, settle this single question via intake - **scoped to the current push, not the branch's eventual fate**: **will this specific push be used for review (by you or others) or pulled/inspected by anyone other than the user themselves?**
 
 - If **personal-sandbox / backup-only** (this push is for the user's own backup, cross-machine sync, or local dress-rehearsal - nobody else will pull this push for review):
-  1. **Record the phase-state record FIRST** per the *Sandbox-exit record* shape in `AGENTS.md` *Phase-state tracking convention* (`branchWideSweepStatus: not-applicable`, booleans recorded, predicate fields written as the literal `n/a-sandbox-exit` sentinel; this is a `done` phase-state record, not a "skipped" record - the playbook explicitly resolved as not-applicable for this push). **Also write the `sandbox_push_declared` receipt** (schema: `publish-gate-receipt.md`) so the pre-push hook authorizes the sandbox push.
+  1. **Record the phase-state record FIRST** per the *Sandbox-exit record* shape in `phase-state-convention.md` (`branchWideSweepStatus: not-applicable`, booleans recorded, predicate fields written as the literal `n/a-sandbox-exit` sentinel; this is a `done` phase-state record, not a "skipped" record - the playbook explicitly resolved as not-applicable for this push). **Also write the `sandbox_push_declared` receipt** (schema: `publish-gate-receipt.md`) so the pre-push hook authorizes the sandbox push.
   2. Then emit this exact summary block to the user:
      > *"Out of pre-PR-push scope for this push - personal-sandbox / backup push, no sweep / hygiene checks run. Returning to ordinary push flow: confirm remote / branch and perform the push if you still want it; do not claim review-readiness. When this branch is later pushed for review (PR-opening, request-for-review, push to a shared branch others may pull), re-enter this playbook and intake will catch the prior sandbox exposure under `remoteExposureExists`."*
   3. **Override option:** if the user wants the review-readiness checks anyway (e.g. a deliberate dress-rehearsal sweep for upcoming review), they may say *"run pre-PR-push checks despite sandbox-only"* (or similar); treat the push as review-targeting from that point and continue to the booleans + truth table below.
@@ -109,7 +109,7 @@ This pre-check exists because the two booleans alone cannot distinguish "sandbox
 These two booleans determine which sub-files apply when the playbook is in scope (per the pre-check above). They are independent - confusing them is the most common pre-PR-push mis-routing.
 
 - **`isFirstReviewExposurePush`** - *Is THIS push the first one intended for review?* (PR-opening, request-for-review, first push to a shared branch others may pull from.) Drives whether the **branch-wide sweep is required** in this push cycle. Named as a verb-shaped predicate to prevent misreading as "this branch has never been pushed before". **Per-push, not branch-sticky:** a personal-sandbox / backup push records `false` (a sandbox push is not a review push); the FIRST subsequent review push of the same branch records `true`. Independence from `remoteExposureExists` is the point - prior sandbox pushes do NOT latch this boolean to `false` for the upcoming review push.
-- **`remoteExposureExists`** - *Has this branch been pushed anywhere before, in any form (including personal sandbox)?* **Historical evidence only** - the primary amend-safety force-push gate is `isFirstReviewExposurePush=false` (the branch is already under review on a shared remote). **Sandbox exemption is conditional, not automatic**: when `(isFirstReviewExposurePush=true && remoteExposureExists=true)`, before any operation that rewrites already-pushed history the agent MUST ask a one-question sandbox-privacy confirmation (*"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"*); on **yes** silent amend is safe, on **no/unsure** use the `(false, true)` amend-safety subflow only (booleans + decision-tree routing stay unchanged). Question fires lazily - only when an amend is about to happen, NOT preemptively at intake. The canonical contract for this gate lives in `AGENTS.md` *Per-phase additional fields*. Recorded for audit and as input to the `(false, true)` truth-table row's re-run logic.
+- **`remoteExposureExists`** - *Has this branch been pushed anywhere before, in any form (including personal sandbox)?* **Historical evidence only** - the primary amend-safety force-push gate is `isFirstReviewExposurePush=false` (the branch is already under review on a shared remote). **Sandbox exemption is conditional, not automatic**: when `(isFirstReviewExposurePush=true && remoteExposureExists=true)`, before any operation that rewrites already-pushed history the agent MUST ask a one-question sandbox-privacy confirmation (*"was the prior sandbox push truly personal/unwatched, and are you sure no one else pulled it?"*); on **yes** silent amend is safe, on **no/unsure** use the `(false, true)` amend-safety subflow only (booleans + decision-tree routing stay unchanged). Question fires lazily - only when an amend is about to happen, NOT preemptively at intake. The canonical contract for this gate lives in `phase-state-convention.md` *Per-phase additional fields*. Recorded for audit and as input to the `(false, true)` truth-table row's re-run logic.
 
 | `isFirstReviewExposurePush` | `remoteExposureExists` | What this means | Which sub-files apply |
 | --- | --- | --- | --- |
@@ -128,7 +128,7 @@ Bundle these in one prompt. Q1 settles intent for the pre-check above; the boole
    (c) personal-sandbox / backup push only - nobody else will pull this for review.
    *Mapping: (a) → review-targeting + `isFirstReviewExposurePush=true`; (b) → review-targeting + `isFirstReviewExposurePush=false`; (c) → exits at pre-check.*
 2. **Has this branch been pushed before - anywhere, in any form including a personal sandbox or backup branch?** *(populates `remoteExposureExists`)*
-3. **Base ref** - what is this branch being merged into? (Usually `origin/main` or `origin/master`; confirm.)
+3. **Base and head (push) remotes and branches** - approve both. Derive `head_url` (`git remote get-url --push <head_remote>`), `head_identity`, `head_owner`, `head_nwo` from the approved head remote. Ask if multiple remotes exist or the branch is a fork; never infer from a local `origin/*` ref.
 4. **Have you done any merges, rebases, or amends since the last branch-wide sweep on this branch?** (If unsure: yes, treat as if you have.) *(For option (b), this is also the disambiguator that drives `when-to-re-run-sweep.md` routing - review-response-only differs from review-response + rebase + new scope.)*
 5. **Any additional facts that affect routing?** For example: this push both responds to review AND includes a rebase, merge, amend, new files, or new feature scope; or the branch is being moved to a new base. Multiple sub-files compose - they don't replace each other (see decision tree below).
 
@@ -152,7 +152,7 @@ If this is the first push intended for review (PR-opening, request-for-review, o
 
 > `.github/playbooks/pre-pr-push/branch-wide-sweep.md`
 
-...and run the branch-wide rename-first sweep across `<base>..HEAD` for the entire branch. **Record the resolved base SHA, sweep HEAD SHA, and base ref name in canonical session todos** (per `AGENTS.md` *Phase-state tracking convention*) so the re-run rules below can detect "out of scope at initial sweep" later.
+...and run the branch-wide rename-first sweep across `<base>..HEAD` for the entire branch. **Record the resolved base SHA, sweep HEAD SHA, and base ref name in canonical session todos** (per `phase-state-convention.md`) so the re-run rules below can detect "out of scope at initial sweep" later.
 
 ### Step 3 - IF the sweep finds changes: pick the cleanup-commit bucket
 
@@ -198,35 +198,49 @@ This step is the SINGLE SOURCE OF TRUTH for "should the publish gate fire now?" 
 
 ## State to record before declaring "ready to push"
 
-Per `AGENTS.md` *Phase-state tracking convention*, record these in the canonical session todos table:
+Per `phase-state-convention.md`, record these in the canonical session todos table:
 
 - `isFirstReviewExposurePush` (boolean) and `remoteExposureExists` (boolean) - set at intake.
-- `baseRef` / `baseSha` / `sweepHeadSha` - captured at sweep time (NOT later-resolved symbolic refs).
+- The binding fields, `baseRef` / `baseSha` / `sweepHeadSha` - per `phase-state-convention.md`, captured at sweep time.
 - `perCommitAuditCoverage` - per-commit-SHA status (`done` / `skipped-with-reason` / `not-run`). Must be `done` or `skipped-with-reason` for every commit before "ready". *Recorded per-commit by `pre-commit.md` Step 5; pre-PR-push reads back the accumulated map.*
-- `branchWideSweepStatus` - see `AGENTS.md` *Phase-state tracking convention* for the canonical enumeration (8 values: `not-applicable`, `done-clean`, `done-cleanup-committed`, `previously-done-no-rerun-needed`, `rerun-done-clean`, `rerun-done-cleanup-committed`, `rerun-skipped-with-reason`, `skipped-with-reason`). The producing sub-files (`branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) write the specific value; this field's contract lives in AGENTS to avoid drift.
+- `branchWideSweepStatus` - canonical 8-value enum in `phase-state-convention.md`; the producing sub-files (`branch-wide-sweep.md`, `cleanup-commit-buckets.md`, `when-to-re-run-sweep.md`) write the value.
 - `cleanupBucketOutcomes` - for each cleanup commit: bucket chosen + reason + whether amend-safety required force-push approval.
-- `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written only when the conditional sandbox-exemption gate fires (`(isFirstReviewExposurePush=true && remoteExposureExists=true)` and an amend was actually attempted). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*.
-- `rerunConditionsChecked`- `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases - `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `AGENTS.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
-- `pushCredentialsVerified` - outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field - credentials must be verified for sandbox pushes too). Canonical field definition lives in `AGENTS.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
+- `sandboxPriorExposureConfirmation` - `confirmed-private` / `denied-or-unsure` / `not-needed`. Written only when the conditional sandbox-exemption gate fires (`(isFirstReviewExposurePush=true && remoteExposureExists=true)` and an amend was actually attempted). Canonical field definition lives in `phase-state-convention.md` *Per-phase additional fields*.
+- `rerunConditionsChecked`- `true` (re-run conditions checked per `when-to-re-run-sweep.md`) or `false` for subsequent review-targeting pushes; or one of the documented sentinel values for the "doesn't apply" cases - `n/a-first-push` (this is the first review push, no prior sweep to re-run-check) or `n/a-sandbox-exit` (push exited at the sandbox pre-check). The canonical field definition + sentinel contract live in `phase-state-convention.md` *Per-phase additional fields*; both sentinels are predicate-complete (a strict reader MUST treat them as satisfying the field).
+- `pushCredentialsVerified` - outcome of *Pre-check 0* above (mechanism-aware §4.2 verification). One of `yes` / `user-confirmed-unverifiable` / `blocked`. **Recorded for EVERY push including sandbox-exits** (no `n/a-sandbox-exit` sentinel for this field - credentials must be verified for sandbox pushes too). Canonical field definition lives in `phase-state-convention.md` *Per-phase additional fields*. A `blocked` value fails the readiness gate.
 - `preCreationReviewStatus` - outcome of Step 5 above (the publish gate per `pre-pr-creation-review.md`). One of `READY-pending-user-approval` / `READY-re-emitted-after-user-approval` / `BLOCKED-<reason>` / `n/a-sandbox-exit` (when this push exited at the sandbox pre-check). A `BLOCKED-*` value fails the readiness gate AND blocks the PR-creation tools enumerated in the publish gate's G6.
 - `publishGateReceiptWritten` - the receipt row for the pushed tip (Step 5 / sandbox pre-check): `publish_gate_ready` / `sandbox_push_declared` / `no`. `no` fails the readiness gate AND is blocked by the pre-push hook. Schema: `publish-gate-receipt.md`.
 
-Read these back from canonical session todos (per `AGENTS.md` *Phase-state tracking convention*) when declaring "ready"; do NOT infer from memory.
+Read these back from canonical session todos (per `phase-state-convention.md`) when declaring "ready"; do NOT infer from memory.
 
 ### Evidence-gate output before declaring "ready"
 
-Print the state-predicate read-back as a structured chat block before claiming ready - the 12 predicate fields PLUS the `sandboxPriorExposureConfirmation` informational field (13 lines total in the block; the field set is referred to as the "12-field state predicate" in `AGENTS.md`, and the sandbox-confirmation field is the always-present informational thirteenth). This is the **documented carve-out from the standard evidence-gate "zero-count justification" requirement** (per `multi-model-review/evidence-gate-spec.md` - state read-back prints state verbatim; there is no audit-count concept here).
+Print every predicate field, one per line, plus the sandbox confirmation. This state-only read-back is exempt from the evidence-gate zero-count rule; read values verbatim from session todos (see `multi-model-review/evidence-gate-spec.md`).
 
 ```
-Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
+Pre-PR-push state read-back: ready=<yes | no: blocker>.
 - isFirstReviewExposurePush: <true | false>
 - remoteExposureExists: <true | false>
-- baseRef: <e.g., origin/main>
-- baseSha: <40-char SHA at sweep time>
-- sweepHeadSha: <40-char SHA at sweep time>
-- perCommitAuditCoverage: { <SHA>: <done | skipped-with-reason | not-run>, ... } - must be `done` or `skipped-with-reason` for every commit
-- branchWideSweepStatus: <one of 8 enum values per AGENTS.md Phase-state tracking convention>
-- cleanupBucketOutcomes: <list of (bucket, commit-sha, amend-safety-result) tuples; empty when no cleanup>
+- base_remote: <remote name>
+- base_branch: <branch>
+- base_url: <approved fetch URL>
+- base_tip_sha: <verified ls-remote tip>
+- base_identity: <host/owner/repo>
+- base_nwo: <owner/repo | n/a>
+- base_project_path: <path | n/a>
+- head_remote: <remote name>
+- head_url: <approved push URL>
+- head_identity: <host/owner/repo>
+- head_owner: <owner>
+- head_nwo: <owner/repo | n/a>
+- head_project_path: <path | n/a>
+- gh_host: <host | n/a>
+- baseRef: <display-only>
+- baseSha: <merge-base(base_tip_sha, sweepHeadSha); sweep base>
+- sweepHeadSha: <full 40- or 64-hex SHA at sweep time>
+- perCommitAuditCoverage: {<SHA>: <done | skipped-with-reason | not-run>, ...} - each commit must be done or skipped-with-reason
+- branchWideSweepStatus: <enum per phase-state-convention.md>
+- cleanupBucketOutcomes: <(bucket, commit-SHA, amend-safety-result) list; empty when none>
 - rerunConditionsChecked: <true | false | n/a-first-push | n/a-sandbox-exit>
 - pushCredentialsVerified: <yes | user-confirmed-unverifiable | blocked>
 - preCreationReviewStatus: <READY-pending-user-approval | READY-re-emitted-after-user-approval | BLOCKED-<reason> | n/a-sandbox-exit>
@@ -234,7 +248,7 @@ Pre-PR-push state read-back: ready=<yes | no with blocker summary>.
 - sandboxPriorExposureConfirmation: <confirmed-private | denied-or-unsure | not-needed>
 ```
 
-Any "ready" claim that lacks this structured output is a workflow violation per `AGENTS.md` cross-cutting findings audit rule. Re-confirm every field by reading session todos before emitting - values inferred from memory are NOT acceptable.
+Missing this block blocks any "ready" claim. Re-read every value from session todos; never use memory.
 
 ## When the user explicitly skips a pre-PR-push step
 

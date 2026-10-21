@@ -24,6 +24,7 @@ function Write-Invocation { param([string] $Msg) Write-Host "::error::INVOCATION
 function Write-Violation { param([string] $Msg) Write-Host "::error::VIOLATION:$Msg" }
 
 Import-Module (Join-Path $PSScriptRoot 'lib/repo-root.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'lib/panel-ledger-helpers.psm1') -Force
 try {
     $RepoRoot = Resolve-RepoRoot -Explicit $RepoRoot -ScriptRoot $PSScriptRoot -Anchors @('.github/playbooks') -RequireGitWorkTree
 } catch {
@@ -37,9 +38,9 @@ if (-not (Test-Path -LiteralPath $registryFull)) {
     exit $script:ExitInvocation
 }
 
-$validEffort = @('minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'not-supported')
+$validEffort = @('minimal', 'low', 'medium', 'high', 'xhigh', 'not-supported')
 $validContext = @('default', 'long_context')
-$validConsumerTags = @('default slate', 'lite slate', 'sub-agent default', 'no default slate consumer')
+$validConsumerTags = @('default slate', 'triage', 'no default slate consumer')
 $tierIdPattern = '^[a-z][a-z0-9-]*$'
 $tierHeader = '| Tier id | Description |'
 $mapHeader = '| Tier id | Current model | effort | context_tier | consumers | Notes |'
@@ -55,10 +56,9 @@ $sharedExclusions = @(
 )
 $tagScopes = @{
     'default slate'      = @('.github/playbooks', '.github/pr-quality-gate/panel-policy.md')
-    'lite slate'         = @('profiles/lite', '.github/pr-quality-gate/invoke-panel.ps1')
-    'sub-agent default'  = @('AGENTS.md')
-}
-$presenceScope = @('.github/playbooks', '.github/pr-quality-gate', 'profiles', 'AGENTS.md')
+    'triage'             = @('AGENTS.md', '.github/pr-quality-gate/panel-policy.md', '.github/pr-quality-gate/invoke-panel.ps1')
+    }
+$presenceScope = @('.github/playbooks', '.github/pr-quality-gate', 'AGENTS.md')
 
 function Test-DelimiterRow {
     param([string] $Bare)
@@ -238,6 +238,13 @@ foreach ($row in ($tierRows | Select-Object -Skip 2)) {
 $mapIds = @()
 $modelEffortPairs = @{}
 $rowsForConsumers = @()
+$modelAssignments = @{}
+& git --no-optional-locks -C $RepoRoot ls-files --stage 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) { Write-Host 'Failing closed: cannot read governing index'; exit $script:ExitInvocation }
+$heavyPolicy = Get-HeavyModelPolicy -RepoRoot $RepoRoot -StagedMode -MembershipOnly
+if ($heavyPolicy.Errors.Count -gt 0) { foreach ($errorText in $heavyPolicy.Errors) { $violations += $errorText } }
+$heavyModels = $heavyPolicy.Models
+
 foreach ($row in ($mapRows | Select-Object -Skip 2)) {
     $cells = @(Get-Cells -Row $row)
     if ($null -eq $cells -or $cells.Count -ne 6) { $violations += "current-mapping row must have exactly 6 cells: $($row.Trim())"; continue }
@@ -271,7 +278,16 @@ foreach ($row in ($mapRows | Select-Object -Skip 2)) {
     if ($tags -ccontains 'no default slate consumer' -and $tags.Count -ne 1) {
         $violations += "tier '$id' cannot combine 'no default slate consumer' with another tag"
     }
-    $rowsForConsumers += [PSCustomObject]@{ Id = $id; Tags = $tags }
+    $rowsForConsumers += [PSCustomObject]@{ Id = $id; Model = $model; Tags = $tags }
+    if ($id -match '^(heavy|light)-(claude|gpt|gemini|grok)\b') {
+        $tierClass = $matches[1]
+        $expectedVendor = $matches[2]
+        if ($modelAssignments.ContainsKey($model) -and $modelAssignments[$model] -ne "$tierClass|$expectedVendor") { $violations += "model '$model' appears in multiple tier classes or families" } else { $modelAssignments[$model] = "$tierClass|$expectedVendor" }
+        if ($model -notmatch ('^' + [regex]::Escape($expectedVendor) + '-')) { $violations += "tier '$id' family '$expectedVendor' does not match model vendor '$model'" }
+    }
+    if ($id -match '^heavy-') {
+        if ($heavyModels -cnotcontains $model) { $violations += "heavy tier '$id' model '$model' is absent from the heavy-model allowlist" }
+    }
 
     # The invariant the effort column exists to protect: two tiers on the same model must differ in effort or
     # context tier, or they are the same reviewer configuration wearing two names.
@@ -289,8 +305,8 @@ foreach ($id in $mapIds) { if ($tierIds -cnotcontains $id) { $violations += "tie
 function Get-RefCount {
     param([string] $Tier, [string[]] $Scope)
     $pattern = '(?<![a-z0-9_-])' + [regex]::Escape($Tier) + '(?![a-z0-9_-])'
-    $args = @('-c', 'core.quotePath=false', 'grep', '-lP', $pattern, '--') + $Scope + $sharedExclusions
-    $hits = & git -C $RepoRoot @args 2>$null
+    $gitArgs = @('-c', 'core.quotePath=false', 'grep', '-lP', $pattern, '--') + $Scope + $sharedExclusions
+    $hits = & git -C $RepoRoot @gitArgs 2>$null
     if ($LASTEXITCODE -gt 1) {
         Write-Invocation "git grep for tier '$Tier' failed (exit $LASTEXITCODE); cannot validate consumers. Failing closed."
         exit $script:ExitInvocation

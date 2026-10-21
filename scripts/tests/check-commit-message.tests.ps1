@@ -108,6 +108,8 @@ Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'trailing-period') "CRLF 'S
 
 $r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging to parser`"`n`nThis reverts commit cafe1234.")))
 Assert-True ($r.ExitCode -eq 0) "genuine revert (subject + 'This reverts commit <hex>.') is exempt"
+$r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging to parser`"`n`nThis reverts commit $('c' * 64).")))
+Assert-True ($r.ExitCode -eq 0) 'genuine revert of a 64-hex (sha256) commit is exempt'
 $r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging`"`n`nThis reverts commit cafe1234.`nCo-authored-by: x <y>")))
 Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'no-body') "revert with a smuggled trailer is NOT exempt (no-body fires)"
 $r = Invoke-Checker (Track (New-MsgRepo @("Revert `"Add logging`".")))

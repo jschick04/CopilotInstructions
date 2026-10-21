@@ -41,7 +41,7 @@ try {
             Write-Host "check-sync-parity: SKIP - no 'bash' on PATH; the catalog-sync CI workflow is the authoritative gate." -ForegroundColor Yellow
             exit $ExitEnv
         }
-        & bash ./scripts/sync-critical-rules.sh -OutputPath $tmpBash 2>$null | Out-Null
+        & bash (Join-Path $PSScriptRoot 'sync-critical-rules.sh') -OutputPath $tmpBash 2>$null | Out-Null
         $bashExit = $LASTEXITCODE
         $bashBytes = if (Test-Path -LiteralPath $tmpBash) { (Get-Item -LiteralPath $tmpBash).Length } else { 0 }
         if ($bashExit -ne 0 -or $bashBytes -eq 0) {

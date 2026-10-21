@@ -63,6 +63,17 @@ function New-TestGitRepository {
     return $directory
 }
 
+function Initialize-InstructionFixtureRepository {
+    param([Parameter(Mandatory)] [string] $Directory)
+    $policyDirectory = Join-Path $Directory '.github/pr-quality-gate'
+    $registryDirectory = Join-Path $Directory '.github/playbooks/multi-model-review'
+    New-Item -ItemType Directory -Path $policyDirectory, $registryDirectory -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $policyDirectory 'panel-policy.md') -Value 'Instruction fixture panel policy'
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../.github/playbooks/multi-model-review/current-model-registry.md') -Destination (Join-Path $registryDirectory 'current-model-registry.md')
+    New-Item -ItemType Directory -Path (Join-Path $policyDirectory 'data') -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot '../../.github/pr-quality-gate/data/heavy-allowlist.txt') -Destination (Join-Path $policyDirectory 'data/heavy-allowlist.txt')
+}
+
 function New-TestCommit {
     param([string] $Directory, [string] $File, [string] $Content, [string] $Message)
     $fullPath = Join-Path $Directory $File
@@ -76,11 +87,11 @@ function New-TestCommit {
 function Get-ValidPanelTranscript {
     return @(
         '    panel-transcript:',
-        '      - slot:duck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:CODE_REVIEW_READY rounds:2',
-        '      - slot:enforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
-        '      - slot:integ model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
-        '      - slot:scripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
-        '      - slot:arch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:duck model:claude-opus-5.5 family:claude role:rubber-duck tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:enforce model:gpt-6.1-sol family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:integ model:gemini-4-argon family:gemini role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:scripts model:grok-4.7 family:grok role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
+        '      - slot:arch model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:CODE_REVIEW_READY rounds:2',
         '      - findings: converged after closing a fail-open and tightening a regex'
     )
 }
@@ -88,11 +99,11 @@ function Get-ValidPanelTranscript {
 function Get-ValidPreTranscript {
     return @(
         '    pre-panel-transcript:',
-        '      - slot:pduck model:claude-opus-4.8 family:claude role:rubber-duck tier:heavy verdict:DESIGN_READY rounds:2',
-        '      - slot:penforce model:claude-opus-4.8 family:claude role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
-        '      - slot:pinteg model:gpt-5.5 family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
-        '      - slot:pscripts model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
-        '      - slot:parch model:gemini-3.1-pro-preview family:gemini role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:pduck model:claude-opus-5.5 family:claude role:rubber-duck tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:penforce model:gpt-6.1-sol family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:pinteg model:gemini-4-argon family:gemini role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:pscripts model:grok-4.7 family:grok role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
+        '      - slot:parch model:gpt-5.3-codex family:gpt role:code-review tier:heavy verdict:DESIGN_READY rounds:2',
         '      - findings: converged after correcting the diagnosis and the approach'
     )
 }

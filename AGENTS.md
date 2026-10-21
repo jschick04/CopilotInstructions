@@ -29,7 +29,7 @@ Both run on every git op. Bypass pattern "tests passed + ack done -> ready to co
 
 ### PRE-GIT SENTINEL - phase-transition checkpoint
 
-At the implementation -> git boundary, classify with `git status --porcelain` (first read), then emit this BEFORE any agent commit / artifact-staging (incl. `--amend`, `cherry-pick`, `rebase`):
+At the implementation -> git boundary, classify with `git status --porcelain` (first read), then emit this BEFORE any agent commit (incl. `--amend`, `cherry-pick`, `rebase`):
 
 ```
 PRE-GIT SENTINEL
@@ -37,6 +37,7 @@ phase_transition_intent=implementation->git | tests_status=<project>:<count> pas
 ```
 
 - LEADING checkpoint - fires BEFORE `pre-commit.md`'s `PRE-COMMIT GATE PASSED` block.
+- Full-floor (tier 2 or `Test-RequiresFullPanel`): both panels `ran:unanimous` only; `na`/`user-waived` rejected.
 - A summary-only PRE-GIT SENTINEL is not inherited - re-emit (no inherited approval).
 - Panel convergence does NOT clear this sentinel. Emitting it does NOT satisfy `ask_user`.
 
@@ -136,9 +137,9 @@ Hard gates (always apply, even if playbook unfetched):
 
 - Diagnosis verified (reproduce, minimise, hypothesise, instrument, reproduction-locked).
 - Reproduction (bug fix) or benchmark (perf work) exists.
-- Multi-model panel (target-type: `plan`), unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`. **Profile-aware:** the active profile (`active-profile.instructions.md`; none loaded -> full-default) sets the default panel mode + slate floor (full = 4-6; lite = 3 cross-family light-tier); both keep unanimous convergence. Lite trivial fast-path = `triage` (single-reviewer) ONLY when all active-profile LITE-FAST-PATH predicates hold + a `triage-acknowledged` receipt; safety-critical OR governance/instruction artifacts -> full slate on both profiles. Emit `profile=<full|lite|full-default>`.
-- **Rubber-duck-then-panel mandatory.** Skipping either needs explicit panel-skip approval - approval of the change REQUEST (the WHAT) is NOT it (§1 in `review-workflow-gates.md`); the lite `triage` fast-path is the sole sanctioned exception.
-- **PRE-EDIT SENTINEL.** Before the FIRST `create`/`edit`/file-write/`git add`/impl sub-agent in a code/governance change, emit: `PRE-EDIT SENTINEL | change_class=<code|governance|trivial> | pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required> | next_action=<run-panel|edit> | forks_resolved=<na:no-open-forks|reconverged:ref|escalated:ref> | design_signoff=<na:no-override-no-open-fork|approved:ref>`. If `change_class!=trivial`: `pre_impl_panel` MUST be `ran:unanimous` (DESIGN PANEL CONVERGED emitted, §1A) or `user-waived:ref` BEFORE `next_action=edit`; `na` only for trivial; governance/instruction artifacts are NEVER trivial; tier-2 forbids `user-waived`/`na`; a revised plan OR a new/changed artifact (new file, scope expansion, new dependency) re-panels on THAT artifact before its first edit, bound to its §1A hash not the directive (canonical: §1A `review-workflow-gates.md`); read tools OK pre-panel. Prose-class (no edit-time hook; git-time §2B backstops). A summary-only DESIGN PANEL CONVERGED / PRE-EDIT SENTINEL is NOT inherited - re-establish before the next edit.
+- Multi-model panel (`plan`): unanimous, 0 blocking, `subagent_ask_user_calls=0`. Default full: 4 distinct heavy models (Claude, GPT, Gemini, and GPT/Grok), 1 rubber-duck + 2 code-review; optional fifth heavy GPT codex. Triage: 2 distinct-family light code-reviewers after `triage-acknowledged`; forbidden on full-required paths. Emit `profile=<full|triage>`.
+- **Rubber-duck-then-panel mandatory.** Skipping either needs explicit panel-skip approval - approval of the change REQUEST (the WHAT) is NOT it (§1 in `review-workflow-gates.md`); the `triage` fast-path is the sole sanctioned exception.
+- **PRE-EDIT SENTINEL.** Before the FIRST `create`/`edit`/file-write/`git add`/impl sub-agent in a code/governance change, emit: `PRE-EDIT SENTINEL | change_class=<code|governance|trivial> | pre_impl_panel=<ran:unanimous|user-waived:ref:<call-ref>|na:not-panel-required> | next_action=<run-panel|edit> | forks_resolved=<na:no-open-forks|reconverged:ref|escalated:ref> | design_signoff=<na:no-override-no-open-fork|approved:ref>`. If `change_class!=trivial`: `pre_impl_panel` MUST be `ran:unanimous` (DESIGN PANEL CONVERGED emitted, §1A) or `user-waived:ref` BEFORE `next_action=edit`; `na` only for trivial; governance/instruction artifacts are NEVER trivial; full-floor (tier 2 or `Test-RequiresFullPanel`) forbids `user-waived`/`na`; a revised plan OR a new/changed artifact (new file, scope expansion, new dependency) re-panels on THAT artifact before its first edit, bound to its §1A hash not the directive (canonical: §1A `review-workflow-gates.md`); read tools OK pre-panel. Prose-class (no edit-time hook; git-time §2B backstops). A summary-only DESIGN PANEL CONVERGED / PRE-EDIT SENTINEL is NOT inherited - re-establish before the next edit.
 - **Reconcile-first; no self-exempted gates.** When a user decision returns, restate owed gates before any edit; a carve-out needs `ask_user`.
 - **Publish gate (§1B `QUALITY GATE` block).** gate-runner full-mode panel on full branch diff pre-publish; `pre-pr-creation-review.md`.
 - **Per-rule acknowledgement (§1A.1).** `core_rules_acknowledged` block lists each HIGH-tier slug in `HIGH-TIER-SLUGS.md` with `status: applied | not-applicable | violated` + per-site `file:line:disposition` + rationale. Schema in `panel-policy.md`.
@@ -158,7 +159,7 @@ Hard gates:
 - **Prior-PR-review sweep.** Two-scope: current PR thread + last 10 merged PRs (§2A in `review-workflow-gates-sweeps.md`).
 - **DRY remediation gate.** Refactor where 2+ files share >=5 identical lines (§2C in `review-workflow-gates-sweeps.md`). DRY gate output shape: `ran, <N> duplications, <K> refactored, <J> waived`.
 - **IMPLEMENTATION_READY checkpoint** before the panel: self-attest complete + `design_ready` + `diff_matches_design`; git co-presence check (§2.8).
-- Multi-model panel, unanimous convergence, 0 blocking, `subagent_ask_user_calls=0`.
+- Implementation -> slug review -> user stages -> index-only panel; any index change requires re-review. Unanimous, 0 blocking, `subagent_ask_user_calls=0`.
 - §3.1 comment audit evidence-gate output.
 - Diagnosis-verifying re-run, affected builds + tests pass.
 - **Post-code-change ledger emitted before commit.** Without it in current turn, the commit is forbidden (§2B in `review-workflow-gates-sweeps.md`).
@@ -191,7 +192,7 @@ Hard gates:
 - **Branch-wide VSA audit** when diff adds/moves/renames types or files.
 - **Branch-wide prior-PR-review sweep** (two-scope against full branch diff; §2A in `review-workflow-gates-sweeps.md`).
 - **No internal plan markers** in PR titles or bodies.
-- State read-back (12-field predicate) before claiming ready.
+- State read-back (all predicate fields) before claiming ready.
 - No "ready to push" until all gates done OR explicitly skipped with warning.
 
 > **STOP.** Before taking any action in this phase, view `.github/playbooks/pre-pr-push.md` (INDEX).
@@ -230,9 +231,10 @@ If a required playbook cannot be fetched: (1) retry once; (2) if still fails, `a
 - **Audit step before declaring ready.** Confirm every sub-agent finding routed via C2 with citation. Emit C2 audit output (`subagent_ask_user_calls=0`).
 - **Sub-agents must NEVER prompt the user** (every prompt includes *"Do not call `ask_user`; return findings only"*) or introduce comments via `edit` (propose in the return value; orchestrator runs the §3.1 gate).
 - **Unintended reverts:** ASK before reverting code that was previously removed/refactored/renamed.
+- **Repository isolation:** no consumer-specific data in instruction files; no instruction-set artifacts in consumer repos. Keep instruction deltas project-agnostic.
 - **Do NOT report ready** until every phase completed or explicitly skipped with recorded warning.
-- **Sub-agent model selection.** Resolve tier via `.github/playbooks/multi-model-review/current-model-registry.md` (rubber-duck/general=heavy-claude-standard, code-review/security=heavy-claude-xhigh, explore=light-claude-balanced, panels=per `intake.md` item 4).
-- **Governance/instruction artifacts are safety-critical (never the lite fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always full review rigor, both profiles.
+- **Sub-agent models.** Pin panel slots and triage per registry; full-floor Stage-1 rubber-duck and standalone security-review to `heavy-claude-standard`. All others use Auto + user `/subagents` settings.
+- **Governance/instruction artifacts are safety-critical (never the triage fast-path).** Any file governing agent behavior or the instruction set - `AGENTS.md`, `.github/instructions/**`, `.github/playbooks/**`, `.github/copilot-instructions.md`, `.github/pr-quality-gate/**`, in ANY repo - always full review rigor.
 - **Instruction-set maintenance.** STOP + view `.github/playbooks/instruction-set-maintenance.md` before any instruction-repo edit.
 - **Output: caveman-terse.** Results over narration; no lead-ins. Never shortens a forcing-function gate block (emit those in full, caveman form).
 
@@ -332,7 +334,6 @@ Files under `.github/instructions/` load automatically when matching files are i
 | `csharp-testing-quality.instructions.md` | (same test glob) | Test purpose, audit-and-delete framework |
 | `csharp-testing-sync.instructions.md` | (same test glob) | Alternative test patterns, test synchronization |
 | `coding-standards.instructions.md` | `**/*` | §3.2, §3.3, §3.3.1, §3.6, §3.9: naming, ambiguous-naming-ask, opportunistic rename, defaults/consistency, user-facing text |
-| `active-profile.instructions.md` (generated by setup; gitignored) | `**/*` | Active profile (full/lite) parameters; none present -> full-default. Templates in `profiles/`; see `README.md`. |
 | `coding-standards-code.instructions.md` | `**/*.{cs,csx,razor,cshtml,cpp,h,hpp,cc,cxx,c,ts,tsx,mts,cts,js,jsx,mjs,cjs,py,go,rs,java,kt}` | §3.4-§3.5, §3.7-§3.8, §3.10-§3.13: tests, perf, state predicates, deferred mutations, recurring smells, structure |
 | `cpp.instructions.md` | `**/*.cpp`, `**/*.h`, `**/*.hpp`, `**/*.cc`, `**/*.cxx`, `**/*.c` | C++ naming, formatting, COM patterns, vcxproj |
 | `msbuild.instructions.md` | `**/*.csproj`, `**/*.props`, `**/*.targets`, `**/*.vcxproj` variants | MSBuild escaping, Exec trim, tool acquisition |

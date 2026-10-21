@@ -16,9 +16,8 @@
   TWO GIT MODES (one scan path):
     -Staged          pre-commit: scans `git diff --cached` added lines.
     -BaseRef <ref>      CI + run-local-ci: scans `git diff <ref>...HEAD` added lines (the whole branch diff).
-  Both modes self-exclude THIS script + its test file (they embed concrete fixtures by necessity), so the
-  gate's own introducing change does not self-trip. An empty diff is clean (empty input = clean, exit 0) -
-  not a deferral.
+  Machine-path fixture files are excluded from their own scan. Repository-isolation checks scan every added line.
+  An empty diff is clean (empty input = clean, exit 0) - not a deferral.
 
   Exit: 0 clean (or nothing to scan), 1 violation(s), 2 invocation/config error.
 #>
@@ -38,13 +37,6 @@ if ($MyInvocation.InvocationName -ne '.') {
 $script:ExitOk = 0
 $script:ExitViolation = 1
 $script:ExitInvocation = 2
-
-# The two self-excluded files (they embed concrete machine-path fixtures by necessity). Applied IDENTICALLY in
-# both -Staged and -BaseRef mode so the gate's own introducing change never self-trips.
-$script:SelfExcludePathspecs = @(
-    ':!scripts/check-no-machine-paths.ps1'
-    ':!scripts/tests/check-no-machine-paths.tests.ps1'
-)
 
 # Excluded first-segment tokens: doc placeholders + Windows/macOS shared homes + CI-runner canonical homes.
 # A token only suppresses when it is a COMPLETE path segment (the `(?![A-Za-z0-9._-])` tail), so a real name
@@ -118,10 +110,10 @@ if (-not $stagedMode -and -not $baseMode) {
 
 if ($stagedMode) {
     $rangeLabel = 'staged diff'
-    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--cached', '--no-color', '-U0', '--', '.') + $script:SelfExcludePathspecs
+    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--cached', '--no-color', '-U0', '--', '.')
 } else {
     $rangeLabel = "$BaseRef...HEAD range"
-    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--no-color', '-U0', "$BaseRef...HEAD", '--', '.') + $script:SelfExcludePathspecs
+    $diffArgs = @('-c', 'core.quotePath=false', '-C', $repoRoot, 'diff', '--no-color', '-U0', "$BaseRef...HEAD", '--', '.')
 }
 
 $diffOutput = & git @diffArgs 2>$null
@@ -171,6 +163,7 @@ if ($addedRecords.Count -eq 0) {
 try {
     $violations = New-Object System.Collections.Generic.List[object]
     foreach ($record in $addedRecords) {
+        if ($record.File -in @('scripts/check-no-machine-paths.ps1','scripts/tests/check-no-machine-paths.tests.ps1')) { continue }
         foreach ($finding in (Get-MachinePathFindings -AddedLines @($record.Text))) {
             $violations.Add([pscustomobject]@{ File = $record.File; Pattern = $finding.Pattern; Match = $finding.Match })
         }
@@ -180,6 +173,28 @@ try {
     exit $script:ExitInvocation
 }
 
+$allowlistObject = if ($Staged) { ':.github/pr-quality-gate/data/no-repo-slugs-allowlist.txt' } else { 'HEAD:.github/pr-quality-gate/data/no-repo-slugs-allowlist.txt' }
+$allowlistBlob = @(& git --no-optional-locks -C $repoRoot show $allowlistObject 2>$null)
+$allowlistLines = if ($LASTEXITCODE -eq 0) { @($allowlistBlob | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ }) } else { @() }
+$slugPattern = '(?i)(?<![A-Za-z0-9_.-])github\.com(?::\d+)?[/:][A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+'
+$ownSlug = 'github.com/jschick04/CopilotInstructions'
+foreach ($record in $addedRecords) {
+    if ([string]::IsNullOrEmpty($record.Text)) { continue }
+    $matchesForLine = [regex]::Matches($record.Text, $slugPattern)
+    if ($matchesForLine.Count -eq 0) { continue }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    $hash = ([BitConverter]::ToString($sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($record.Text.Trim())))).Replace('-', '').ToLowerInvariant()
+    $sha.Dispose()
+    if ($allowlistLines -contains $hash) { continue }
+    foreach ($match in $matchesForLine) {
+        $normalizedSlug = $match.Value -replace '(?i)^github\.com(?::\d+)?[/:]', 'github.com/'
+        $normalizedSlug = $normalizedSlug.TrimEnd('.') -replace '(?i)\.git$', ''
+        $normalizedSlug = $normalizedSlug.TrimEnd('.')
+        if ($normalizedSlug.Equals($ownSlug, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+        $violations.Add([pscustomobject]@{ File = $record.File; Pattern = 'repository-isolation'; Match = $match.Value })
+    }
+}
+
 if ($Json) {
     [pscustomobject]@{ violations = $violations } | ConvertTo-Json -Depth 5
     if ($violations.Count -gt 0) { exit $script:ExitViolation }
@@ -187,12 +202,12 @@ if ($Json) {
 }
 
 if ($violations.Count -gt 0) {
-    Write-Host "check-no-machine-paths: $($violations.Count) added line(s) embed a concrete local-machine absolute path - strip it (use a relative path, a well-known-folder API, or a placeholder like C:\Users\<you>\...):" -ForegroundColor Red
+    Write-Host "check-no-machine-paths: $($violations.Count) added-line violation(s) embed a machine-specific absolute path or foreign repository reference - use a portable path or repository-neutral reference:" -ForegroundColor Red
     foreach ($violation in $violations) {
         Write-Host "  ::error::$($violation.File): [$($violation.Pattern)] $($violation.Match)"
     }
     exit $script:ExitViolation
 }
 
-Write-Host "check-no-machine-paths: OK - no concrete local-machine absolute paths in the added lines of the $rangeLabel." -ForegroundColor Green
+Write-Host "check-no-machine-paths: OK - no machine-specific paths or foreign repository references in the added lines of the $rangeLabel." -ForegroundColor Green
 exit $script:ExitOk

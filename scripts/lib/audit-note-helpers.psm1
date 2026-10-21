@@ -126,11 +126,11 @@ function Test-AuditNoteFreshness {
         $result.Errors += "note is missing its required 'audited_tree:' freshness binding"
         return $result
     }
-    if ($treeLine -cmatch '^audited_tree:\s*([a-fA-F0-9]{40})\s*$') {
+    if ($treeLine -cmatch '^audited_tree:\s*([a-fA-F0-9]{40}|[a-fA-F0-9]{64})\s*$') {
         $noteTree = $matches[1]
     } else {
         $result.Fresh = $false
-        $result.Errors += "note 'audited_tree:' must be a full 40-char SHA (got: $($treeLine.Trim())); refusing to treat as fresh"
+        $result.Errors += "note 'audited_tree:' must be a full 40- or 64-char SHA (got: $($treeLine.Trim())); refusing to treat as fresh"
         return $result
     }
     $result.AuditedTree = $noteTree
@@ -180,11 +180,38 @@ function Read-PanelNoteValidated {
     param(
         [Parameter(Mandatory)] [string] $RepoRoot,
         [Parameter(Mandatory)] [string] $CommitSha,
-        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier,
+        [bool] $RequiresFull = $false,
+        [bool] $PostAdoption = $false,
+        [bool] $RequireArtifactBinding = $false
     )
     $n = Read-FreshAuditNote -RepoRoot $RepoRoot -NoteRef $script:PanelNoteRef -CommitSha $CommitSha -Kind 'panel-ledger'
     if (-not $n.Ok) { return [PSCustomObject]@{ Valid = $false; Errors = $n.Errors } }
-    $r = Test-PanelLedger -LedgerLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier
+    $heavyModels = @()
+    $guardedCount = 0
+    if ($PostAdoption) {
+        $policy = Get-HeavyModelPolicy -RepoRoot $RepoRoot -CommitSha $CommitSha -ParentSha $n.Parent -LedgerLines $n.NoteLines
+        if ($policy.Errors.Count -gt 0) { return [pscustomobject]@{ Valid = $false; Errors = $policy.Errors } }
+        $heavyModels = $policy.Models
+        $changed = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=false', 'diff', '--name-only', '--no-renames', $n.Parent, $CommitSha)
+        if ($changed.ExitCode -ne 0) { return [pscustomobject]@{ Valid = $false; Errors = @('cannot determine guarded paths for commit') } }
+        $guarded = @($changed.Stdout | Where-Object { $_ -and (Test-GuardedPath -Path $_) } | Sort-Object -Unique)
+        $guardedCount = $guarded.Count
+        if ($guardedCount -gt 0) { Write-Host "GUARDED PATHS ($CommitSha): $($guarded -join ', ')" }
+    }
+    $expectedArtifact = ''
+    if ($RequireArtifactBinding) {
+        $artifactScript = Join-Path $here '../Get-ReviewedArtifactId.ps1'
+        if (-not (Test-Path -LiteralPath $artifactScript -PathType Leaf)) { return [PSCustomObject]@{ Valid = $false; Errors = @('Get-ReviewedArtifactId.ps1 is missing; cannot bind the panel note to the commit') } }
+        $artifactOutput = @(& pwsh -NoProfile -File $artifactScript -Commit $CommitSha -RepoRoot $RepoRoot 2>&1)
+        $artifactExitCode = $LASTEXITCODE
+        if ($artifactExitCode -ne 0 -or $artifactOutput.Count -ne 1 -or ([string]$artifactOutput[0]) -cnotmatch '^[0-9a-f]{64}$') {
+            $artifactDetail = (($artifactOutput | ForEach-Object { [string]$_ }) -join ' ')
+            return [PSCustomObject]@{ Valid = $false; Errors = @("Get-ReviewedArtifactId.ps1 -Commit failed or returned an invalid artifact (exit $artifactExitCode): $artifactDetail") }
+        }
+        $expectedArtifact = ([string]$artifactOutput[0]).Trim()
+    }
+    $r = Test-PanelLedger -LedgerLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier -RequiresFull:$RequiresFull -PostAdoption:$PostAdoption -RequireArtifact:$RequireArtifactBinding -ExpectedArtifact $expectedArtifact -HeavyModels $heavyModels -GuardedPathCount $guardedCount
     return [PSCustomObject]@{ Valid = $r.Valid; Errors = @($r.Errors) }
 }
 
@@ -225,8 +252,8 @@ function Read-ReadsNoteValidated {
     }
     [void]($parentLine -cmatch '^\s*parent_sha:\s*(\S+)\s*$')
     $noteParent = $matches[1]
-    if ($noteParent -cnotmatch '^[0-9a-fA-F]{40}$') {
-        return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note parent_sha '$noteParent' must be a full 40-char SHA"); NoteLines = $null }
+    if ($noteParent -cnotmatch '^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$') {
+        return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note parent_sha '$noteParent' must be a full 40- or 64-char SHA"); NoteLines = $null }
     }
     if ($n.Parent -and -not $noteParent.Equals($n.Parent, [System.StringComparison]::OrdinalIgnoreCase)) {
         return [PSCustomObject]@{ Valid = $false; Errors = @("read-receipts note parent_sha '$noteParent' does not match the commit parent '$($n.Parent)' (stale note carried across a rebase)"); NoteLines = $null }
@@ -242,11 +269,13 @@ function Read-PreCommitGateNoteValidated {
     param(
         [Parameter(Mandatory)] [string] $RepoRoot,
         [Parameter(Mandatory)] [string] $CommitSha,
-        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier,
+        [bool] $RequiresFull = $false,
+        [bool] $PostAdoption = $false
     )
     $n = Read-FreshAuditNote -RepoRoot $RepoRoot -NoteRef $script:PreCommitNoteRef -CommitSha $CommitSha -Kind 'pre-commit-gate'
     if (-not $n.Ok) { return [PSCustomObject]@{ Valid = $false; Errors = $n.Errors } }
-    $r = Test-PreCommitGateBlock -BlockLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier
+    $r = Test-PreCommitGateBlock -BlockLines $n.NoteLines -ExpectedParentSha $n.Parent -GovernanceTier $GovernanceTier -RequiresFull:$RequiresFull -PostAdoption:$PostAdoption
     return [PSCustomObject]@{ Valid = $r.Valid; Errors = @($r.Errors) }
 }
 
@@ -264,30 +293,6 @@ function Get-NormalizedRemoteIdentity {
     return $u
 }
 
-function Test-IsInstructionsRepo {
-    # The audit ceremony (receipt -> note) runs ONLY in THIS instruction set's own repo,
-    # never in a consuming project (the binding no-modification principle). Gate on the origin
-    # remote URL that normalizes to github.com/jschick04/CopilotInstructions AND the
-    # structural sentinels; a consumer that merely vendors the scripts still fails the
-    # remote-URL check.
-    [CmdletBinding()]
-    param([Parameter(Mandatory)] [string] $RepoRoot)
-
-    foreach ($f in @('AGENTS.md', 'scripts/check-post-code-change.ps1')) {
-        if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot $f) -PathType Leaf)) { return $false }
-    }
-    if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot '.github/pr-quality-gate') -PathType Container)) { return $false }
-
-    # Check ONLY the `origin` remote, not every remote: a consuming project could add this
-    # instruction set as an extra remote (e.g. `upstream` to pull updates), and scanning ALL
-    # remotes would then wrongly trip the gate and let the machinery write into the consumer's
-    # .git. `git clone` sets `origin`, so the real instructions repo (or a direct clone) matches.
-    # (A fork / non-origin-named clone therefore no-ops by design; re-point origin at the
-    # canonical repo there to enable the local audit machinery.)
-    $url = Invoke-AuditGit -RepoRoot $RepoRoot -GitArgs @('remote', 'get-url', 'origin')
-    if ($url.ExitCode -ne 0 -or $url.Stdout.Count -eq 0) { return $false }
-    return ((Get-NormalizedRemoteIdentity -Url ([string]$url.Stdout[0])) -eq 'github.com/jschick04/copilotinstructions')
-}
 
 function Assert-AuditSetup {
     # spec R4: the pre-push gate fails loud if its own enablement is missing, so a fresh
@@ -323,6 +328,6 @@ Export-ModuleMember -Function `
     Get-CommitTreeSha, Get-CommitParentSha, `
     Read-RawAuditNote, Write-AuditNote, Remove-AuditNote, `
     Test-AuditNoteFreshness, Read-PanelNoteValidated, Read-CommentNoteValidated, Read-ReadsNoteValidated, Read-PreCommitGateNoteValidated, Test-PanelNoteExists, `
-    Get-NormalizedRemoteIdentity, Test-IsInstructionsRepo, Assert-AuditSetup, `
-    Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-NewCommentSites, Get-UnparseableDiffPaths, Test-CommentCoverage, Get-CoveredCommentCount `
+    Get-NormalizedRemoteIdentity, Assert-AuditSetup, `
+    Test-RequiresFullPanel, Test-RewriteRequiresFullPanel, Test-IsPostAdoption, Test-IsArtifactBindingAdopted, Get-PanelRequired, Test-PathPanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Get-NewCommentCount, Get-NewCommentSites, Get-UnparseableDiffPaths, Test-CommentCoverage, Get-CoveredCommentCount `
     -Variable PanelNoteRef, CommentNoteRef, ReadsNoteRef, PreCommitNoteRef, GitEmptyTreeSha

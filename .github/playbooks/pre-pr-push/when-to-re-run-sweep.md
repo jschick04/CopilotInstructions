@@ -33,7 +33,7 @@ Re-run if any post-sweep change (merge, rebase, OR ordinary amend) changed code 
 
 The branch now touches the surrounding code, putting those pre-existing comments back in scope per the "out of scope unless this branch also touched the surrounding code" rule from `branch-wide-sweep.md`.
 
-**Definition:** "Out of scope during the initial sweep" means the comment's surrounding code does NOT appear in the diff `<sweep-base-SHA>..<sweep-HEAD-SHA>` (the resolved SHAs recorded at sweep time per `branch-wide-sweep.md` step 1 - NOT later-resolved symbolic refs like `origin/main`, which may have advanced). Per-comment metadata is not required.
+**Definition:** "Out of scope during the initial sweep" means the comment's surrounding code does NOT appear in the diff `<sweep-base-SHA>..<sweep-HEAD-SHA>` (the resolved SHAs recorded at sweep time per `branch-wide-sweep.md` step 1 - not later-resolved symbolic refs, which may have advanced). Per-comment metadata is not required.
 
 ## Do-NOT-re-run conditions
 
@@ -71,24 +71,24 @@ A partial re-sweep limited to the file(s) in the immediate amend is NOT sufficie
 | Conflict resolution added / modified comments | YES |
 | Conflict resolution changed a hunk in a file already in the comment set | YES |
 | Post-sweep change touched code adjacent to a previously-out-of-scope comment | YES |
-| Sweep SHAs unavailable (lost canonical session todos record, per AGENTS.md Phase-state tracking convention) | YES (conservatively) - or ask user |
+| Sweep SHAs unavailable (lost canonical session todos record, per `phase-state-convention.md`) | YES (conservatively) - or ask user |
 | Force-push amend introduces a rename that crosses interface / impl boundary | Widen the amend OR ask user - partial re-sweep insufficient |
 
 ## After a re-run
 
 If you re-run the sweep:
 
-- Capture **new** sweep SHAs (`<NewBaseSha, NewHeadSha>`) and overwrite the recorded values in canonical session todos (a fresh `phase-state-<phase>-<yyyymmddHHMMSS>` record per AGENTS.md Phase-state tracking convention; older records remain for audit). The previous sweep's SHAs are no longer the "out of scope at initial sweep" baseline once the branch state has materially changed.
+- Capture **new** sweep SHAs (`<NewBaseSha, NewHeadSha>`) and overwrite the recorded values in canonical session todos (a fresh `phase-state-<phase>-<yyyymmddHHMMSS>` record per `phase-state-convention.md`; older records remain for audit). The previous sweep's SHAs are no longer the "out of scope at initial sweep" baseline once the branch state has materially changed.
 - Apply `cleanup-commit-buckets.md` to any changes the re-run sweep produces.
-- Record `branchWideSweepStatus` per the AGENTS canonical enumeration: `rerun-done-clean` (re-run produced no changes), `rerun-done-cleanup-committed` (re-run produced cleanup commits), or `rerun-skipped-with-reason` (user explicitly authorized skipping the re-run per User-skip policy).
+- Record `branchWideSweepStatus` per the `phase-state-convention.md` enumeration: `rerun-done-clean` (re-run produced no changes), `rerun-done-cleanup-committed` (re-run produced cleanup commits), or `rerun-skipped-with-reason` (user explicitly authorized skipping the re-run per User-skip policy).
 
 ## When the re-run conditions check determines no re-run is needed
 
-If the decision quick-reference table above says NO re-run for this push (e.g. ordinary review-response amend with no scope expansion, clean merge / rebase with no comment touches), write a fresh `phase-state-pre-pr-push-<yyyymmddHHMMSS>` record (per `AGENTS.md` *Phase-state tracking convention*) with:
+If the decision quick-reference table above says NO re-run for this push (e.g. ordinary review-response amend with no scope expansion, clean merge / rebase with no comment touches), write a fresh `phase-state-pre-pr-push-<yyyymmddHHMMSS>` record (per `phase-state-convention.md`) with:
 
 - `branchWideSweepStatus = previously-done-no-rerun-needed`.
 - `rerunConditionsChecked = true`.
-- **Copy-forward all prior 10-field-predicate values from the most recent pre-PR-push phase-state record** - `baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, `pushCredentialsVerified` (re-verify via *Pre-check 0* for THIS push; do NOT blindly copy the prior value - credentials may have changed since the last push). The "most recent record wins" contract (per AGENTS.md *Phase-state tracking convention*) means the new record must be self-contained - omitting these keys would make the readiness predicate fail even though the sweep evidence exists in an older record.
+- **Copy-forward every prior predicate field from the most recent pre-PR-push phase-state record** - the binding fields (`phase-state-convention.md`), `baseRef`, `baseSha`, `sweepHeadSha`, `perCommitAuditCoverage`, `cleanupBucketOutcomes`, and `pushCredentialsVerified` (re-verify via *Pre-check 0* for THIS push; do NOT blindly copy the prior value - credentials may have changed since the last push). The "most recent record wins" contract (per `phase-state-convention.md`) means the new record must be self-contained - omitting these keys would make the readiness predicate fail even though the sweep evidence exists in an older record.
   - **Update the `perCommitAuditCoverage` map for THIS push:** add entries for any new commit SHAs you per-commit-audited. **If an amend rewrote a commit that already had an entry, replace the pre-amend SHA's entry with the post-amend SHA's entry** - the readiness gate looks up commits at current HEAD, so stale pre-amend SHAs satisfy nothing for the current branch state (they remain in older phase-state records as audit history).
 - Update the booleans `isFirstReviewExposurePush` and `remoteExposureExists` to reflect THIS push.
 

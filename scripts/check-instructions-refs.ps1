@@ -26,16 +26,33 @@ if (-not (Test-Path -LiteralPath $instructionsFolder)) {
     exit $script:ExitInvocation
 }
 
-$existingInstructions = Get-ChildItem -Path $instructionsFolder -Filter '*.instructions.md' -File |
-    ForEach-Object { $_.Name }
+$gitArgs = @('-C', $RepoRoot, 'ls-files', '--cached', '--others', '--exclude-standard', '--', '.github/instructions/*.instructions.md')
+$existingInstructions = @(& git @gitArgs 2>$null) | ForEach-Object { Split-Path -Leaf ([string]$_) }
+if ($LASTEXITCODE -ne 0) {
+    Write-Invocation "git ls-files for instruction files failed (exit $LASTEXITCODE); failing closed."
+    exit $script:ExitInvocation
+}
 
-# Case-sensitive (Ordinal) lookups: a wrong-case ref (CSharp.instructions.md) must NOT false-resolve on the
-# case-sensitive Linux CI filesystem (PowerShell hashtables are case-insensitive).
+if ($existingInstructions -contains 'active-profile.instructions.md') {
+    Write-Violation 'active-profile.instructions.md is tracked; remove it from version control'
+    exit $script:ExitViolation
+}
+
+$staleProfilePath = Join-Path $instructionsFolder 'active-profile.instructions.md'
+try {
+    $staleProfileExists = Test-Path -LiteralPath $staleProfilePath -ErrorAction Stop
+} catch {
+    Write-Invocation "cannot check stale profile file '$staleProfilePath': $($_.Exception.Message)"
+    exit $script:ExitInvocation
+}
+if ($staleProfileExists) {
+    Write-Violation 'active-profile.instructions.md exists locally; delete it or re-run setup'
+    exit $script:ExitViolation
+}
+
 $existingSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 foreach ($name in $existingInstructions) { [void]$existingSet.Add($name) }
 
-# active-profile.instructions.md is the gitignored, setup-generated per-machine profile selector: absent
-# by default (floor fail-closes to full-default per check-profile-invariants.ps1), so refs to it are valid.
 $exemptNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
 [void]$exemptNames.Add('active-profile.instructions.md')
 
@@ -77,5 +94,5 @@ if ($violations) {
     exit $script:ExitViolation
 }
 
-Write-Host "All instruction-file references resolve. ($($existingInstructions.Count) instruction files scanned; active-profile.instructions.md exempt as the gitignored profile selector.)"
+Write-Host "All instruction-file references resolve. ($($existingInstructions.Count) tracked instruction files scanned; legacy migration filename exempt.)"
 exit $script:ExitOk

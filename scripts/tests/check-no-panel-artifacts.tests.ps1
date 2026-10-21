@@ -36,7 +36,7 @@ try {
     Assert-True ((Run $clean).ExitCode -eq 0) 'a code file with no review-process artifacts -> exit 0'
 
     Write-Host "`n=== each artifact-token class is caught ==="
-    $tokens = @('# fix (gemini gap #1)', '# gpt55 re-panel note', '# regression (R3-BLOCKING-2)',
+    $tokens = @('# grok unallowlisted review marker', '# fix (gemini gap #1)', '# gpt55 re-panel note', '# regression (R3-BLOCKING-2)',
                 '# (R4-MAJOR-1 fix)', '# (R6 Slot D fix)', '# Round 5 hardening', '# PR #9 review',
                 '# the bot-flagged class', '# duck-logic review',
                 '# sed exclusion (forcing re-review #1)', '# forcing#5 hardening')
@@ -73,12 +73,14 @@ try {
     Assert-True ((Run $csBad).ExitCode -eq 1) 'capitalized Slot D / Round 5 panel labels -> exit 1 (still caught)'
 
     Write-Host "`n=== panel-transcript schema files may name model families but NOT carry finding labels ==="
-    $schemaOk = New-CodeRepo
-    Add-Script $schemaOk 'scripts/lib/panel-ledger-helpers.psm1' @('# grammar family:(claude|gpt|gemini); count claude/gpt/gemini distinct slots', '$s = 1')
-    Assert-True ((Run $schemaOk).ExitCode -eq 0) 'panel-ledger-helpers naming model families -> exit 0 (allowed)'
-    $schemaBad = New-CodeRepo
-    Add-Script $schemaBad 'scripts/lib/panel-ledger-helpers.psm1' @('# claude family (R4-MAJOR-1 fix)', '$s = 1')
-    Assert-True ((Run $schemaBad).ExitCode -eq 1) 'panel-ledger-helpers carrying a finding label -> exit 1 (still flagged)'
+    foreach ($schemaPath in @('scripts/lib/panel-ledger-helpers.psm1', 'scripts/check-model-registry.ps1')) {
+        $schemaOk = New-CodeRepo
+        Add-Script $schemaOk $schemaPath @('# grammar family:(claude|gpt|gemini|grok); count claude/gpt/gemini/grok distinct slots', '$s = 1')
+        Assert-True ((Run $schemaOk).ExitCode -eq 0) "$schemaPath naming model families -> exit 0 (allowed)"
+        $schemaBad = New-CodeRepo
+        Add-Script $schemaBad $schemaPath @('# claude family (R4-MAJOR-1 fix)', '$s = 1')
+        Assert-True ((Run $schemaBad).ExitCode -eq 1) "$schemaPath carrying a finding label -> exit 1 (still flagged)"
+    }
 }
 finally { Remove-TestTempDirectories }
 

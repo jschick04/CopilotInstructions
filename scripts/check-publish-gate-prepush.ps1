@@ -1,15 +1,4 @@
 #Requires -Version 5.1
-# Pre-push publish-gate receipt gate (local-only; zero remote footprint). A push that publishes
-# reviewable code (a refs/heads/* or refs/for/* update introducing a tip) must carry a FRESH
-# worktree receipt authorizing THIS exact (remote, destination-ref, tip-commit) - written only
-# after the branch-level publish gate ran (publish_gate_ready) or the user classified the push
-# sandbox-only (sandbox_push_declared). Mirrors check-signoff.ps1: object-bound, identity-gated,
-# honest (--no-verify / pwsh-absent bypass; the receipt is local so CI cannot reproduce it).
-#
-# Reads the pre-push ref-update list (`<local-ref> <local-sha> <remote-ref> <remote-sha>` lines)
-# from stdin, or from -RefUpdateLines for tests. -RemoteUrl is the hook's $2 (the actual push
-# URL) so a retargeted remote alias cannot reuse a receipt. Exit 0 = authorized / not-applicable,
-# 1 = blocked. Identity-gated: a no-op on any repo that is not this instruction set's own.
 [CmdletBinding()]
 param(
     [string] $RepoRoot = '',
@@ -34,9 +23,6 @@ if ($RepoRoot) {
     $RepoRoot = Resolve-RepoRoot -Explicit '' -ScriptRoot $PSScriptRoot -Anchors @('scripts/check-publish-gate-prepush.ps1') -RequireGitWorkTree
 }
 
-# Identity gate FIRST (before reading stdin): on any repo that is not this instruction set's own, do nothing.
-if (-not (Test-IsInstructionsRepo -RepoRoot $RepoRoot)) { exit $ExitOk }
-
 if ($PSBoundParameters.ContainsKey('RefUpdateLines')) {
     $lines = @($RefUpdateLines)
 } else {
@@ -44,8 +30,8 @@ if ($PSBoundParameters.ContainsKey('RefUpdateLines')) {
     $lines = @($stdin -split "`n") | ForEach-Object { ([string]$_).TrimEnd("`r") } | Where-Object { $_.Trim() }
 }
 
-$zeroSha = '^0{40}$'
-$fullSha = '^[0-9a-fA-F]{40}$'
+$zeroSha = '^(0{40}|0{64})$'
+$fullSha = '^([0-9a-fA-F]{40}|[0-9a-fA-F]{64})$'
 
 $governed = @()
 foreach ($line in $lines) {
@@ -76,6 +62,13 @@ foreach ($line in $lines) {
 
 if ($governed.Count -eq 0) { exit $ExitOk }
 
+$activated = Test-RequiresFullPanel -RepoRoot $RepoRoot
+foreach ($candidate in $governed) {
+    if ($activated) { break }
+    $activated = Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $candidate.LocalSha
+}
+if (-not $activated) { exit $ExitOk }
+
 if ($governed.Count -gt 1) {
     Write-Host "ERROR: this push updates $($governed.Count) branch refs at once; the publish gate + panel attest ONE branch."
     Write-Host "       Push the branches separately so each carries its own publish-gate receipt."
@@ -98,7 +91,7 @@ if (-not (Test-Path -LiteralPath $receiptFull -PathType Leaf)) {
 
 $receiptLines = @([IO.File]::ReadAllLines($receiptFull))
 
-$markerRegex = [regex] '^(?<kind>publish_gate_ready|sandbox_push_declared):\s+(?<turn>\S+)\s+remote:(?<remote>.+?)\s+dst:(?<dst>\S+)\s+sha:(?<sha>[0-9a-fA-F]{40})\s*$'
+$markerRegex = [regex] '^(?<kind>publish_gate_ready|sandbox_push_declared):\s+(?<turn>\S+)\s+remote:(?<remote>.+?)\s+dst:(?<dst>\S+)\s+sha:(?<sha>[0-9a-fA-F]{64}|[0-9a-fA-F]{40})\s*$'
 $matchingRows = @()
 foreach ($rl in $receiptLines) {
     $m = $markerRegex.Match(([string]$rl).TrimEnd("`r"))

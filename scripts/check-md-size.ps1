@@ -2,7 +2,7 @@
   check-md-size.ps1 - extracted from instructions-size-check.yml so the size budgets live in ONE script that both the
   workflow and run-local-ci.ps1 invoke (single source of truth; no inline check logic in the workflow). Enforces every
   markdown size budget: AGENTS.md <= 28 KB; .github/**/*.md <= 30 KB (allowlisted exceptions warn, not fail; the
-  generator SOURCE dir is skipped); profiles/**/*.md <= 4 KB. Sizes are measured LF-normalized so a Windows CRLF working
+  generator SOURCE dir is skipped). Sizes are measured LF-normalized so a Windows CRLF working
   tree reports the SAME byte count CI sees after an LF checkout. Fail-closed: any over-budget non-exempt file -> exit 1.
 #>
 [CmdletBinding()]
@@ -49,14 +49,6 @@ $budgets = @(
         Limit     = 30720
         Allowlist = @('.github/pr-quality-gate/pattern-catalog.md')   # P3 split target - warn, do not fail
         SkipGlob  = @('.github/pr-quality-gate/pattern-catalog.sources/*')   # generator inputs, not instruction files
-    },
-    [pscustomobject]@{
-        Name      = 'profiles/**/*.md'
-        Root      = 'profiles'
-        Recurse   = $true
-        Limit     = 4096
-        Allowlist = @()
-        SkipGlob  = @()
     }
 )
 

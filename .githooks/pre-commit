@@ -10,9 +10,37 @@
 
 set -e
 
+hook_scripts=$( (git grep -h -o -E 'scripts/[A-Za-z0-9_-]+\.(ps1|sh)' -- .githooks; echo scripts/Get-ReviewedArtifactId.ps1) | sort -u)
+if ! enforcement_tree=$(git write-tree) || ! ENFORCEMENT_INDEX_DIR="$(mktemp -d "${TMPDIR:-/tmp}/copilot-precommit-index.XXXXXX")"; then
+    echo "ERROR: cannot snapshot the index to verify hook enforcement (fail-closed)." >&2
+    exit 1
+fi
+trap 'rm -rf "$ENFORCEMENT_INDEX_DIR"' EXIT
+enforcement_index="$ENFORCEMENT_INDEX_DIR/index"
+if ! GIT_INDEX_FILE="$enforcement_index" git read-tree "$enforcement_tree"; then
+    echo "ERROR: cannot load the index snapshot to verify hook enforcement (fail-closed)." >&2
+    exit 1
+fi
+GIT_INDEX_FILE="$enforcement_index" git update-index -q --refresh >/dev/null 2>&1 || :
+if ! enforcement_changed=$(GIT_INDEX_FILE="$enforcement_index" git diff --name-only -- .githooks scripts/lib $hook_scripts); then
+    echo "ERROR: cannot compare hook enforcement against the index (fail-closed)." >&2
+    exit 1
+fi
+if [ -n "$enforcement_changed" ]; then
+    echo "ERROR: unstaged hook or checker edits; stage reviewed enforcement before committing:" >&2
+    printf '%s\n' "$enforcement_changed" | sed 's/^/       /' >&2
+    exit 1
+fi
+if git cat-file -e HEAD:scripts/check-instructions-refs.ps1 2>/dev/null || [ -f scripts/check-instructions-refs.ps1 ]; then
+    if [ ! -f scripts/check-instructions-refs.ps1 ] || ! command -v pwsh >/dev/null 2>&1; then
+        echo "ERROR: cannot run required scripts/check-instructions-refs.ps1" >&2
+        exit 1
+    fi
+    pwsh -NoProfile -File scripts/check-instructions-refs.ps1
+fi
+
 # === Amend sign-off gate ===========================================================
-# A history rewrite (git commit --amend, signalled by PANEL_GATE_AMEND=1) requires a fresh,
-# tree-bound user sign-off recorded after an explicit ask_user. Identity-gated in the script.
+# A history rewrite (git commit --amend, signalled by PANEL_GATE_AMEND=1) requires a fresh tree-bound user sign-off.
 if [ "${PANEL_GATE_AMEND:-0}" = "1" ] && command -v pwsh >/dev/null 2>&1 && [ -f scripts/check-signoff.ps1 ]; then
     if ! pwsh -NoProfile -File scripts/check-signoff.ps1 -Mode amend; then
         echo "ERROR: this amend rewrites history but has no fresh user sign-off marker." >&2

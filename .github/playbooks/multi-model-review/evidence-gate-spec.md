@@ -7,7 +7,7 @@ Per-round logging format + C2 findings audit format for `multi-model-review.md`.
 Emit this structured chat output AFTER the round's synthesis, convergence check, AND C2 routing - by this point all template fields below (Convergence, C2 dispositions, Next directive) are knowable:
 
 ```
-Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence_model=<unanimous|threshold|confidence-weighted>, max_loops=<M>.
+Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence_model=unanimous, artifact=<sha256>.
 - <reviewer slot>: VERDICT=<success verdict|NEEDS_ANOTHER_ROUND>, confidence=<X%> (when applicable), findings=<count> (blocking=<B>, major=<M>, minor=<N>).
 - ... (one bullet per reviewer)
 - Dedup'd findings (by theme): <T> themes, <F> total.
@@ -21,9 +21,8 @@ Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence
 
 **Required fields**:
 
-- `round`, `reviewers`, `convergence_model`, `max_loops` - invocation parameters.
+- `round`, `reviewers`, `convergence_model=unanimous`, `artifact` - invocation parameters.
 - `VERDICT` per reviewer - directly from the reviewer's output's `VERDICT:` line.
-- `confidence` per reviewer - required when `convergence_model = confidence-weighted`; optional otherwise.
 - `findings` counts - total per reviewer + severity breakdown.
 - Dedup'd themes - root-cause grouping.
 - Agreement counts - convergence strength signal.
@@ -42,7 +41,7 @@ Multi-model review loop: round=<N>, reviewers=<list with model IDs>, convergence
 Chat emits each round in this compressed grammar; the structured template above is the canonical/cumulative-log form. One KV line per reviewer; the dedup'd-themes + agreement enumeration STAYS (it proves synthesis - a bare count is fakeable).
 
 ```
-round=<N> reviewers=<count> convergence=<unanimous|threshold|confidence-weighted> max_loops=<M>
+round=<N> reviewers=<count> convergence=unanimous artifact=<sha256>
 - slot=<slot> model=<id> verdict=<success verdict|NEEDS> conf=<X%|na> find=<B>/<M>/<N>
 - ... (one line per reviewer)
 themes=[<slug-theme>:<K/N>, ...]   # dedup'd by root cause; K of N reviewers flagged
@@ -92,8 +91,8 @@ On convergence or escalation, return to caller:
 
 - All per-round evidence-gate outputs (chronologically).
 - Final round's dedup'd findings list with statuses.
-- Convergence outcome (CONVERGED / ESCALATED-AT-MAX-LOOP).
-- Any user-authorized max-loop exceedance + rationale.
+- Convergence outcome (CONVERGED / NEEDS_REVIEW).
+- Artifact id echoed by every reviewer.
 
 ## Verification
 
@@ -108,7 +107,7 @@ If any verification fails, the calling phase does NOT certify the multi-model pa
 
 ## Probing evidence (verdict admissibility) - methodology
 
-A success verdict (`DESIGN_READY` / `CODE_REVIEW_READY`) counts toward convergence (unanimous / threshold / confidence-weighted alike) ONLY if the reviewer's output includes probing evidence - a `probing_evidence` block, or the equivalent one-line `probe:` chat form defined below - of DISTINCT checks that cover the target, each naming what was probed, WHERE (with `file:line` where applicable), and the OUTCOME. A bare success verdict, or one below the coverage floor, or one whose probes are generic / duplicated ("read it, looks fine"), is ADVISORY ONLY - it does NOT count toward the tally. The orchestrator re-prompts a bare-verdict reviewer once; if probing evidence is still absent, that reviewer is DROPPED and a replacement is launched per the drop-handling rule (the orchestrator does NOT fabricate a `NEEDS` verdict on the reviewer's behalf). This is reviewer-methodology + honest-ceiling disclosure; a mechanically-validated probe floor is future work.
+A success verdict (`DESIGN_READY` / `CODE_REVIEW_READY`) counts toward convergence (unanimous) ONLY if the reviewer's output includes probing evidence - a `probing_evidence` block, or the equivalent one-line `probe:` chat form defined below - of DISTINCT checks that cover the target, each naming what was probed, WHERE (with `file:line` where applicable), and the OUTCOME. A bare success verdict, or one below the coverage floor, or one whose probes are generic / duplicated ("read it, looks fine"), is ADVISORY ONLY - it does NOT count toward the tally. The orchestrator re-prompts a bare-verdict reviewer once; if probing evidence is still absent, that reviewer is DROPPED and a replacement is launched per the drop-handling rule (the orchestrator does NOT fabricate a `NEEDS` verdict on the reviewer's behalf). This is reviewer-methodology + honest-ceiling disclosure; a mechanically-validated probe floor is future work.
 
 **Coverage units + floor per target type:**
 
@@ -131,4 +130,4 @@ probing_evidence:
 
 Chat / caveman form: one line per check preceding the VERDICT line - `probe: <checked> @<file:line> -> <ruled-out:why | finding:id>` (>= floor lines).
 
-**Advisory-verdict arithmetic** (Models A / B / C): evidence-invalid rows are EXCLUDED from the numerator AND the confidence average; the configured slate denominator holds until a same-round replacement lands; evidence repair is treated as formatting, NOT a new substantive round; replacement attempts are capped per the drop-handling rule. Verification (when the calling phase checks the log): every success verdict counted toward convergence carries floor-meeting probing evidence (a `probing_evidence` block or its `probe:` chat lines).
+**Advisory-verdict arithmetic** (unanimous panels): evidence-invalid rows are EXCLUDED from the numerator AND the confidence average; the configured slate denominator holds until a same-round replacement lands; evidence repair is treated as formatting, NOT a new substantive round; replacement attempts are capped per the drop-handling rule. Verification (when the calling phase checks the log): every success verdict counted toward convergence carries floor-meeting probing evidence (a `probing_evidence` block or its `probe:` chat lines).

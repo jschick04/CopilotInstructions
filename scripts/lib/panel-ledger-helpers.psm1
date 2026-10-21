@@ -8,14 +8,49 @@ $script:GitEmptyTreeSha = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
 function Get-GitEmptyTreeSha { $script:GitEmptyTreeSha }
 
+$script:GuardedPathPatterns = @(
+    '.githooks/**','scripts/lib/**','scripts/check-*.ps1','scripts/run-local-ci.ps1','scripts/run-quality-gate-ci.ps1',
+    'scripts/verify-pattern-catalog.ps1','scripts/generate-pattern-catalog.ps1','scripts/Get-ReviewedArtifactId.ps1','scripts/flush-audits.ps1','scripts/sync-critical-rules.*',
+    'scripts/tests/**','scripts/yaml-emit-helpers.sh','.github/workflows/**','.github/actions/**','.github/pr-quality-gate/gate-runner.*',
+    '.github/pr-quality-gate/structure-manifest.txt','.github/pr-quality-gate/HIGH-TIER-SLUGS.md',
+    '.github/pr-quality-gate/panel-policy.md','.github/pr-quality-gate/data/heavy-allowlist.txt',
+    '.github/pr-quality-gate/data/no-repo-slugs-allowlist.txt','.github/pr-quality-gate/data/checker-registry.tsv',
+    '.github/pr-quality-gate/data/smart-punctuation-allowlist.txt','.github/pr-quality-gate/data/encoding-loss-waivers.txt',
+    '.github/pr-quality-gate/dry-waivers.txt','.github/pr-quality-gate/read-receipts.tsv',
+    'setup.ps1','setup.sh'
+)
+$script:NonGuardedPathPatterns = @(
+    '.github/playbooks/**','.github/instructions/**','.github/pr-quality-gate/pattern-catalog.md',
+    '.github/pr-quality-gate/pattern-catalog.sources/**','.github/pr-quality-gate/coding-preferences.md',
+    '.github/pr-quality-gate/audits/**','.github/pr-quality-gate/data/findings.csv',
+    '.github/pr-quality-gate/data/panel-misses.csv','.github/pr-quality-gate/data/README.md',
+    '.github/pr-quality-gate/invoke-panel.ps1','scripts/Add-PanelMissesRow.ps1',
+    'scripts/migrate-panel-misses-csv.ps1','scripts/show-audit.ps1','.github/copilot-instructions.md'
+)
+
+function Test-GuardedPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $Path)
+    $normalized = $Path -replace '\\','/'
+    foreach ($pattern in $script:GuardedPathPatterns) { if ($normalized -like $pattern) { return $true } }
+    return $false
+}
+
+
+$script:LegacyPanelSlateFloor = @{ MinReviewers=4; MinClaude=1; MinGpt=1; MinGptOrGrok=2; MinGemini=1; MinRubberDuck=1; MinCodeReview=2; MinHeavy=1; HeavyEqualsCount=$false; DistinctModels=$false }
+
 $script:PanelSlateFloor = @{
     MinReviewers  = 4
     MinClaude     = 1
-    MinGpt        = 2
+    MinGpt        = 1
+    MinGptOrGrok  = 2
     MinGemini     = 1
     MinRubberDuck = 1
     MinCodeReview = 2
-    MinHeavy      = 1
+    MinHeavy      = 4
+    HeavyEqualsCount = $true
+    DistinctModels = $true
+    MinReviewersTriage = 2
 }
 function Get-PanelSlateFloor { $script:PanelSlateFloor.Clone() }
 
@@ -55,6 +90,251 @@ function Test-PathSafetyCriticalSegment {
     return $false
 }
 
+function Get-GitBlobText {
+    param([Parameter(Mandatory)] [string] $RepoRoot, [Parameter(Mandatory)] [string] $ObjectPath)
+    $text = & git --no-optional-locks -C $RepoRoot show $ObjectPath 2>$null
+    if ($LASTEXITCODE -ne 0) { return $null }
+    return (@($text) -join "`n")
+}
+
+function Test-RequiresFullPanel {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $RepoRoot, [string] $CommitSha)
+    $sentinel = '.github/pr-quality-gate/panel-policy.md'
+    $helperPath = 'scripts/lib/panel-ledger-helpers.psm1'
+    if (-not $CommitSha) {
+        & git --no-optional-locks -C $RepoRoot cat-file -e "HEAD:$sentinel" 2>$null
+        $headSentinel = $LASTEXITCODE -eq 0
+        & git --no-optional-locks -C $RepoRoot cat-file -e ":$sentinel" 2>$null
+        $indexSentinel = $LASTEXITCODE -eq 0
+        if ($headSentinel -and -not $indexSentinel) { throw 'activation sentinel moved/removed; update checker constant' }
+        if ($headSentinel -or $indexSentinel) { return $true }
+    }
+    $objects = if ($CommitSha) { @($CommitSha, "$CommitSha^") } else { @('HEAD', '') }
+    foreach ($object in $objects) {
+        & git --no-optional-locks -C $RepoRoot cat-file -e "${object}:$sentinel" 2>$null
+        if ($LASTEXITCODE -eq 0) { return $true }
+        $helper = Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath "${object}:$helperPath"
+        if ($helper -and $helper.Contains('function Test-RequiresFullPanel')) { return $true }
+    }
+    if ($CommitSha) { return Test-IsPostAdoption -RepoRoot $RepoRoot -CommitSha $CommitSha }
+    return Test-IsPostAdoption -RepoRoot $RepoRoot -StagedMode
+}
+
+function Test-RewriteRequiresFullPanel {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $RepoRoot, [Parameter(Mandatory)] [string] $TipSha, [Parameter(Mandatory)] [string] $RemoteSha, [string[]] $OverwrittenShas = @())
+    if (Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $TipSha) { return $true }
+    if (Test-RequiresFullPanel -RepoRoot $RepoRoot -CommitSha $RemoteSha) { return $true }
+    $commits = @($OverwrittenShas | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ } | Select-Object -Unique)
+    if ($commits.Count -eq 0) { return $false }
+    $sentinel = '.github/pr-quality-gate/panel-policy.md'
+    $helperPath = 'scripts/lib/panel-ledger-helpers.psm1'
+    $probes = @(foreach ($commit in $commits) { foreach ($revision in @($commit, "$commit^")) { "${revision}:$sentinel"; "${revision}:$helperPath" } })
+    $results = @($probes | & git --no-optional-locks -C $RepoRoot cat-file '--batch-check=%(objectname) %(objecttype)' 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $results.Count -ne $probes.Count) { throw 'cannot probe overwritten commits for activation' }
+    $helperBlobs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    for ($index = 0; $index -lt $probes.Count; $index++) {
+        $result = ([string]$results[$index]).Trim()
+        if ($result -ceq "$($probes[$index]) missing") { continue }
+        if ($result -notmatch '^(?<oid>[0-9a-fA-F]{40}|[0-9a-fA-F]{64}) (?<type>blob|tree|commit|tag)$') { throw "cannot probe overwritten commits for activation: $result" }
+        if ($probes[$index].EndsWith(":$sentinel")) { return $true }
+        if ($Matches['type'] -eq 'blob') { [void]$helperBlobs.Add($Matches['oid']) }
+    }
+    foreach ($blob in $helperBlobs) {
+        $helper = Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath $blob
+        if ($helper -and $helper.Contains('function Test-RequiresFullPanel')) { return $true }
+    }
+    return $false
+}
+
+function Test-IsArtifactBindingAdopted {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $RepoRoot, [Parameter(Mandatory)] [string] $CommitSha)
+    $artifactPath = 'scripts/Get-ReviewedArtifactId.ps1'
+    $marker = "ParameterSetName = 'Commit'"
+    $artifactScript = Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath "${CommitSha}:$artifactPath"
+    if ($artifactScript -and $artifactScript.Contains($marker)) { return $true }
+    $adoption = @(& git --no-optional-locks -C $RepoRoot log -1 --full-history --diff-merges=separate --format=%H "-S$marker" $CommitSha -- $artifactPath 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw 'cannot determine artifact-binding adoption ancestry' }
+    if (@($adoption | Where-Object { $_ }).Count -gt 0) { return $true }
+    $shallow = @(& git --no-optional-locks -C $RepoRoot rev-parse --is-shallow-repository 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $shallow.Count -ne 1 -or ([string]$shallow[0]).Trim() -cnotin @('true', 'false')) { throw 'cannot determine whether artifact-binding adoption history is shallow' }
+    if (([string]$shallow[0]).Trim() -ceq 'true') { throw 'artifact-binding adoption cannot be determined in a shallow clone; fetch full history (git fetch --unshallow)' }
+    return $false
+}
+
+function Test-IsPostAdoption {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $RepoRoot, [string] $CommitSha, [switch] $StagedMode)
+    $helperPath = 'scripts/lib/panel-ledger-helpers.psm1'
+    $objects = if ($StagedMode) { @('', 'HEAD') } elseif ($CommitSha) { @($CommitSha) } else { throw 'Test-IsPostAdoption requires -CommitSha or -StagedMode' }
+    foreach ($object in $objects) {
+        $helper = Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath "${object}:$helperPath"
+        if ($helper -and $helper.Contains('function Test-RequiresFullPanel')) { return $true }
+    }
+    $revision = if ($StagedMode) { 'HEAD' } else { $CommitSha }
+    & git --no-optional-locks -C $RepoRoot rev-parse --verify "$revision^{commit}" 2>$null | Out-Null
+    if ($LASTEXITCODE -ne 0 -and $StagedMode) { return $false }
+    if ($LASTEXITCODE -ne 0) { throw 'cannot resolve adoption revision' }
+    $adoption = @(& git --no-optional-locks -C $RepoRoot log -1 --full-history --diff-merges=separate --format=%H -S'function Test-RequiresFullPanel' $revision -- $helperPath 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw 'cannot determine post-adoption ancestry' }
+    return @($adoption | Where-Object { $_ }).Count -gt 0
+}
+
+function Get-HeavyModelPolicy {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] [string] $RepoRoot, [string] $CommitSha, [string] $ParentSha = '', [switch] $StagedMode, [string[]] $LedgerLines = @(), [switch] $MembershipOnly)
+    $path = '.github/pr-quality-gate/data/heavy-allowlist.txt'
+    $object = if ($StagedMode) { ":$path" } elseif ($CommitSha) { "${CommitSha}:$path" } else { throw 'heavy policy requires staged or commit context' }
+    $text = Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath $object
+    $models = @($text -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $errors = [System.Collections.Generic.List[string]]::new()
+    if (-not $text -or $models.Count -eq 0) { $errors.Add('heavy-allowlist.txt missing or empty in governing git object') }
+    if (@($models | Sort-Object -Unique -CaseSensitive).Count -ne $models.Count -or @($models | Where-Object { $_ -cnotmatch '^(claude|gpt|gemini|grok)-[a-z0-9.-]+$' }).Count -gt 0) { $errors.Add('heavy-allowlist.txt has duplicate or malformed model ids') }
+    if ($MembershipOnly) { return [pscustomobject]@{ Models = $models; Errors = $errors.ToArray() } }
+    if (-not $ParentSha) {
+        $parentRef = if ($StagedMode) { 'HEAD' } else { "$CommitSha^" }
+        $parentLines = @(& git --no-optional-locks -C $RepoRoot rev-parse --verify $parentRef 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $parentLines.Count -eq 1) { $ParentSha = $parentLines[0] }
+    }
+    $parentText = if ($ParentSha -and $ParentSha -ne $script:GitEmptyTreeSha) { Get-GitBlobText -RepoRoot $RepoRoot -ObjectPath "${ParentSha}:$path" } else { $null }
+    $parentAdopted = $ParentSha -and $ParentSha -ne $script:GitEmptyTreeSha -and (Test-IsPostAdoption -RepoRoot $RepoRoot -CommitSha $ParentSha)
+    if (-not $parentText -or -not $parentAdopted) {
+        $initial = @('claude-opus-5.5','gpt-6.1-sol','gemini-4-argon','grok-4.7','gpt-5.3-codex')
+        if (($models -join "`n") -cne ($initial -join "`n")) { $errors.Add('introducing heavy allowlist must equal the pinned five model ids') }
+        if ($parentAdopted -and -not $parentText) { $errors.Add('post-adoption heavy allowlist cannot be deleted and re-added') }
+    } else {
+        $priorModels = @($parentText -split '\r?\n' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        $removed = @($priorModels | Where-Object { $models -cnotcontains $_ })
+        $added = @($models | Where-Object { $priorModels -cnotcontains $_ })
+        $rotation = Get-RegistryRotationMap -LedgerLines $LedgerLines
+        $pairs = if ($rotation.RowCount -eq 1 -and $rotation.Errors.Count -eq 0) { @($rotation.Entries) } else { @() }
+        foreach ($model in $added) {
+            $mapped = $false
+            foreach ($pair in $pairs) {
+                if ($pair) {
+                    $tierId = $pair.TierId; $from = $pair.From; $to = $pair.To
+                    if ($to -ceq $model -and $removed -ccontains $from -and ($from -split '-')[0] -ceq ($to -split '-')[0]) {
+                        $retireRows = @($LedgerLines | Where-Object { $_ -cmatch ('^slate-substitution:\s+slot:[^\s<>]+\s+tier:' + [regex]::Escape($tierId) + '\s+from:' + [regex]::Escape($from) + '\s+to:' + [regex]::Escape($to) + '\s+reason:(model-retired|model-superseded)\s*$') })
+                        if ($retireRows.Count -eq 1) { $mapped = $true }
+                    }
+                }
+            }
+            if (-not $mapped) { $errors.Add("added heavy model '$model' requires an acknowledged same-vendor retirement mapping") }
+        }
+    }
+    return [pscustomobject]@{ Models = $models; Errors = $errors.ToArray() }
+}
+
+function Get-RegistryRotationMap {
+    param([AllowEmptyCollection()] [string[]] $LedgerLines = @())
+    $rows = @($LedgerLines | Where-Object { [string]$_ -cmatch '^registry-rotation:\s*"registry-rotation-acknowledged"\s+ref:[^\s<>]+\s+map:(.+)$' })
+    $entries = [System.Collections.Generic.List[object]]::new()
+    $errors = [System.Collections.Generic.List[string]]::new()
+    if ($rows.Count -gt 1) { $errors.Add('duplicate registry-rotation rows') }
+    if ($rows.Count -ge 1 -and [string]$rows[0] -cmatch '\smap:(.+)$') {
+        foreach ($entryText in ($matches[1].Trim() -split ',')) {
+            $entry = $entryText.Trim()
+            if ($entry -cmatch '^([\w-]+)=([^\s<>]+)>([^\s<>]+)$') { $entries.Add([pscustomobject]@{ TierId = $matches[1]; From = $matches[2]; To = $matches[3] }) }
+            else { $errors.Add("malformed registry-rotation map entry '$entryText'") }
+        }
+    }
+    return [pscustomobject]@{ RowCount = $rows.Count; Entries = $entries.ToArray(); Errors = $errors.ToArray() }
+}
+
+function Get-RegistryModelMap {
+    param([Parameter(Mandatory)] [AllowEmptyString()] [string] $RegistryText)
+    $lines = @($RegistryText -split "`n")
+    $beginAt = @(); $endAt = @()
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i].TrimEnd("`r") -ceq '<!-- registry:mapping:begin -->') { $beginAt += $i }
+        if ($lines[$i].TrimEnd("`r") -ceq '<!-- registry:mapping:end -->') { $endAt += $i }
+    }
+    if ($beginAt.Count -ne 1 -or $endAt.Count -ne 1 -or $endAt[0] -le $beginAt[0]) { return $null }
+    $models = @{}
+    $tiers = @{}
+    for ($i = $beginAt[0] + 1; $i -lt $endAt[0]; $i++) {
+        $line = ([string]$lines[$i]).TrimEnd("`r")
+        if ($line -notmatch '^\|') { continue }
+        $cells = @($line.Trim().Trim('|') -split '(?<!\\)\|' | ForEach-Object { $_.Trim() })
+        if ($cells.Count -ne 6) { continue }
+        $tierMatch = [regex]::Match($cells[0], '^`([^`]+)`$')
+        $modelMatch = [regex]::Match($cells[1], '^`([^`]+)`$')
+        if (-not $tierMatch.Success -or -not $modelMatch.Success) { continue }
+        $tierId = $tierMatch.Groups[1].Value
+        $modelId = $modelMatch.Groups[1].Value
+        $tierClassMatch = [regex]::Match($tierId, '^(heavy|light)-(claude|gpt|gemini|grok)\b')
+        if ($tierClassMatch.Success) {
+            $entry = [PSCustomObject]@{ TierId = $tierId; Tier = $tierClassMatch.Groups[1].Value; Family = $tierClassMatch.Groups[2].Value; Model = $modelId }
+            $models[$modelId] = $entry
+            $tiers[$tierId] = $entry
+        }
+    }
+    return [PSCustomObject]@{ Models = $models; Tiers = $tiers }
+}
+
+function Test-PanelRegistryBinding {
+    param(
+        [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines,
+        [Parameter(Mandatory)] [object[]] $Reviewers,
+        [Parameter(Mandatory)] [string] $RegistryText,
+        [Parameter(Mandatory)] [string] $StagedRegistryText,
+        [string[]] $HeavyModels = @()
+    )
+    $errors = [System.Collections.Generic.List[string]]::new()
+    $parentMap = Get-RegistryModelMap -RegistryText $RegistryText
+    $stagedMap = Get-RegistryModelMap -RegistryText $StagedRegistryText
+    if ($null -eq $parentMap -or $null -eq $stagedMap) { return @('registry binding failed: required sentinel mapping table is missing or malformed') }
+    $substitutions = @{}
+    foreach ($line in $LedgerLines) {
+        if ([string]$line -cmatch '^slate-substitution:\s*slot:([^\s<>]+)\s+tier:([^\s<>]+)\s+from:([^\s<>]+)\s+to:([^\s<>]+)\s+reason:(model-retired|model-superseded|tier-added|family-unavailable)\s*$') {
+            if ($substitutions.ContainsKey($matches[1])) { $errors.Add("duplicate slate-substitution for slot '$($matches[1])'") }
+            $substitutions[$matches[1]] = [PSCustomObject]@{ Slot=$matches[1]; TierId=$matches[2]; From=$matches[3]; To=$matches[4]; Reason=$matches[5] }
+        }
+    }
+    $rotationParse = Get-RegistryRotationMap -LedgerLines $LedgerLines
+    $rotation = $rotationParse.RowCount -gt 0
+    $rotationMap = @{}
+    foreach ($rotationError in $rotationParse.Errors) { $errors.Add($rotationError) }
+    foreach ($entry in $rotationParse.Entries) { $rotationMap[$entry.TierId] = "$($entry.From)>$($entry.To)" }
+    if ($substitutions.Count -gt 0 -and -not $rotation) { $errors.Add('every slate-substitution requires a registry-rotation-acknowledged row') }
+    if ($rotationMap.Count -ne $substitutions.Count) { $errors.Add('registry-rotation map must match the slate-substitution rows exactly') }
+    foreach ($sub in $substitutions.Values) {
+        if (-not $rotationMap.ContainsKey($sub.TierId) -or $rotationMap[$sub.TierId] -cne "$($sub.From)>$($sub.To)") { $errors.Add("registry-rotation map does not match tier '$($sub.TierId)'") }
+    }
+    foreach ($reviewer in $Reviewers) {
+        if ($reviewer.Tier -eq 'heavy' -and $HeavyModels -cnotcontains $reviewer.Model) { $errors.Add("slot '$($reviewer.Slot)' heavy model '$($reviewer.Model)' is absent from HeavyModelAllowList") }
+        $row = if ($parentMap.Models.ContainsKey($reviewer.Model)) { $parentMap.Models[$reviewer.Model] } else { $null }
+        $fallback = $substitutions.ContainsKey($reviewer.Slot) -and $substitutions[$reviewer.Slot].Reason -ceq 'family-unavailable'
+        if ($fallback) {
+            $sub = $substitutions[$reviewer.Slot]
+            if ($sub.TierId -cne 'heavy-grok-premium' -or -not $parentMap.Tiers.ContainsKey('heavy-grok-premium') -or -not $parentMap.Tiers.ContainsKey('heavy-gpt-codex') -or $sub.From -cne $parentMap.Tiers['heavy-grok-premium'].Model -or $sub.To -cne $parentMap.Tiers['heavy-gpt-codex'].Model -or $reviewer.Model -cne $sub.To -or $reviewer.Family -cne 'gpt' -or $reviewer.Tier -cne 'heavy') { $errors.Add("slot '$($reviewer.Slot)' invalid Grok-to-codex family-unavailable substitution") }
+            continue
+        }
+        if ($row) {
+            if ($row.Family -cne $reviewer.Family -or $row.Tier -cne $reviewer.Tier) { $errors.Add("slot '$($reviewer.Slot)' family/tier does not match parent registry row for '$($reviewer.Model)'") }
+            if ($substitutions.ContainsKey($reviewer.Slot)) { $errors.Add("slot '$($reviewer.Slot)' has an unnecessary substitution row") }
+            continue
+        }
+        if (-not $substitutions.ContainsKey($reviewer.Slot)) { $errors.Add("slot '$($reviewer.Slot)' model '$($reviewer.Model)' is absent from the parent registry and has no substitution row"); continue }
+        $sub = $substitutions[$reviewer.Slot]
+        if ($sub.From -cne 'none' -and ($sub.From -split '-')[0] -cne ($sub.To -split '-')[0]) { $errors.Add("slot '$($reviewer.Slot)' rotation changes model vendor") }
+        $target = if ($stagedMap.Models.ContainsKey($sub.To)) { $stagedMap.Models[$sub.To] } else { $null }
+        if (-not $target -or $target.TierId -cne $sub.TierId -or $target.Model -cne $reviewer.Model) { $errors.Add("slot '$($reviewer.Slot)' substitution target does not resolve in the staged registry") }
+        if ($target -and ($target.Family -cne $reviewer.Family -or $target.Tier -cne $reviewer.Tier)) { $errors.Add("slot '$($reviewer.Slot)' family/tier does not match staged substitution row") }
+        if ($reviewer.Tier -eq 'heavy' -and $HeavyModels -cnotcontains $reviewer.Model) { $errors.Add("slot '$($reviewer.Slot)' heavy model '$($reviewer.Model)' is absent from HeavyModelAllowList") }
+        $priorTier = if ($parentMap.Tiers.ContainsKey($sub.TierId)) { $parentMap.Tiers[$sub.TierId] } else { $null }
+        if ($priorTier) {
+            if ($sub.From -cne $priorTier.Model -or $priorTier.Tier -cne $reviewer.Tier) { $errors.Add("slot '$($reviewer.Slot)' substitution does not match the parent tier mapping") }
+        } elseif ($sub.Reason -cne 'tier-added' -or $sub.From -cne 'none' -or $sub.TierId -notmatch '^heavy-') {
+            $errors.Add("slot '$($reviewer.Slot)' new tier requires from:none and reason:tier-added")
+        }
+    }
+    foreach ($slot in $substitutions.Keys) { if (@($Reviewers | Where-Object Slot -eq $slot).Count -eq 0) { $errors.Add("slate-substitution names unknown slot '$slot'") } }
+    return $errors.ToArray()
+}
+
 function Get-PathGovernanceTier {
     [CmdletBinding()]
     param([Parameter(Mandatory)] [string] $Path)
@@ -71,7 +351,6 @@ function Get-PathGovernanceTier {
         $p -like '.github/workflows/*' -or
         $p -like '.github/pr-quality-gate/*' -or
         $p -like '.githooks/*' -or
-        $p -like 'profiles/*' -or
         $p -like 'scripts/*') { $panelRequired = $true }
     else {
         $ext = [System.IO.Path]::GetExtension($p).TrimStart('.').ToLowerInvariant()
@@ -136,13 +415,25 @@ function Test-Transcript {
         [Parameter(Mandatory)] [ValidateNotNullOrEmpty()] [string] $HeaderName,
         [Parameter(Mandatory)] [ValidateNotNullOrEmpty()] [string] $ReadyVerdict,
         [hashtable] $Floor,
-        [string] $ErrorPrefix
+        [string] $ErrorPrefix,
+        [string] $ExpectedArtifact = '',
+        [switch] $RequireArtifact,
+        [string] $RegistryText = '',
+        [string] $StagedRegistryText = '',
+        [bool] $PostAdoption = $false,
+        [bool] $RequiresFull = $false,
+        [string[]] $HeavyModels = @()
     )
     if (@('CODE_REVIEW_READY', 'DESIGN_READY') -notcontains $ReadyVerdict) {
         throw "Test-Transcript: -ReadyVerdict must be CODE_REVIEW_READY or DESIGN_READY (got '$ReadyVerdict')"
     }
-    if (-not $Floor) { $Floor = $script:PanelSlateFloor }
+    if (-not $Floor) { $Floor = if ($PostAdoption) { $script:PanelSlateFloor } else { $script:LegacyPanelSlateFloor } }
     if (-not $ErrorPrefix) { $ErrorPrefix = $HeaderName }
+    $profileLine = $LedgerLines | Where-Object { [string]$_ -cmatch '^profile:\s*(full|triage|lint-only)\s*$' } | Select-Object -First 1
+    $triageAck = $LedgerLines | Where-Object { [string]$_ -cmatch '^triage-ack:\s*"triage-acknowledged"\s+ref:[^\s<>]+\s*$' } | Select-Object -First 1
+    if ($profileLine -and $profileLine -cmatch '^profile:\s*triage\s*$' -and $triageAck -and -not $RequiresFull) {
+        $Floor = @{ MinReviewers = 2; MaxReviewers = 2; MinClaude = 0; MinGpt = 0; MinGptOrGrok = 0; MinGemini = 0; MinRubberDuck = 0; MinCodeReview = 2; MinHeavy = 0; HeavyEqualsCount = $false; DistinctModels = $true; Triage = $true }
+    }
 
     $errors = New-Object System.Collections.Generic.List[string]
     $lines = @($LedgerLines)
@@ -158,7 +449,7 @@ function Test-Transcript {
     }
 
     $verdictRx = [regex]::Escape($ReadyVerdict)
-    $grammar = '^\s*-\s*slot:(\S+)\s+model:(\S+)\s+family:(claude|gpt|gemini)\s+role:(rubber-duck|code-review)\s+tier:(heavy|light)\s+verdict:(' + $verdictRx + '|NEEDS_REWORK)\s+rounds:([0-9]{1,3})\s*$'
+    $grammar = '^\s*-\s*slot:([^\s<>]+)\s+model:([^\s<>]+)\s+family:(claude|gpt|gemini|grok)\s+role:(rubber-duck|code-review)\s+tier:(heavy|light)\s+verdict:(' + $verdictRx + '|NEEDS_REWORK)\s+rounds:([1-9]\d*)(?:\s+artifact:([a-fA-F0-9]{64}))?\s*$'
     $candidates = New-Object System.Collections.Generic.List[string]
     $findings = New-Object System.Collections.Generic.List[string]
     for ($i = $headerIdx + 1; $i -lt $lines.Count; $i++) {
@@ -184,7 +475,7 @@ function Test-Transcript {
         if ($line -cmatch $grammar) {
             $reviewers.Add([PSCustomObject]@{
                 Slot = $matches[1]; Model = $matches[2]; Family = $matches[3]
-                Role = $matches[4]; Tier = $matches[5]; Verdict = $matches[6]; Rounds = [int] $matches[7]
+                Role = $matches[4]; Tier = $matches[5]; Verdict = $matches[6]; Rounds = [long] $matches[7]; Artifact = $matches[8]
             })
         } else {
             $errors.Add("malformed $HeaderName reviewer line: '$(([string]$line).Trim())'")
@@ -200,7 +491,12 @@ function Test-Transcript {
     foreach ($g in @($reviewerArr | Group-Object -Property Slot | Where-Object { $_.Count -gt 1 })) {
         $errors.Add("duplicate reviewer slot '$($g.Name)' in $HeaderName (each reviewer must have a unique slot)")
     }
+    $artifactValues = @($reviewerArr | ForEach-Object { $_.Artifact } | Where-Object { $_ } | Sort-Object -Unique)
+    if ($RequireArtifact -and @($reviewerArr | Where-Object { -not $_.Artifact }).Count -gt 0) { $errors.Add("$HeaderName requires an artifact token on every reviewer slot") }
+    if ($artifactValues.Count -gt 1) { $errors.Add("$HeaderName reviewer artifact tokens must be identical") }
+    if ($ExpectedArtifact -and ($artifactValues.Count -ne 1 -or $artifactValues[0] -cne $ExpectedArtifact)) { $errors.Add("$HeaderName artifact token does not match the reviewed artifact") }
     foreach ($r in $reviewerArr) {
+        if ($r.Rounds -gt [int]::MaxValue) { $errors.Add("reviewer slot '$($r.Slot)' rounds exceed Int32") }
         if ($r.Verdict -cne $ReadyVerdict) {
             $errors.Add("reviewer slot '$($r.Slot)' verdict is '$($r.Verdict)', not $ReadyVerdict (panel not converged to unanimous)")
         }
@@ -209,35 +505,52 @@ function Test-Transcript {
         }
     }
 
+    if ($PostAdoption) {
+        foreach ($reviewer in $reviewerArr) {
+            if ($reviewer.Model -cnotmatch ('^' + [regex]::Escape($reviewer.Family) + '-')) { $errors.Add("slot '$($reviewer.Slot)' model '$($reviewer.Model)' prefix does not match family '$($reviewer.Family)'") }
+            if ($reviewer.Tier -eq 'heavy' -and $HeavyModels -cnotcontains $reviewer.Model) { $errors.Add("slot '$($reviewer.Slot)' heavy model '$($reviewer.Model)' is absent from HeavyModelAllowList") }
+        }
+    }
+    if ($RegistryText) { foreach ($registryError in (Test-PanelRegistryBinding -LedgerLines $LedgerLines -Reviewers $reviewerArr -RegistryText $RegistryText -StagedRegistryText $StagedRegistryText -HeavyModels $HeavyModels)) { $errors.Add($registryError) } }
+
     $distinct = @($reviewerArr | Group-Object -Property Slot | ForEach-Object { $_.Group | Select-Object -First 1 })
     $nClaude = @($distinct | Where-Object { $_.Family -eq 'claude' }).Count
     $nGpt    = @($distinct | Where-Object { $_.Family -eq 'gpt' }).Count
     $nGemini = @($distinct | Where-Object { $_.Family -eq 'gemini' }).Count
+    $nGrok = @($distinct | Where-Object { $_.Family -eq 'grok' }).Count
     $nDuck   = @($distinct | Where-Object { $_.Role -eq 'rubber-duck' }).Count
     $nReview = @($distinct | Where-Object { $_.Role -eq 'code-review' }).Count
     $nHeavy  = @($distinct | Where-Object { $_.Tier -eq 'heavy' }).Count
 
     if ($distinct.Count -lt $Floor.MinReviewers) { $errors.Add("$HeaderName has $($distinct.Count) distinct reviewer(s); the full slate floor requires >= $($Floor.MinReviewers)") }
+    if ($Floor.ContainsKey('MaxReviewers') -and $distinct.Count -ne $Floor.MaxReviewers) { $errors.Add("$HeaderName triage slate requires exactly $($Floor.MaxReviewers) reviewers") }
+    if ($Floor.ContainsKey('Triage') -and $Floor.Triage) {
+        if (@($distinct.Family | Sort-Object -Unique).Count -ne 2) { $errors.Add("$HeaderName triage reviewers must use distinct families") }
+        if (@($distinct | Where-Object { $_.Tier -ne 'light' -or $_.Role -ne 'code-review' }).Count -gt 0) { $errors.Add("$HeaderName triage reviewers must all be light-tier code-reviewers") }
+    }
     if ($nClaude -lt $Floor.MinClaude)           { $errors.Add("$HeaderName has $nClaude Claude-family reviewer(s); full floor requires >= $($Floor.MinClaude)") }
     if ($nGpt -lt $Floor.MinGpt)                 { $errors.Add("$HeaderName has $nGpt GPT-family reviewer(s); full floor requires >= $($Floor.MinGpt)") }
+    if (($nGpt + $nGrok) -lt $Floor.MinGptOrGrok) { $errors.Add("$HeaderName has $($nGpt + $nGrok) GPT/Grok reviewer(s); full floor requires >= $($Floor.MinGptOrGrok)") }
     if ($nGemini -lt $Floor.MinGemini)           { $errors.Add("$HeaderName has $nGemini Gemini-family reviewer(s); full floor requires >= $($Floor.MinGemini)") }
     if ($nDuck -lt $Floor.MinRubberDuck)         { $errors.Add("$HeaderName has $nDuck rubber-duck reviewer(s); full floor requires >= $($Floor.MinRubberDuck)") }
     if ($nReview -lt $Floor.MinCodeReview)       { $errors.Add("$HeaderName has $nReview code-review reviewer(s); full floor requires >= $($Floor.MinCodeReview)") }
     if ($nHeavy -lt $Floor.MinHeavy)             { $errors.Add("$HeaderName has $nHeavy heavy-tier reviewer(s); full floor requires >= $($Floor.MinHeavy)") }
+    if ($Floor.HeavyEqualsCount -and $nHeavy -ne $distinct.Count) { $errors.Add("$HeaderName requires every reviewer to be heavy-tier") }
+    if ($Floor.DistinctModels -and @($distinct.Model | Sort-Object -Unique).Count -ne $distinct.Count) { $errors.Add("$HeaderName requires distinct model names") }
 
     return $errors.ToArray()
 }
 
 function Test-PanelTranscript {
     [CmdletBinding()]
-    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines)
-    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'panel-transcript' -ReadyVerdict 'CODE_REVIEW_READY' -ErrorPrefix "post-code-change-panel is 'ran, unanimous'"
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines, [string] $ExpectedArtifact = '', [switch] $RequireArtifact, [string] $RegistryText = '', [string] $StagedRegistryText = '', [bool] $PostAdoption = $false, [bool] $RequiresFull = $false, [string[]] $HeavyModels = @())
+    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'panel-transcript' -ReadyVerdict 'CODE_REVIEW_READY' -ErrorPrefix "post-code-change-panel is 'ran, unanimous'" -ExpectedArtifact $ExpectedArtifact -RequireArtifact:$RequireArtifact -RegistryText $RegistryText -StagedRegistryText $StagedRegistryText -PostAdoption:$PostAdoption -RequiresFull:$RequiresFull -HeavyModels $HeavyModels
 }
 
 function Test-PrePanelTranscript {
     [CmdletBinding()]
-    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines)
-    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'pre-panel-transcript' -ReadyVerdict 'DESIGN_READY' -ErrorPrefix "pre-code-change-panel is 'ran, unanimous'"
+    param([Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines, [bool] $PostAdoption = $false, [bool] $RequiresFull = $false, [string[]] $HeavyModels = @())
+    return Test-Transcript -LedgerLines $LedgerLines -HeaderName 'pre-panel-transcript' -ReadyVerdict 'DESIGN_READY' -ErrorPrefix "pre-code-change-panel is 'ran, unanimous'" -PostAdoption:$PostAdoption -RequiresFull:$RequiresFull -HeavyModels $HeavyModels
 }
 
 function Test-LedgerDisclosureRow {
@@ -379,11 +692,29 @@ function Test-PanelLedger {
     param(
         [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $LedgerLines,
         [Parameter(Mandatory)] [string] $ExpectedParentSha,
-        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier,
+        [bool] $RequiresFull = $false,
+        [bool] $PostAdoption = $false,
+        [switch] $BoundStaged,
+        [switch] $RequireArtifact,
+        [int] $WorktreeDivergentCount = 0,
+        [string] $ExpectedIndexTree = '',
+        [string] $ExpectedArtifact = '',
+        [string] $RegistryText = '',
+        [string] $StagedRegistryText = '',
+        [string[]] $HeavyModels = @(),
+        [int] $GuardedPathCount = 0
     )
     $result = [PSCustomObject]@{ Valid = $true; Errors = @(); ParentSha = $null }
-    $panelRequired = $GovernanceTier -ge 1
-    $safetyCritical = $GovernanceTier -ge 2
+    if (($BoundStaged -or $PostAdoption) -and $GuardedPathCount -gt 0) {
+        $guardRows = @($LedgerLines | Where-Object { $_ -cmatch '^checker-edit:' })
+        if ($guardRows.Count -ne 1 -or $guardRows[0] -cnotmatch ('^checker-edit:\s*"checker-edit-acknowledged"\s+ref:[^\s<>]+\s+paths:' + $GuardedPathCount + '\s*$')) { $result.Valid = $false; $result.Errors += "checker-edit acknowledgement requires matching paths:$GuardedPathCount" }
+    }
+    $panelRequired = ($GovernanceTier -ge 1) -or $RequiresFull
+    $safetyCritical = ($GovernanceTier -ge 2) -or ($RequiresFull -and $PostAdoption)
+    $profileValueLine = $LedgerLines | Where-Object { [string]$_ -cmatch '^profile:\s*\S' } | Select-Object -First 1
+    if ($profileValueLine -and $profileValueLine -cnotmatch '^profile:\s*(full|triage)\s*$') { $result.Valid = $false; $result.Errors += 'profile must be full or triage in a panel ledger' }
+    if ($RequiresFull -and $profileValueLine -cmatch '^profile:\s*triage\s*$') { $result.Valid = $false; $result.Errors += 'triage is forbidden when full panel is required' }
 
     $LedgerLines = @($LedgerLines)
     if ($LedgerLines.Count -gt 0 -and $LedgerLines[0]) { $LedgerLines[0] = ([string]$LedgerLines[0]).TrimStart([char]0xFEFF) }
@@ -402,7 +733,7 @@ function Test-PanelLedger {
     if ($parentShaLine -cmatch '^parent_sha:\s*<') {
         $result.Valid = $false; $result.Errors += "unsubstituted template placeholder for parent_sha"; return $result
     }
-    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40})\s*$') {
+    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40}|[a-fA-F0-9]{64})\s*$') {
         $result.ParentSha = $matches[1]
         if ($ExpectedParentSha -eq $script:GitEmptyTreeSha) {
             $result.Valid = $false
@@ -420,7 +751,7 @@ function Test-PanelLedger {
         }
     } else {
         $result.Valid = $false
-        $result.Errors += "ledger parent_sha value is invalid (must be a full 40-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
+        $result.Errors += "ledger parent_sha value is invalid (must be a full 40- or 64-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
         return $result
     }
 
@@ -453,13 +784,14 @@ function Test-PanelLedger {
                 }
             }
             if ($ran) {
-                foreach ($transcriptError in (Test-PanelTranscript -LedgerLines $LedgerLines)) {
+                foreach ($transcriptError in (Test-PanelTranscript -LedgerLines $LedgerLines -ExpectedArtifact $ExpectedArtifact -RequireArtifact:($BoundStaged -or $RequireArtifact) -RegistryText $RegistryText -StagedRegistryText $StagedRegistryText -PostAdoption:$PostAdoption -RequiresFull:$RequiresFull -HeavyModels $HeavyModels)) {
                     $result.Valid = $false; $result.Errors += $transcriptError
                 }
             }
         }
     }
 
+    $panelRan = ($panelLine -and (($panelLine -replace '^\s*post-code-change-panel:\s*', '').Trim() -cmatch '^ran,\s*unanimous\s*$'))
     $prePanelLine = $LedgerLines | Where-Object { $_ -cmatch '^\s*pre-code-change-panel:\s*\S' } | Select-Object -First 1
     if (-not $prePanelLine) {
         if ($panelRequired) { $result.Valid = $false; $result.Errors += "missing required 'pre-code-change-panel:' row (the diff touches code/governance paths)" }
@@ -488,7 +820,7 @@ function Test-PanelLedger {
                 }
             }
             if ($preRan) {
-                foreach ($e in (Test-PrePanelTranscript -LedgerLines $LedgerLines)) {
+                foreach ($e in (Test-PrePanelTranscript -LedgerLines $LedgerLines -PostAdoption:$PostAdoption -RequiresFull:$RequiresFull -HeavyModels $HeavyModels)) {
                     $result.Valid = $false; $result.Errors += $e
                 }
                 foreach ($e in (Test-LedgerImplementationCheckpoint -LedgerLines $LedgerLines)) {
@@ -538,6 +870,51 @@ function Test-PanelLedger {
             $result.Valid = $false; $result.Errors += "tests row reports failure"
         } elseif (-not ($testsVal -imatch '^passed\b' -or $testsVal -imatch '^N/A:\s*\S')) {
             $result.Valid = $false; $result.Errors += "tests row must be 'passed[, <details>]', 'failed: <reason>', or 'N/A: <reason>' (got: '$testsVal')"
+        }
+    }
+
+    if ($BoundStaged) {
+        $evidenceLine = @($LedgerLines | Where-Object { [string]$_ -cmatch '^evidence-tree:' })
+        if ($evidenceLine.Count -ne 1 -or $evidenceLine[0] -cnotmatch '^evidence-tree:\s*(worktree-clean|index-export\s+tree:([0-9a-fA-F]{40}|[0-9a-fA-F]{64}))\s*$') {
+            $result.Valid = $false; $result.Errors += 'bound staged ledger requires evidence-tree: worktree-clean or index-export tree:<full-tree-sha>'
+        } elseif ($matches[1] -eq 'worktree-clean' -and $WorktreeDivergentCount -ne 0) {
+            $result.Valid = $false; $result.Errors += "evidence-tree worktree-clean is invalid when worktree_divergent=$WorktreeDivergentCount"
+        } elseif ($matches[2] -and $ExpectedIndexTree -and $matches[2] -cne $ExpectedIndexTree) {
+            $result.Valid = $false; $result.Errors += 'evidence-tree index-export does not match git write-tree for the current index'
+        }
+        $slugRows = @($LedgerLines | Where-Object { [string]$_ -match '^\s*slug-review:' })
+        $topLevelSlugRows = @($LedgerLines | Where-Object { [string]$_ -cmatch '^slug-review:' })
+        $slugReviewPattern = '^slug-review:\s*ran\s+findings:([0-9]+)\s+fixed:([0-9]+)\s+routed:([0-9]+)\s*$'
+        $slugReviewMatch = if ($topLevelSlugRows.Count -eq 1) { [regex]::Match([string]$topLevelSlugRows[0], $slugReviewPattern) } else { $null }
+        if ($slugRows.Count -ne 1 -or $topLevelSlugRows.Count -ne 1 -or -not $slugReviewMatch.Success) {
+            $result.Valid = $false; $result.Errors += 'bound staged ledger requires exactly one top-level slug-review row: ran findings:<n> fixed:<k> routed:<j>'
+        } else {
+            [decimal]$slugFindings = 0
+            [decimal]$slugFixed = 0
+            [decimal]$slugRouted = 0
+            $countsValid = [decimal]::TryParse($slugReviewMatch.Groups[1].Value, [System.Globalization.NumberStyles]::None, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$slugFindings) -and
+                [decimal]::TryParse($slugReviewMatch.Groups[2].Value, [System.Globalization.NumberStyles]::None, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$slugFixed) -and
+                [decimal]::TryParse($slugReviewMatch.Groups[3].Value, [System.Globalization.NumberStyles]::None, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$slugRouted)
+            if (-not $countsValid) {
+                $result.Valid = $false; $result.Errors += 'slug-review counts must be non-negative decimal integers'
+            } elseif ($slugFindings -ne ($slugFixed + $slugRouted)) {
+                $result.Valid = $false; $result.Errors += 'slug-review findings must equal fixed + routed'
+            } else {
+                $slugRowIndex = [array]::IndexOf([object[]]$LedgerLines, [object]$topLevelSlugRows[0])
+                $panelTranscriptFindingsIndex = -1
+                $insidePanelTranscript = $false
+                for ($lineIndex = 0; $lineIndex -lt $LedgerLines.Count; $lineIndex++) {
+                    $line = [string]$LedgerLines[$lineIndex]
+                    if ($line -cmatch '^\s*panel-transcript:\s*$') { $insidePanelTranscript = $true; continue }
+                    if ($insidePanelTranscript -and $line -cmatch '^\s*-\s*findings:\s*\S') {
+                        $panelTranscriptFindingsIndex = $lineIndex
+                        break
+                    }
+                }
+                if ($panelRan -and ($panelTranscriptFindingsIndex -lt 0 -or $slugRowIndex -le $panelTranscriptFindingsIndex)) {
+                    $result.Valid = $false; $result.Errors += 'slug-review row must be top-level and follow the post-code-change panel transcript'
+                }
+            }
         }
     }
 
@@ -591,7 +968,9 @@ function Test-PreCommitGateBlock {
     param(
         [Parameter(Mandatory)] [AllowEmptyCollection()] [string[]] $BlockLines,
         [Parameter(Mandatory)] [string] $ExpectedParentSha,
-        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier
+        [Parameter(Mandatory)] [ValidateRange(0, 2)] [int] $GovernanceTier,
+        [bool] $RequiresFull = $false,
+        [bool] $PostAdoption = $false
     )
     $result = [PSCustomObject]@{ Valid = $true; Errors = @(); ParentSha = $null }
     $lines = @($BlockLines)
@@ -605,7 +984,7 @@ function Test-PreCommitGateBlock {
     if ($parentShaLine -cmatch '^parent_sha:\s*<') {
         $result.Valid = $false; $result.Errors += "unsubstituted template placeholder for parent_sha"; return $result
     }
-    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40})\s*$') {
+    if ($parentShaLine -cmatch '^parent_sha:\s*([a-fA-F0-9]{40}|[a-fA-F0-9]{64})\s*$') {
         $result.ParentSha = $matches[1]
         if ($ExpectedParentSha -eq $script:GitEmptyTreeSha) {
             $result.Valid = $false
@@ -623,7 +1002,7 @@ function Test-PreCommitGateBlock {
         }
     } else {
         $result.Valid = $false
-        $result.Errors += "block parent_sha value is invalid (must be a full 40-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
+        $result.Errors += "block parent_sha value is invalid (must be a full 40- or 64-char hex SHA, NONE, or EMPTY_TREE): $parentShaLine"
         return $result
     }
 
@@ -661,6 +1040,16 @@ function Test-PreCommitGateBlock {
             }
         } else {
             $result.Valid = $false; $result.Errors += "gate line missing required key 'commit_ownership'"
+        }
+        if ($gateLine -cmatch '\|profile=([^|]*)') {
+            $profileValue = ([string]$matches[1]).Trim()
+            if ($PostAdoption -and $profileValue -cnotmatch '^(full|triage|lint-only)$') {
+                $result.Valid = $false; $result.Errors += "gate 'profile' must be full, triage or lint-only (got: '$profileValue')"
+            } elseif ($RequiresFull -and $profileValue -cne 'full') {
+                $result.Valid = $false; $result.Errors += "gate 'profile' must be full when the instruction-repo full panel is required (got: '$profileValue')"
+            }
+        } else {
+            $result.Valid = $false; $result.Errors += "gate line missing required key 'profile'"
         }
         if ($gateLine -cmatch '\|rule_coverage_passed=([^|]*)') {
             $v = ([string]$matches[1]).Trim()
@@ -776,4 +1165,4 @@ function Test-PreCommitGateBlock {
     return $result
 }
 
-Export-ModuleMember -Function Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-LedgerG6, Test-LedgerImplementationCheckpoint, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha, Test-PreCommitGateBlock -Variable GitEmptyTreeSha
+Export-ModuleMember -Function Get-HeavyModelPolicy, Get-RegistryRotationMap, Test-PanelRegistryBinding, Test-GuardedPath, Test-RequiresFullPanel, Test-RewriteRequiresFullPanel, Test-IsPostAdoption, Test-PathPanelRequired, Get-PanelRequired, Get-PathGovernanceTier, Get-ChangedGovernanceTier, Test-PanelLedger, Test-PanelTranscript, Test-PrePanelTranscript, Test-Transcript, Test-IsArtifactBindingAdopted, Test-LedgerG6, Test-LedgerImplementationCheckpoint, Get-LedgerSubBlockMap, Get-PanelSlateFloor, Get-GitEmptyTreeSha, Test-PreCommitGateBlock -Variable GitEmptyTreeSha, GuardedPathPatterns, NonGuardedPathPatterns

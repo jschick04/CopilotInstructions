@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $checker = Join-Path $repoRoot 'scripts/check-model-registry.ps1'
 $script:Pass = 0; $script:Fail = 0
+Import-Module (Join-Path $repoRoot 'scripts/lib/panel-ledger-helpers.psm1') -Force
+$HeavyModelAllowList = @(& git -C $repoRoot show ':.github/pr-quality-gate/data/heavy-allowlist.txt')
 
 $registryRel = '.github/playbooks/multi-model-review/current-model-registry.md'
 
@@ -31,7 +33,7 @@ $goodTiers = @(
     '| `orphan-tier` | optional, unused |'
 )
 $goodMap = @(
-    '| `heavy-a` | `model-one` | max | long_context | default slate | - |',
+    '| `heavy-a` | `model-one` | xhigh | long_context | default slate | - |',
     '| `heavy-b` | `model-one` | high | long_context | default slate | deliberately below the ceiling |',
     '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
 )
@@ -39,8 +41,8 @@ $goodMap = @(
 # The mapping table the sentinels must protect: two tiers collide on (model, effort, context_tier), so any
 # fixture that ends up validating something ELSE will pass when it should fail.
 $collidingMap = @(
-    '| `heavy-a` | `model-one` | max | long_context | default slate | - |',
-    '| `heavy-b` | `model-one` | max | long_context | default slate | - |',
+    '| `heavy-a` | `model-one` | xhigh | long_context | default slate | - |',
+    '| `heavy-b` | `model-one` | xhigh | long_context | default slate | - |',
     '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
 )
 
@@ -54,7 +56,7 @@ function Invoke-Case {
         [string] $TierDivider = '| --- | --- |',
         [string] $SelectorLine = 'slate: `heavy-a` + `heavy-b`',
         [string] $AgentsLine = '# no tier references here',
-        [string] $LiteProfileLine = '# no tier references here',
+        [string] $TriageLine = '# no tier references here',
         [string[]] $DecoyLines = @(),
         [string[]] $PreTableLines = @(),
         [string[]] $TierSentinels = @('<!-- registry:tiers:begin -->', '<!-- registry:tiers:end -->'),
@@ -62,6 +64,7 @@ function Invoke-Case {
         [string[]] $ExtraLines = @()
     )
     $dir = New-TestGitRepository -Prefix 'modelreg'
+    $MapRows = @($MapRows | ForEach-Object { $_.Replace('model-one', $HeavyModelAllowList[0]) })
     Add-RepoFile $dir $registryRel (
         @('# Registry', '') + $DecoyLines +
         @('## Capability tiers', '', $TierSentinels[0], $TierHeader, $TierDivider) + $TierRows + @($TierSentinels[1]) +
@@ -74,7 +77,7 @@ function Invoke-Case {
     Add-RepoFile $dir 'AGENTS.md' @($AgentsLine)
     Add-RepoFile $dir '.github/pr-quality-gate/panel-policy.md' @('# floors')
     Add-RepoFile $dir '.github/pr-quality-gate/invoke-panel.ps1' @('# launcher')
-    Add-RepoFile $dir 'profiles/lite/profile.template.md' @($LiteProfileLine)
+    Add-RepoFile $dir '.github/pr-quality-gate/data/heavy-allowlist.txt' @($HeavyModelAllowList)
     Commit $dir
     return (Run $dir)
 }
@@ -86,8 +89,8 @@ try {
 
     Write-Host "`n=== (model, effort) collision is caught - the re-collapse gate ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate | - |',
-        '| `heavy-b` | `model-one` | max | long_context | default slate | ceiling-synced by mistake |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate | - |',
+        '| `heavy-b` | `model-one` | xhigh | long_context | default slate | ceiling-synced by mistake |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'share model') 'two tiers on one model at the same effort -> exit 1 (tier re-collapse blocked)'
@@ -95,22 +98,22 @@ try {
     Write-Host "`n=== a padded model code span renders identically, so it is the same slot ==="
     foreach ($padded in @('` model-one `', '`model-one `', '` model-one`')) {
         $r = Invoke-Case -MapRows @(
-            '| `heavy-a` | `model-one` | max | long_context | default slate | - |',
-            "| ``heavy-b`` | $padded | max | long_context | default slate | - |",
+            '| `heavy-a` | `model-one` | xhigh | long_context | default slate | - |',
+            "| ``heavy-b`` | $padded | xhigh | long_context | default slate | - |",
             '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
         )
         Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'share model') "padded model span $padded -> exit 1 (renders as the same model)"
     }
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | ` ` | max | long_context | default slate | - |',
+        '| `heavy-a` | ` ` | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'must be backticked and non-empty') 'an all-whitespace model span -> exit 1 (not a model named " ")'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | model-one | max | long_context | default slate | - |',
+        '| `heavy-a` | model-one | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-two` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-three` | high | default | no default slate consumer | - |'
     )
@@ -118,15 +121,15 @@ try {
 
     Write-Host "`n=== mis-cased effort is rejected (case-sensitive enum, not -in) ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | MAX | long_context | default slate | - |',
+        '| `heavy-a` | `model-one` | XHIGH | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
-    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'effort') 'effort MAX -> exit 1 (case-sensitive; -in would have accepted it)'
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'effort') 'effort XHIGH -> exit 1 (case-sensitive; -in would have accepted it)'
 
     Write-Host "`n=== mis-cased context_tier is rejected ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | LONG_CONTEXT | default slate | - |',
+        '| `heavy-a` | `model-one` | xhigh | LONG_CONTEXT | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -142,34 +145,34 @@ try {
 
     Write-Host "`n=== a tag with no reference in ITS OWN scope fails (per-tag, not global presence) ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | sub-agent default | claims AGENTS.md but is only in a playbook |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | triage | claims AGENTS.md but is only in a playbook |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
-    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'sub-agent default') 'tag bound to AGENTS.md, which exists but omits the tier -> exit 1'
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'triage') 'tag bound to AGENTS.md, which exists but omits the tier -> exit 1'
 
     Write-Host "`n=== the same tag PASSES once its own scope actually references the tier ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | sub-agent default | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | triage | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
-    ) -SelectorLine 'slate: `heavy-b`' -AgentsLine 'sub-agent defaults: `heavy-a`'
-    Assert-True ($r.ExitCode -eq 0) 'sub-agent default tag with a real AGENTS.md reference -> exit 0 (rule is satisfiable, not merely failing)'
+    ) -SelectorLine 'slate: `heavy-b`' -AgentsLine 'triages: `heavy-a`'
+    Assert-True ($r.ExitCode -eq 0) 'triage tag with a real AGENTS.md reference -> exit 0 (rule is satisfiable, not merely failing)'
 
-    Write-Host "`n=== the lite-slate tag binds to its own scope too ==="
+    Write-Host "`n=== the triage tag binds to its own scope too ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | lite slate | claims the lite scope but is only in a playbook |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | triage | claims the triage scope but is only in a playbook |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
-    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'lite slate') 'lite slate tag with no profiles/lite or invoke-panel reference -> exit 1'
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'triage') 'triage tag without an AGENTS.md reference -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | lite slate | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | triage | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
-    ) -SelectorLine 'slate: `heavy-b`' -LiteProfileLine 'lite slate: `heavy-a`'
-    Assert-True ($r.ExitCode -eq 0) 'lite slate tag with a real profiles/lite reference -> exit 0'
+    ) -SelectorLine 'slate: `heavy-b`' -AgentsLine 'triage: `heavy-a`'
+    Assert-True ($r.ExitCode -eq 0) 'triage tag with a real AGENTS.md reference -> exit 0'
 
     Write-Host "`n=== markdown outside the sentinels cannot change what is validated ==="
     $noise = @('## Current mapping', '<details>', '  ## indented', '---', 'Tier id | Model | x', '```text', '## fenced', '```', '<!-- | a | b | -->', '   <?php ?>')
@@ -207,7 +210,7 @@ try {
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'is blank') 'a blank line between the sentinels -> exit 1 (a blank line ends the table in GFM)'
 
     Write-Host "`n=== the validated span must be the rendered table ==="
-    $shadow = @('| Tier id | Current model | effort | context_tier | consumers | Notes |', '| --- | --- | --- | --- | --- | --- |', '| `heavy-a` | `model-SHADOW` | max | long_context | default slate | - |')
+    $shadow = @('| Tier id | Current model | effort | context_tier | consumers | Notes |', '| --- | --- | --- | --- | --- | --- |', '| `heavy-a` | `model-SHADOW` | xhigh | long_context | default slate | - |')
     $r = Invoke-Case -ExtraLines (@('', '## Older slate', '') + $shadow)
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'exactly once') 'a second mapping table elsewhere in the file -> exit 1 (it renders but is not validated)'
 
@@ -233,7 +236,7 @@ try {
 
     Write-Host "`n=== a wrong cell count is caught (malformed row) ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -260,7 +263,7 @@ try {
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'violates the id grammar') 'tier id violating the id grammar -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `Heavy-A` | `model-one` | max | long_context | default slate | - |',
+        '| `Heavy-A` | `model-one` | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -273,7 +276,7 @@ try {
         'Tier id | Current model | effort | context_tier | consumers | Notes',
         '|Tier id|Current model|effort|context_tier|consumers|Notes|'
     )) {
-        $r = Invoke-Case -ExtraLines @('', '## Older slate', '', $ghostHeader, '| --- | --- | --- | --- | --- | --- |', '| `heavy-a` | `model-GHOST` | max | long_context | default slate | - |')
+        $r = Invoke-Case -ExtraLines @('', '## Older slate', '', $ghostHeader, '| --- | --- | --- | --- | --- | --- |', '| `heavy-a` | `model-GHOST` | xhigh | long_context | default slate | - |')
         Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'delimiter row outside the sentinel spans') "ghost table with header '$($ghostHeader.Substring(0, 24))...' -> exit 1"
     }
 
@@ -349,7 +352,7 @@ try {
 
     Write-Host "`n=== the consumers tag set is matched case-sensitively ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | Default Slate | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | Default Slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -360,7 +363,10 @@ try {
     Add-RepoFile $d $registryRel (@('# Registry', '', '<!-- registry:tiers:begin -->', '| Tier id | Description |', '| --- | --- |') + $goodTiers + @('<!-- registry:tiers:end -->', '', '<!-- registry:mapping:begin -->', '| Tier id | Current model | effort | context_tier | consumers | Notes |', '| --- | --- | --- | --- | --- | --- |') + $goodMap + @('<!-- registry:mapping:end -->'))
     Add-RepoFile $d '.github/playbooks/post-code-change.md' @('slate: `heavy-a` + `heavy-b`')
     Add-RepoFile $d 'AGENTS.md' @('# none'); Add-RepoFile $d '.github/pr-quality-gate/panel-policy.md' @('# floors')
-    Add-RepoFile $d '.github/pr-quality-gate/invoke-panel.ps1' @('# launcher'); Add-RepoFile $d 'profiles/lite/profile.template.md' @('# none')
+    Add-RepoFile $d '.github/pr-quality-gate/invoke-panel.ps1' @('# launcher')
+    $fixtureRegistry = Join-Path $d $registryRel
+    Set-Content -LiteralPath $fixtureRegistry -Value ((Get-Content -LiteralPath $fixtureRegistry -Raw).Replace('model-one', $HeavyModelAllowList[0]))
+    Add-RepoFile $d '.github/pr-quality-gate/data/heavy-allowlist.txt' @($HeavyModelAllowList)
     Commit $d
     # Corrupting the index is the only route that breaks git grep while still satisfying the repo-root anchors:
     # deleting .git trips the anchor check first, and a non-matching pathspec exits 1, not >1.
@@ -387,7 +393,7 @@ try {
 
     Write-Host "`n=== HTML table markup is refused inside the spans too ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate | <table><tr><td>`model-GHOST`</td></tr></table> |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate | <table><tr><td>`model-GHOST`</td></tr></table> |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -397,7 +403,7 @@ try {
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'raw HTML table markup') 'HTML table in a validated Description cell -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| heavy-a | `model-one` | max | long_context | default slate | - |',
+        '| heavy-a | `model-one` | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -414,35 +420,35 @@ try {
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'empty description') 'empty tier description -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | model-one | max | long_context | default slate | - |',
+        '| `heavy-a` | model-one | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'model must be backticked') 'model name without backticks -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context |  | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context |  | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'empty consumers cell') 'empty consumers cell -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer, default slate | - |'
     )
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'cannot combine') 'no-consumer tag combined with another tag -> exit 1'
 
     Write-Host "`n=== rows and the end sentinel are column-0 too ==="
-    $r = Invoke-Case -MapRows (@('  | `heavy-a` | `model-one` | max | long_context | default slate | - |') + $goodMap[1..2])
+    $r = Invoke-Case -MapRows (@('  | `heavy-a` | `model-one` | xhigh | long_context | default slate | - |') + $goodMap[1..2])
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'is not a table row') 'an indented row between the sentinels -> exit 1'
 
     $r = Invoke-Case -MapSentinels @('<!-- registry:mapping:begin -->', '  <!-- registry:mapping:end -->')
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'exactly one') 'an indented END sentinel does not count -> exit 1'
 
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate | a \\| b |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate | a \\| b |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -468,7 +474,7 @@ try {
 
     Write-Host "`n=== an unknown consumers tag is caught ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | sometimes | - |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | sometimes | - |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -497,7 +503,7 @@ try {
 
     Write-Host "`n=== an escaped pipe in a Notes cell is valid markdown and must not be misparsed ==="
     $r = Invoke-Case -MapRows @(
-        '| `heavy-a` | `model-one` | max | long_context | default slate | note with an escaped pipe a\|b |',
+        '| `heavy-a` | `model-one` | xhigh | long_context | default slate | note with an escaped pipe a\|b |',
         '| `heavy-b` | `model-one` | high | long_context | default slate | - |',
         '| `orphan-tier` | `model-two` | high | default | no default slate consumer | - |'
     )
@@ -506,6 +512,29 @@ try {
     Write-Host "`n=== a stray non-table line inside a table is malformed, not a terminator ==="
     $r = Invoke-Case -MapRows @($goodMap[0], 'stray prose that would truncate parsing', $goodMap[1], $goodMap[2])
     Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'is not a table row') 'stray line mid-table -> exit 1 (later rows cannot be silently dropped)'
+
+    Write-Host "`n=== a staged same-vendor heavy rotation is validated for membership only ==="
+    $rotDir = New-TestGitRepository -Prefix 'modelreg-rotation'
+    $rotMap = @($goodMap | ForEach-Object { $_.Replace('model-one', $HeavyModelAllowList[0]) })
+    Add-RepoFile $rotDir $registryRel (@('# Registry', '', '## Capability tiers', '', '<!-- registry:tiers:begin -->', '| Tier id | Description |', '| --- | --- |') + $goodTiers + @('<!-- registry:tiers:end -->', '', '## Current mapping', '', '<!-- registry:mapping:begin -->', '| Tier id | Current model | effort | context_tier | consumers | Notes |', '| --- | --- | --- | --- | --- | --- |') + $rotMap + @('<!-- registry:mapping:end -->'))
+    Add-RepoFile $rotDir '.github/playbooks/post-code-change.md' @('slate: `heavy-a` + `heavy-b`')
+    Add-RepoFile $rotDir 'AGENTS.md' @('# no tier references here')
+    Add-RepoFile $rotDir '.github/pr-quality-gate/panel-policy.md' @('# floors')
+    Add-RepoFile $rotDir '.github/pr-quality-gate/invoke-panel.ps1' @('# launcher')
+    Add-RepoFile $rotDir 'scripts/lib/panel-ledger-helpers.psm1' @('function Test-RequiresFullPanel {}')
+    Add-RepoFile $rotDir '.github/pr-quality-gate/data/heavy-allowlist.txt' @($HeavyModelAllowList)
+    Commit $rotDir
+    $rotatedModel = ($HeavyModelAllowList[0] -split '-')[0] + '-rotated-9'
+    $registryFull = Join-Path $rotDir $registryRel
+    Set-Content -LiteralPath $registryFull -Value ((Get-Content -LiteralPath $registryFull) | ForEach-Object { $_.Replace($HeavyModelAllowList[0], $rotatedModel) }) -Encoding utf8
+    Add-RepoFile $rotDir '.github/pr-quality-gate/data/heavy-allowlist.txt' @(@($rotatedModel) + @($HeavyModelAllowList | Select-Object -Skip 1))
+    git -C $rotDir add -A 2>$null
+    $r = Run $rotDir
+    Assert-True ($r.ExitCode -eq 0) "staged authorized rotation passes the registry checker (rotation enforced by ledger-bound gates) -> exit 0: $($r.Output)"
+    Add-RepoFile $rotDir '.github/pr-quality-gate/data/heavy-allowlist.txt' @($HeavyModelAllowList)
+    git -C $rotDir add -A 2>$null
+    $r = Run $rotDir
+    Assert-True ($r.ExitCode -eq 1 -and $r.Output -match 'absent from the heavy-model allowlist') 'staged heavy model missing from the indexed allowlist -> exit 1'
 
     Write-Host "`n=== a missing registry file is an invocation failure, not a pass ==="
     $d = New-TestGitRepository -Prefix 'modelreg-none'

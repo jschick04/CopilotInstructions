@@ -34,9 +34,60 @@ if ! cat > "$TMPREF"; then
     exit 1
 fi
 
+if ! ENFORCEMENT_INDEX_DIR="$(mktemp -d "${TMPDIR:-/tmp}/copilot-prepush-index.XXXXXX")"; then
+    echo "ERROR: could not create the temporary enforcement index (mktemp failed)." >&2
+    exit 1
+fi
+trap 'rm -f "$TMPREF"; rm -rf "$ENFORCEMENT_INDEX_DIR"' EXIT
+if git rev-parse --verify -q HEAD >/dev/null; then
+    enforcement_tree=HEAD
+elif ! enforcement_tree=$(git write-tree); then
+    echo "ERROR: cannot snapshot the index to verify pre-push enforcement (fail-closed)." >&2
+    exit 1
+fi
+enforcement_index="$ENFORCEMENT_INDEX_DIR/index"
+set -- .githooks scripts ':(glob).github/pr-quality-gate/**/*.ps1' ':(glob).github/pr-quality-gate/**/*.psm1' ':(glob).github/pr-quality-gate/**/*.sh'
+if ! GIT_INDEX_FILE="$enforcement_index" git read-tree "$enforcement_tree"; then
+    echo "ERROR: cannot load $enforcement_tree to verify pre-push enforcement (fail-closed)." >&2
+    exit 1
+fi
+GIT_INDEX_FILE="$enforcement_index" git update-index -q --refresh >/dev/null 2>&1 || :
+if ! enforcement_changed=$(GIT_INDEX_FILE="$enforcement_index" git diff --name-only -- "$@") ||
+   ! enforcement_untracked=$(GIT_INDEX_FILE="$enforcement_index" git ls-files --others --exclude-standard -- "$@"); then
+    echo "ERROR: cannot compare pre-push enforcement against $enforcement_tree (fail-closed)." >&2
+    exit 1
+fi
+if [ -n "$enforcement_changed$enforcement_untracked" ]; then
+    echo "ERROR: pre-push enforcement differs from $enforcement_tree:" >&2
+    printf '%s\n%s\n' "$enforcement_changed" "$enforcement_untracked" | sed '/^$/d; s/^/       /' >&2
+    echo "       Commit or restore hook/checker edits before pushing (fail-closed)." >&2
+    exit 1
+fi
+
+require_checker() {
+    if git cat-file -e "HEAD:$1" 2>/dev/null || [ -f "$1" ]; then
+        if [ ! -f "$1" ]; then
+            echo "ERROR: $1 is committed but absent from the working tree." >&2
+            echo "       Refusing to push with the enforcement removed (fail-closed)." >&2
+            exit 1
+        fi
+        return 0
+    fi
+    return 1
+}
+
+if ! command -v pwsh >/dev/null 2>&1; then
+    for governed_checker in scripts/check-audit-notes-prepush.ps1 scripts/check-signoff.ps1 scripts/check-publish-gate-prepush.ps1; do
+        if git cat-file -e "HEAD:$governed_checker" 2>/dev/null; then
+            echo "ERROR: pwsh not found; cannot run required $governed_checker (fail-closed)." >&2
+            exit 1
+        fi
+    done
+fi
+
 if command -v pwsh >/dev/null 2>&1; then
     # 1. local audit-note gate
-    if [ -f scripts/check-audit-notes-prepush.ps1 ]; then
+    if require_checker scripts/check-audit-notes-prepush.ps1; then
         if ! pwsh -NoProfile -File scripts/check-audit-notes-prepush.ps1 -RemoteName "$REMOTE_NAME" < "$TMPREF"; then
             echo "" >&2
             echo "ERROR: the local audit-note gate rejected this push (missing/stale/invalid note)." >&2
@@ -46,7 +97,7 @@ if command -v pwsh >/dev/null 2>&1; then
     fi
 
     # 2. force-push sign-off (non-fast-forward updates only)
-    if [ -f scripts/check-signoff.ps1 ]; then
+    if require_checker scripts/check-signoff.ps1; then
         while read -r localref localsha remoteref remotesha; do
             [ -z "$localsha" ] && continue
             case "$localsha" in *[!0]*) : ;; *) continue ;; esac   # all-zero local = delete; skip
@@ -57,7 +108,7 @@ if command -v pwsh >/dev/null 2>&1; then
                     echo "       (local object missing/unreadable) Failing closed rather than passing an empty tree to the sign-off gate." >&2
                     exit 1
                 fi
-                if ! pwsh -NoProfile -File scripts/check-signoff.ps1 -Mode force-push -Tree "$tree"; then
+                if ! pwsh -NoProfile -File scripts/check-signoff.ps1 -Mode force-push -Tree "$tree" -CommitSha "$localsha" -RemoteSha "$remotesha"; then
                     echo "ERROR: force-push to '$remoteref' requires a FRESH user sign-off marker." >&2
                     echo "       Get explicit sign-off (ask_user) and record force_push_approved before forcing." >&2
                     exit 1
@@ -68,13 +119,8 @@ if command -v pwsh >/dev/null 2>&1; then
 
     # 3. publish-gate receipt (a governed branch push must carry a fresh receipt bound to this
     #    exact remote + branch + tip). Adoption-gated + fail-closed if the committed checker is
-    #    removed (mirrors the pre-commit gates). Identity-gated in the script (no-op on a consumer).
-    if git cat-file -e HEAD:scripts/check-publish-gate-prepush.ps1 2>/dev/null || [ -f scripts/check-publish-gate-prepush.ps1 ]; then
-        if [ ! -f scripts/check-publish-gate-prepush.ps1 ]; then
-            echo "ERROR: scripts/check-publish-gate-prepush.ps1 is committed (publish-gate adopted) but absent from the working tree." >&2
-            echo "       Refusing to push with the enforcement removed (fail-closed)." >&2
-            exit 1
-        fi
+    #    removed (mirrors the pre-commit gates). Activated in the script by Test-RequiresFullPanel on the pushed objects.
+    if require_checker scripts/check-publish-gate-prepush.ps1; then
         if ! pwsh -NoProfile -File scripts/check-publish-gate-prepush.ps1 -RemoteName "$REMOTE_NAME" -RemoteUrl "$REMOTE_URL" < "$TMPREF"; then
             echo "" >&2
             echo "ERROR: this push publishes a branch with no fresh publish-gate receipt." >&2
@@ -85,6 +131,10 @@ if command -v pwsh >/dev/null 2>&1; then
     fi
 
     # 4. local-CI mirror
+    if ! require_checker scripts/run-local-ci.ps1; then
+        echo "ERROR: scripts/run-local-ci.ps1 is missing (fail-closed)." >&2
+        exit 1
+    fi
     if ! pwsh -NoProfile -File scripts/run-local-ci.ps1; then
         echo "" >&2
         echo "ERROR: the local-CI mirror (scripts/run-local-ci.ps1) reported a failing check." >&2

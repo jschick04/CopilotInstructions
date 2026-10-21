@@ -46,7 +46,7 @@ function Invoke-Git {
 # CC-prefix allowlist (lowercase, -cmatch). Colon need not be followed by space so `fix:typo`/`wip:` are caught; `Fix parser:` passes.
 $ccPrefix = '^(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test|wip)(\([^)]+\))?!?:'
 # Genuine-revert body line: blank or "This reverts commit <hex>." (no Conflicts: allowance - cleanup=strip drops it; it would let a trailer be smuggled).
-$revertBodyLine = '^This reverts commit [0-9a-f]{7,40}\.?$'
+$revertBodyLine = '^This reverts commit [0-9a-f]{7,64}\.?$'
 # Trailer names - for a clearer diagnostic only; the no-body rule (any line after the subject) is the real boundary.
 $trailerRegex = '^(Co-authored-by|Signed-off-by|Reviewed-by|Acked-by|Co-developed-by|Tested-by|Reported-by|Suggested-by|Cc|Fixes|Closes|Refs):'
 

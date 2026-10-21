@@ -33,15 +33,17 @@ function Test-CloneValid {
     $clone = $env:COPILOT_INSTRUCTIONS_CLONE
     if (-not $clone) { Exit-Runner 3 'COPILOT_INSTRUCTIONS_CLONE env var not set. Set to your CopilotInstructions clone path.' }
     if (-not (Test-Path -PathType Container -LiteralPath $clone)) { Exit-Runner 3 "COPILOT_INSTRUCTIONS_CLONE points to '$clone' which is not a directory." }
-    if (-not (Test-Path -PathType Container -LiteralPath (Join-Path $clone '.git'))) { Exit-Runner 3 "'$clone' does not contain a .git/ subdirectory; not a git clone." }
-    $remoteUrl = & git -C $clone remote get-url origin 2>$null
-    if ($LASTEXITCODE -ne 0 -or -not $remoteUrl) { Exit-Runner 3 "Cannot read 'origin' remote URL from '$clone'." }
-    if ($remoteUrl -notmatch $AllowedCloneUrlPattern) { Exit-Runner 3 "Remote URL '$remoteUrl' does not match AllowedCloneUrlPattern '$AllowedCloneUrlPattern'." }
+    if (-not (Test-Path -LiteralPath (Join-Path $clone '.git'))) { Exit-Runner 3 "'$clone' does not contain a .git/ subdirectory; not a git clone." }
+    if (-not $Verify) {
+        $remoteUrl = & git -C $clone remote get-url origin 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $remoteUrl) { Exit-Runner 3 "Cannot read 'origin' remote URL from '$clone'." }
+        if ($remoteUrl -notmatch $AllowedCloneUrlPattern) { Exit-Runner 3 "Remote URL '$remoteUrl' does not match AllowedCloneUrlPattern '$AllowedCloneUrlPattern'." }
+    }
     return $clone
 }
 
 function Invoke-AutoFetch { param([string] $Clone)
-    if (-not $AutoFetchCatalog) { return }
+    if (-not $AutoFetchCatalog -or $Verify) { return }
     $dirty = & git -C $Clone status --porcelain '.github/pr-quality-gate/' 2>$null
     if ($dirty) { Exit-Runner 4 "Auto-fetch refused: uncommitted local changes in $Clone/.github/pr-quality-gate/:`n$dirty`nCommit, stash, or discard before -AutoFetchCatalog." }
     $currentBranch = & git -C $Clone rev-parse --abbrev-ref HEAD 2>$null
@@ -265,7 +267,13 @@ foreach ($f in $findings) {
 $antiRecidivismSlugs = @()
 $panelMissesCsvPath = Join-Path $clone '.github/pr-quality-gate/data/panel-misses.csv'
 if ($PrRef -and (Test-Path -LiteralPath $panelMissesCsvPath)) {
-    $priorRows = Import-Csv -LiteralPath $panelMissesCsvPath -Encoding UTF8 | Where-Object { $_.pr_ref -eq $PrRef }
+    try {
+        $allPriorRows = @(Import-Csv -LiteralPath $panelMissesCsvPath -Encoding UTF8 -ErrorAction Stop)
+        $headerText = Get-Content -LiteralPath $panelMissesCsvPath -TotalCount 1 -ErrorAction Stop
+        $headerNames = @($headerText.TrimStart([char]0xFEFF) -split ',' | ForEach-Object { $_.Trim('"') })
+        if ($headerNames -cnotcontains 'pr_ref' -or $headerNames -cnotcontains 'proposed_catalog_slug') { throw 'anti-recidivism CSV schema is invalid' }
+        $priorRows = @($allPriorRows | Where-Object { $_.pr_ref -eq $PrRef })
+    } catch { Exit-Runner 4 "anti-recidivism extraction failed: $($_.Exception.Message)" }
     $antiRecidivismSlugs = @($priorRows | ForEach-Object { $_.proposed_catalog_slug } | Sort-Object -Unique | Where-Object { $_ })
 }
 

@@ -48,5 +48,3 @@ scripts/tests/*.ps1
 .github/pr-quality-gate/data/.gitignore
 .github/pr-quality-gate/pattern-catalog.sources/*.md
 
-# --- profiles ---
-profiles/*/*.md

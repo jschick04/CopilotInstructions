@@ -308,3 +308,6 @@ dec7f76ffd8570db  check-pre-commit-gate.ps1 clone of check-comment-audit.ps1 (pa
 984976ff665555fc  Test-PreCommitGateBlock parent_sha freshness mirrors Test-PanelLedger (parallel block-validator clone)
 c17e26aef53f4833  Test-PreCommitGateBlock parent_sha freshness mirrors Test-PanelLedger (parallel block-validator clone)
 69abf206a551b616  Test-PreCommitGateBlock parent_sha freshness mirrors Test-PanelLedger (parallel block-validator clone)
+379e0f212a1cca02  checker-enforced ledger rows mirrored in post-code-change.md template and review-workflow-gates-sweeps.md schema (test-enforced: each schema doc documents every row once)
+6e5dc67dd5b2dae6  checker-enforced ledger rows mirrored in post-code-change.md template and review-workflow-gates-sweeps.md schema (test-enforced: each schema doc documents every row once)
+7a2843078bd15c40  check-pre-commit-gate.ps1 clone of check-post-code-change.ps1 (parallel staged-gate plumbing: per-script Test-RequiresFullPanel activation)
